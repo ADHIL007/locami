@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:locami/core/model/appstatus_model.dart';
 import 'package:locami/theme/app_theme.dart';
 
 enum AppThemeMode { light, dark }
@@ -62,6 +63,15 @@ class ThemeProvider extends ChangeNotifier {
     isMatchWithSystem = false;
     _applyTheme();
     notifyListeners();
+  }
+
+  void applyFromStatus(AppStatus status) {
+    if (status.theme == 'system') {
+      setMatchWithSystem(true);
+    } else {
+      setMatchWithSystem(false);
+      setTheme(status.theme == 'dark' ? AppThemeMode.dark : AppThemeMode.light);
+    }
   }
 }
 
