@@ -11,9 +11,12 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_typeahead: ^5.2.0
+  geolocator: ^14.0.2
   get: ^4.7.3
+  http: ^1.6.0
   path: ^1.9.1
   provider: ^6.1.5+1
+  sensors_plus: ^7.0.0
   sqflite: ^2.4.2
 
 dev_dependencies:
@@ -33,3 +36,5 @@ flutter:
         - asset: assets/fonts/Poppins-ExtraBold.ttf
         - asset: assets/fonts/Poppins-Light.ttf
         - asset: assets/fonts/Poppins-Italic.ttf
+dependency_overrides:
+  package_info_plus: 8.0.2

@@ -23,19 +23,19 @@ class ColorTheme {
 }
 
 const ColorTheme lightTheme = ColorTheme(
-  background: Color(0xFFF5F7FB),
-  textPrimary: Color(0xFF000000),
-  textSecondary: Color(0xFF757575),
-  buttonColor: Color(0xFF262628),
-  borderColor: Color(0xFFB0B0B0),
+  background: Color(0xFFFFFFFF),
+  textPrimary: Color(0xFF111111),
+  textSecondary: Color(0xFF6B6B6B),
+  borderColor: Color(0xFFE0E0E0),
+  buttonColor: Color(0xFF111111),
   buttonTextColor: Color(0xFFFFFFFF),
 );
-const ColorTheme darkTheme = ColorTheme(
-  background: Color(0xFF0B0F1A),
-  textPrimary: Color(0xFFFFFFFF),
-  textSecondary: Color(0xFFB0B0B0),
-  buttonColor: Color(0xFFF2F2F2),
-  borderColor: Color(0xFFB0B0B0),
 
-  buttonTextColor: Color(0xFF000000),
+const ColorTheme darkTheme = ColorTheme(
+  background: Color(0xFF0E0E0E),
+  textPrimary: Color(0xFFF5F5F5),
+  textSecondary: Color(0xFF9A9A9A),
+  borderColor: Color(0xFF2A2A2A),
+  buttonColor: Color(0xFFF5F5F5),
+  buttonTextColor: Color(0xFF0E0E0E),
 );
