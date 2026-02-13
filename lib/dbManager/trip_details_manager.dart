@@ -124,6 +124,10 @@ class TripDetailsManager {
       await _updateAddressCache();
     }
 
+    // Get current destination from user model
+    final user = await UserModelManager.instance.user;
+    final destination = user.destinationStreet;
+
     final newDetail = TripDetailsModel(
       latitude: position.latitude,
       longitude: position.longitude,
@@ -136,6 +140,7 @@ class TripDetailsManager {
       country: _lastKnownCountry,
       street: _lastKnownStreet,
       acceleration: _currentAcceleration,
+      destination: destination,
     );
 
     await TripDbHelper.instance.insertTripDetail(newDetail);

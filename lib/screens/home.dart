@@ -152,15 +152,6 @@ class _HomeState extends State<Home> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Quick locations',
-                style: TextStyle(
-                  color: customColors().textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 16),
               LocationSearchField(
                 controller: _fromController,
                 label: 'From',
@@ -204,22 +195,37 @@ class _HomeState extends State<Home> {
                 onSearchChanged: _onSearchChanged,
               ),
               const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        _isTracking ? Colors.red : customColors().textPrimary,
-                    foregroundColor: customColors().background,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _isTracking
+                      ? IconButton(
+                        onPressed: () {},
+                        icon: Icon(
+                          Icons.alarm_add,
+                          size: 32,
+                          color: customColors().textPrimary,
+                        ),
+                      )
+                      : SizedBox(),
+
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          _isTracking ? Colors.red : customColors().textPrimary,
+                      foregroundColor: customColors().background,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
+                    onPressed: _toggleTracking,
+                    label: Text(
+                      _isTracking ? 'Stop Tracking' : 'Start Tracking',
+                    ),
+                    icon: Icon(_isTracking ? Icons.stop : Icons.play_arrow),
+                    iconAlignment: IconAlignment.end,
                   ),
-                  onPressed: _toggleTracking,
-                  label: Text(_isTracking ? 'Stop Tracking' : 'Start Tracking'),
-                  icon: Icon(_isTracking ? Icons.stop : Icons.play_arrow),
-                  iconAlignment: IconAlignment.end,
-                ),
+                ],
               ),
               const SizedBox(height: 20),
               // Trip Details Section

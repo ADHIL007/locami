@@ -12,6 +12,7 @@ class TripDetailsModel {
   final String? country;
   final String? street;
   final double? acceleration;
+  final String? destination;
 
   const TripDetailsModel({
     this.id,
@@ -26,6 +27,7 @@ class TripDetailsModel {
     this.country,
     this.street,
     this.acceleration = 0.0,
+    this.destination,
   });
 
   Map<String, dynamic> toJson() => {
@@ -41,6 +43,7 @@ class TripDetailsModel {
     'country': country,
     'street': street,
     'acceleration': acceleration,
+    'destination': destination,
   };
 
   factory TripDetailsModel.fromJson(Map<String, dynamic> json) =>
@@ -57,6 +60,7 @@ class TripDetailsModel {
         country: json['country'],
         street: json['street'],
         acceleration: json['acceleration'] ?? 0.0,
+        destination: json['destination'],
       );
 
   TripDetailsModel copyWith({
@@ -72,6 +76,7 @@ class TripDetailsModel {
     String? country,
     String? street,
     double? acceleration,
+    String? destination,
   }) {
     return TripDetailsModel(
       id: id ?? this.id,
@@ -86,6 +91,7 @@ class TripDetailsModel {
       country: country ?? this.country,
       street: street ?? this.street,
       acceleration: acceleration ?? this.acceleration,
+      destination: destination ?? this.destination,
     );
   }
 }

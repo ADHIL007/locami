@@ -28,20 +28,18 @@ class TripInfoDisplay extends StatelessWidget {
         final speedKmh = (details.speed * 3.6);
         final distanceKm = (details.distanceTraveled ?? 0) / 1000;
         final gForce = (details.acceleration ?? 0) / 9.81;
+        final activityIcon = _getActivityIcon(gForce, speedKmh);
+        final activityLabel = _getActivityLabel(gForce, speedKmh);
 
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              /// --- SPEEDOMETER ---
               SizedBox(
                 height: 200,
                 width: 200,
-                child: Speedometer(
-                  speed: speedKmh,
-                  maxSpeed: 140, // typical max for car
-                ),
+                child: Speedometer(speed: speedKmh, maxSpeed: 140),
               ),
 
               const SizedBox(height: 20),
@@ -54,17 +52,29 @@ class TripInfoDisplay extends StatelessWidget {
                     value: distanceKm.toStringAsFixed(2),
                     unit: "km",
                   ),
-                  _bigMetric(
-                    label: "G-Force",
-                    value: gForce.toStringAsFixed(2),
-                    unit: "g",
+                  Column(
+                    children: [
+                      Icon(
+                        activityIcon,
+                        size: 50,
+                        color: customColors().textPrimary,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        activityLabel,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: customColors().textPrimary,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
 
               const SizedBox(height: 30),
 
-              /// --- LOCATION INFO ---
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
@@ -87,7 +97,6 @@ class TripInfoDisplay extends StatelessWidget {
 
               const SizedBox(height: 20),
 
-              /// --- META DATA ---
               Divider(color: customColors().borderColor),
 
               const SizedBox(height: 10),
@@ -95,11 +104,73 @@ class TripInfoDisplay extends StatelessWidget {
               _infoLine("Accuracy", "${details.accuracy.toStringAsFixed(1)} m"),
               _infoLine("Altitude", "${details.altitude.toStringAsFixed(1)} m"),
               _infoLine("Heading", "${details.heading.toStringAsFixed(0)}°"),
+              _infoLine("G-force", "${gForce.toStringAsFixed(1)} g"),
             ],
           ),
         );
       },
     );
+  }
+
+  IconData _getActivityIcon(double gForce, double speedKmh) {
+    if (speedKmh < 1 && gForce < 0.03) {
+      return Icons.bed;
+    }
+
+    if (speedKmh < 1) {
+      return Icons.accessibility_new;
+    }
+
+    if (speedKmh < 6) {
+      return Icons.directions_walk;
+    }
+
+    if (speedKmh < 12) {
+      return Icons.directions_run;
+    }
+
+    if (speedKmh < 25) {
+      return Icons.directions_bike;
+    }
+
+    if (speedKmh < 35) {
+      return Icons.electric_scooter;
+    }
+
+    if (speedKmh < 80) {
+      return Icons.motorcycle;
+    }
+
+    if (speedKmh < 160) {
+      return Icons.directions_car;
+    }
+
+    if (speedKmh < 250) {
+      return Icons.train;
+    }
+
+    if (speedKmh >= 250) {
+      return Icons.flight;
+    }
+
+    return Icons.help_outline;
+  }
+
+  String _getActivityLabel(double gForce, double speedKmh) {
+    if (gForce > 2.5) return "High Impact";
+
+    if (speedKmh < 1 && gForce < 0.03) return "Idle";
+    if (speedKmh < 1) return "Standing";
+    if (speedKmh < 6) return "Walking";
+    if (speedKmh < 12) return "Running";
+    if (speedKmh < 25) return "Cycling";
+    if (speedKmh < 35) return "E-Scooter";
+    if (speedKmh < 80) return "Motorcycle";
+    if (speedKmh < 160) return "Car";
+    if (speedKmh < 250) return "Train";
+    if (speedKmh >= 250) return "Flight";
+
+    return "Unknown";
   }
 
   Widget _bigMetric({

@@ -18,7 +18,12 @@ class TripDbHelper {
 
   Future<Database> _openDb() async {
     final path = join(await getDatabasesPath(), 'trip_details.db');
-    return openDatabase(path, version: 1, onCreate: _onCreate);
+    return openDatabase(
+      path,
+      version: 3,
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+    );
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -35,9 +40,29 @@ class TripDbHelper {
         distance_traveled REAL,
         country TEXT,
         street TEXT,
-        acceleration REAL
+        acceleration REAL,
+        destination TEXT
       )
     ''');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      try {
+        await db.execute(
+          'ALTER TABLE $tableName ADD COLUMN acceleration REAL DEFAULT 0.0',
+        );
+      } catch (e) {
+        print('Error adding column acceleration: $e');
+      }
+    }
+    if (oldVersion < 3) {
+      try {
+        await db.execute('ALTER TABLE $tableName ADD COLUMN destination TEXT');
+      } catch (e) {
+        print('Error adding column destination: $e');
+      }
+    }
   }
 
   Future<int> insertTripDetail(TripDetailsModel detail) async {
@@ -45,11 +70,26 @@ class TripDbHelper {
     try {
       return await db.insert(tableName, detail.toJson());
     } catch (e) {
-      // If column missing (dev mode migration), try to add it
-      if (e.toString().contains('no such column: acceleration')) {
-        await db.execute(
-          'ALTER TABLE $tableName ADD COLUMN acceleration REAL DEFAULT 0.0',
-        );
+      final error = e.toString();
+      bool fixed = false;
+      if (error.contains('acceleration')) {
+        try {
+          await db.execute(
+            'ALTER TABLE $tableName ADD COLUMN acceleration REAL DEFAULT 0.0',
+          );
+          fixed = true;
+        } catch (_) {}
+      }
+      if (error.contains('destination')) {
+        try {
+          await db.execute(
+            'ALTER TABLE $tableName ADD COLUMN destination TEXT',
+          );
+          fixed = true;
+        } catch (_) {}
+      }
+
+      if (fixed) {
         return await db.insert(tableName, detail.toJson());
       }
       rethrow;
