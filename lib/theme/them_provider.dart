@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:locami/core/dbHelper/app_status.dart';
 import 'package:locami/core/model/appstatus_model.dart';
 import 'package:locami/theme/app_theme.dart';
 
@@ -20,6 +21,7 @@ class ThemeProvider extends ChangeNotifier {
 
   AppThemeMode theme = AppThemeMode.light;
   bool isMatchWithSystem = true;
+  Color accentColor = const Color(0xFFE53935);
 
   void _applyTheme() {
     if (isMatchWithSystem) {
@@ -62,7 +64,27 @@ class ThemeProvider extends ChangeNotifier {
     theme = mode;
     isMatchWithSystem = false;
     _applyTheme();
+    _saveStatus();
     notifyListeners();
+  }
+
+  void setAccentColor(Color color) {
+    accentColor = color;
+    _saveStatus();
+    notifyListeners();
+  }
+
+  Future<void> _saveStatus() async {
+    final status = await AppStatusDbHelper.instance.getStatus();
+    await AppStatusDbHelper.instance.saveStatus(
+      status.copyWith(
+        theme:
+            isMatchWithSystem
+                ? 'system'
+                : (theme == AppThemeMode.dark ? 'dark' : 'light'),
+        accentColor: accentColor.value,
+      ),
+    );
   }
 
   void applyFromStatus(AppStatus status) {
@@ -72,6 +94,8 @@ class ThemeProvider extends ChangeNotifier {
       setMatchWithSystem(false);
       setTheme(status.theme == 'dark' ? AppThemeMode.dark : AppThemeMode.light);
     }
+    accentColor = Color(status.accentColor);
+    notifyListeners();
   }
 }
 

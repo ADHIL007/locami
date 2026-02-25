@@ -6,6 +6,7 @@ class AppStatus {
   final bool isTripEnded;
   final bool isLoggedIn;
   final String theme;
+  final int accentColor;
 
   const AppStatus({
     this.isFirstTimeUser = true,
@@ -15,6 +16,7 @@ class AppStatus {
     this.isTripEnded = false,
     this.isLoggedIn = false,
     this.theme = 'system',
+    this.accentColor = 0xFFE53935,
   });
 
   Map<String, dynamic> toJson() => {
@@ -25,6 +27,7 @@ class AppStatus {
     'isTripEnded': isTripEnded,
     'isLoggedIn': isLoggedIn,
     'theme': theme,
+    'accentColor': accentColor,
   };
 
   factory AppStatus.fromJson(Map<String, dynamic> json) => AppStatus(
@@ -35,6 +38,7 @@ class AppStatus {
     isTripEnded: json['isTripEnded'] ?? false,
     isLoggedIn: json['isLoggedIn'] ?? false,
     theme: json['theme'] ?? 'system',
+    accentColor: json['accentColor'] ?? 0xFFE53935,
   );
 
   AppStatus copyWith({
@@ -45,6 +49,7 @@ class AppStatus {
     bool? isTripEnded,
     bool? isLoggedIn,
     String? theme,
+    int? accentColor,
   }) => AppStatus(
     isFirstTimeUser: isFirstTimeUser ?? this.isFirstTimeUser,
     isTripStarted: isTripStarted ?? this.isTripStarted,
@@ -53,5 +58,6 @@ class AppStatus {
     isTripEnded: isTripEnded ?? this.isTripEnded,
     isLoggedIn: isLoggedIn ?? this.isLoggedIn,
     theme: theme ?? this.theme,
+    accentColor: accentColor ?? this.accentColor,
   );
 }

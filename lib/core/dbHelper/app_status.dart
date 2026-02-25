@@ -18,7 +18,20 @@ class AppStatusDbHelper {
 
   Future<Database> _openDb() async {
     final path = join(await getDatabasesPath(), 'app_status.db');
-    return openDatabase(path, version: 1, onCreate: _onCreate);
+    return openDatabase(
+      path,
+      version: 2,
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+    );
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute(
+        'ALTER TABLE $tableName ADD COLUMN accent_color INTEGER NOT NULL DEFAULT 4293212469',
+      ); // 0xFFE53935
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -31,7 +44,8 @@ class AppStatusDbHelper {
         is_trip_ended INTEGER NOT NULL DEFAULT 0 CHECK (is_trip_ended IN (0,1)),
         is_internet_on INTEGER NOT NULL DEFAULT 0 CHECK (is_internet_on IN (0,1)),
         is_gps_on INTEGER NOT NULL DEFAULT 0 CHECK (is_gps_on IN (0,1)),
-        theme TEXT NOT NULL DEFAULT 'system'
+        theme TEXT NOT NULL DEFAULT 'system',
+        accent_color INTEGER NOT NULL DEFAULT 4293212469
       )
     ''');
 
@@ -53,6 +67,7 @@ class AppStatusDbHelper {
       isInternetOn: row['is_internet_on'] == 1,
       isGpsOn: row['is_gps_on'] == 1,
       theme: row['theme'] as String,
+      accentColor: row['accent_color'] as int,
     );
   }
 
@@ -68,6 +83,7 @@ class AppStatusDbHelper {
       'is_internet_on': status.isInternetOn ? 1 : 0,
       'is_gps_on': status.isGpsOn ? 1 : 0,
       'theme': status.theme,
+      'accent_color': status.accentColor,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 }

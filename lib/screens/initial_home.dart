@@ -8,6 +8,7 @@ import 'package:locami/dbManager/userModel_manager.dart';
 import 'package:locami/screens/home.dart';
 import 'package:locami/theme/app_text_style.dart';
 import 'package:locami/theme/them_provider.dart';
+import 'package:provider/provider.dart';
 
 class InitialHome extends StatefulWidget {
   const InitialHome({Key? key}) : super(key: key);
@@ -103,11 +104,12 @@ class _InitialHomeState extends State<InitialHome> {
   List<Widget> get pages => [
     inputName('Your name please?'),
     inputCountry(),
-    inputTheme(),
+    inputTheme(ThemeProvider.instance.accentColor),
   ];
 
   @override
   Widget build(BuildContext context) {
+    final accentColor = context.watch<ThemeProvider>().accentColor;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
@@ -147,9 +149,7 @@ class _InitialHomeState extends State<InitialHome> {
                 child: ElevatedButton(
                   onPressed: validateNext,
                   style: ButtonStyle(
-                    backgroundColor: WidgetStateProperty.all(
-                      customColors().buttonColor,
-                    ),
+                    backgroundColor: WidgetStateProperty.all(accentColor),
                   ),
                   child: Text(
                     index == 2 ? 'Done' : "Next",
@@ -332,7 +332,7 @@ class _InitialHomeState extends State<InitialHome> {
     );
   }
 
-  Widget inputTheme() {
+  Widget inputTheme(Color accentColor) {
     return Column(
       children: [
         Text(
@@ -368,7 +368,7 @@ class _InitialHomeState extends State<InitialHome> {
                 ),
                 side:
                     userdata['theme'] == AppThemeMode.light
-                        ? const BorderSide(color: Colors.lightBlue, width: 2)
+                        ? BorderSide(color: accentColor, width: 2)
                         : BorderSide.none,
               ),
             ),
@@ -395,7 +395,7 @@ class _InitialHomeState extends State<InitialHome> {
                 ),
                 side:
                     userdata['theme'] == AppThemeMode.dark
-                        ? const BorderSide(color: Colors.lightBlue, width: 2)
+                        ? BorderSide(color: accentColor, width: 2)
                         : BorderSide.none,
               ),
             ),
