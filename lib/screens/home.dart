@@ -3,9 +3,16 @@ import 'package:geolocator/geolocator.dart';
 import 'package:locami/core/geo-location-Manager/street-Manager.dart';
 import 'package:locami/dbManager/userModel_manager.dart';
 import 'package:locami/dbManager/trip_details_manager.dart';
+import 'package:locami/core/model/trip_details_model.dart';
 import 'package:locami/screens/widgets/trip_info_display.dart';
-import 'package:locami/screens/widgets/settings_bottom_sheet.dart';
+import 'package:locami/screens/widgets/home_header.dart';
+import 'package:locami/screens/widgets/home_input_card.dart';
+import 'package:locami/screens/widgets/home_distance_option.dart';
+import 'package:locami/screens/widgets/tracking_button.dart';
+import 'package:locami/screens/widgets/location_search_sheet.dart';
+import 'package:locami/screens/widgets/trip_history_card.dart';
 import 'package:locami/theme/them_provider.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 
@@ -22,6 +29,8 @@ class _HomeState extends State<Home> {
   String userCountry = 'India';
   bool _isTracking = false;
   Position? _currentPosition;
+  Timer? _transmissionTimer;
+  bool _showLocami = true;
 
   @override
   void initState() {
@@ -32,9 +41,32 @@ class _HomeState extends State<Home> {
 
     _loadUserCountryFromProfile();
     _loadNearbyStreets();
+    _loadTripHistory();
     _checkTrackingStatus();
     _getInitialLocation();
+    TripDetailsManager.instance.isTrackingNotifier.addListener(
+      _onTrackingStatusChanged,
+    );
   }
+
+  void _onTrackingStatusChanged() {
+    final isTrackingNow = TripDetailsManager.instance.isTracking;
+    if (mounted) {
+      if (_isTracking != isTrackingNow) {
+        setState(() {
+          _isTracking = isTrackingNow;
+          if (_isTracking) {
+            _startTransmission();
+          } else {
+            _stopTransmission();
+            _loadTripHistory();
+          }
+        });
+      }
+    }
+  }
+
+  // Remove old _onTripDetailChanged if it was there
 
   Future<void> _getInitialLocation() async {
     try {
@@ -48,6 +80,10 @@ class _HomeState extends State<Home> {
   void dispose() {
     _fromController.dispose();
     _toController.dispose();
+    _transmissionTimer?.cancel();
+    TripDetailsManager.instance.isTrackingNotifier.removeListener(
+      _onTrackingStatusChanged,
+    );
     super.dispose();
   }
 
@@ -57,7 +93,32 @@ class _HomeState extends State<Home> {
 
   Future<void> _checkTrackingStatus() async {
     if (TripDetailsManager.instance.isTracking) {
-      setState(() => _isTracking = true);
+      if (mounted) {
+        setState(() => _isTracking = true);
+        _startTransmission();
+      }
+    }
+  }
+
+  void _startTransmission() {
+    _transmissionTimer?.cancel();
+    _transmissionTimer = Timer.periodic(const Duration(seconds: 20), (timer) {
+      if (mounted && _isTracking) {
+        setState(() {
+          _showLocami = !_showLocami;
+        });
+      } else if (!_isTracking) {
+        _stopTransmission();
+      }
+    });
+  }
+
+  void _stopTransmission() {
+    _transmissionTimer?.cancel();
+    if (mounted) {
+      setState(() {
+        _showLocami = true;
+      });
     }
   }
 
@@ -74,23 +135,45 @@ class _HomeState extends State<Home> {
   }
 
   List<String> locations = [];
+  List<TripDetailsModel> _tripHistory = [];
+  bool _isLoadingHistory = false;
+
+  Future<void> _loadTripHistory() async {
+    setState(() => _isLoadingHistory = true);
+    try {
+      final history = await TripDetailsManager.instance.getLogs();
+      if (mounted) {
+        setState(() {
+          _tripHistory = history;
+          _isLoadingHistory = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingHistory = false);
+    }
+  }
 
   Future<void> _toggleTracking() async {
     if (_isTracking) {
       await TripDetailsManager.instance.stopTracking();
-      setState(() => _isTracking = false);
+      if (mounted) {
+        setState(() => _isTracking = false);
+        _stopTransmission();
+      }
     } else {
       try {
         await UserModelManager.instance.patchUser(
           fromStreet: _fromController.text,
           destinationStreet: _toController.text,
-
           destinationLatitude: null,
           destinationLongitude: null,
         );
 
         await TripDetailsManager.instance.startTracking();
-        setState(() => _isTracking = true);
+        if (mounted) {
+          setState(() => _isTracking = true);
+          _startTransmission();
+        }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -114,7 +197,7 @@ class _HomeState extends State<Home> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder:
-          (context) => _LocationSearchSheet(
+          (context) => LocationSearchSheet(
             isFrom: isFrom,
             initialValue: isFrom ? _fromController.text : _toController.text,
             userCountry: userCountry,
@@ -127,6 +210,23 @@ class _HomeState extends State<Home> {
                   _toController.text = address;
                 }
               });
+            },
+          ),
+    );
+  }
+
+  void _showAllHistory() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder:
+          (context) => _HistoryBottomSheet(
+            history: _tripHistory,
+            onClear: () async {
+              await TripDetailsManager.instance.clearLogs();
+              _loadTripHistory();
+              Navigator.pop(context);
             },
           ),
     );
@@ -145,64 +245,15 @@ class _HomeState extends State<Home> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header Row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.location_on, color: accentColor, size: 32),
-                          const SizedBox(width: 8),
-                          Text(
-                            "Locami",
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: customColors().textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Text(
-                        "Offline Location Alert",
-                        style: TextStyle(fontSize: 14, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-
-                  IconButton(
-                    onPressed: () {
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                        builder: (context) => const SettingsBottomSheet(),
-                      );
-                    },
-                    icon: Icon(
-                      Icons.settings,
-                      color: customColors().textPrimary,
-                    ),
-                  ),
-                ],
+              HomeHeader(
+                isTracking: _isTracking,
+                showLocami: _showLocami,
+                accentColor: accentColor,
               ),
               const SizedBox(height: 32),
 
-              // const Text(
-              //   "Destination Alert",
-              //   style: TextStyle(
-              //     fontSize: 18,
-              //     fontWeight: FontWeight.bold,
-              //     color: Colors.white,
-              //   ),
-              // ),
-              // const SizedBox(height: 16),
-
               // From Field
-              _buildInputCard(
+              HomeInputCard(
                 controller: _fromController,
                 label: "From",
                 hint: "Select starting point",
@@ -212,7 +263,7 @@ class _HomeState extends State<Home> {
               const SizedBox(height: 12),
 
               // To Field
-              _buildInputCard(
+              HomeInputCard(
                 controller: _toController,
                 label: "To",
                 hint: "Select destination",
@@ -234,17 +285,100 @@ class _HomeState extends State<Home> {
                     ),
                   ),
                   const SizedBox(width: 16),
-                  _buildDistanceOption("500m", true),
-                  _buildDistanceOption("1km", false),
-                  _buildDistanceOption("2km", false),
+                  const HomeDistanceOption(distance: "500m", isSelected: true),
+                  const HomeDistanceOption(distance: "1km", isSelected: false),
+                  const HomeDistanceOption(distance: "2km", isSelected: false),
                   const Spacer(),
-                  if (!_isTracking) _buildStartButton(accentColor),
+                  TrackingButton(
+                    isTracking: _isTracking,
+                    canStart: validateisTracking(),
+                    accentColor: accentColor,
+                    onPressed: _toggleTracking,
+                  ),
                 ],
               ),
 
               if (_isTracking || TripDetailsManager.instance.isTracking) ...[
                 const SizedBox(height: 32),
                 const TripInfoDisplay(),
+              ] else ...[
+                const SizedBox(height: 32),
+                if (_isLoadingHistory)
+                  const Center(child: CircularProgressIndicator())
+                else if (_tripHistory.isNotEmpty) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Recent Trips",
+                        style: TextStyle(
+                          color: customColors().textPrimary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (_tripHistory.length > 3)
+                        TextButton(
+                          onPressed: _showAllHistory,
+                          child: const Text("Show More"),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Stack(
+                    children: [
+                      Column(
+                        children:
+                            _tripHistory
+                                .take(3)
+                                .map(
+                                  (TripDetailsModel trip) =>
+                                      TripHistoryCard(trip: trip),
+                                )
+                                .toList(),
+                      ),
+                      if (_tripHistory.length > 3)
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          height: 60,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  customColors().background.withOpacity(0),
+                                  customColors().background,
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ] else ...[
+                  const SizedBox(height: 40),
+                  Center(
+                    child: Column(
+                      children: [
+                        SvgPicture.asset(
+                          'assets/images/busTerminal.svg',
+                          height: 240,
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          "No track history yet",
+                          style: TextStyle(
+                            color: customColors().textPrimary.withOpacity(0.5),
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ],
           ),
@@ -252,215 +386,26 @@ class _HomeState extends State<Home> {
       ),
     );
   }
-
-  Widget _buildInputCard({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required IconData icon,
-    Color iconColor = Colors.grey,
-    VoidCallback? onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: customColors().textPrimary.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: iconColor, size: 24),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      color: customColors().textSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  ValueListenableBuilder<TextEditingValue>(
-                    valueListenable: controller,
-                    builder: (context, value, _) {
-                      return Text(
-                        value.text.isEmpty ? hint : value.text,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: customColors().textPrimary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.chevron_right,
-              color: customColors().textSecondary,
-              size: 20,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDistanceOption(String distance, bool isSelected) {
-    final accentColor = context.read<ThemeProvider>().accentColor;
-    return Padding(
-      padding: const EdgeInsets.only(right: 12),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            distance,
-            style: TextStyle(
-              color: isSelected ? customColors().textPrimary : Colors.grey,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-          if (isSelected)
-            Container(
-              margin: const EdgeInsets.only(top: 4),
-              width: 20,
-              height: 3,
-              decoration: BoxDecoration(
-                color: accentColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStartButton(Color accentColor) {
-    bool canStart = validateisTracking();
-    return Opacity(
-      opacity: canStart ? 1 : 0.5,
-      child: AbsorbPointer(
-        absorbing: !canStart,
-        child: ElevatedButton.icon(
-          onPressed: _toggleTracking,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: accentColor,
-            foregroundColor: customColors().textPrimary,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            elevation: 0,
-          ),
-          icon: const Icon(Icons.play_arrow, size: 18),
-          label: Text(
-            "Start Tracking",
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: customColors().textPrimary,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
-class _LocationSearchSheet extends StatefulWidget {
-  final bool isFrom;
-  final String initialValue;
-  final String userCountry;
-  final Position? currentPosition;
-  final Function(String) onSelected;
+class _HistoryBottomSheet extends StatelessWidget {
+  final List<TripDetailsModel> history;
+  final VoidCallback onClear;
 
-  const _LocationSearchSheet({
-    required this.isFrom,
-    required this.initialValue,
-    required this.userCountry,
-    this.currentPosition,
-    required this.onSelected,
-  });
-
-  @override
-  State<_LocationSearchSheet> createState() => _LocationSearchSheetState();
-}
-
-class _LocationSearchSheetState extends State<_LocationSearchSheet> {
-  late TextEditingController _searchController;
-  List<String> _suggestions = [];
-  bool _isLoading = false;
-  Timer? _debounce;
-
-  @override
-  void initState() {
-    super.initState();
-    _searchController = TextEditingController(text: widget.initialValue);
-    _loadNearby();
-  }
-
-  void _loadNearby() async {
-    setState(() => _isLoading = true);
-    final results = await StreetManager.instance.getNearbyStreets();
-    if (mounted) {
-      setState(() {
-        _suggestions = results;
-        _isLoading = false;
-      });
-    }
-  }
-
-  void _onSearchChanged(String value) {
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
-    if (value.trim().isEmpty) {
-      _loadNearby();
-      return;
-    }
-
-    _debounce = Timer(const Duration(milliseconds: 300), () async {
-      if (!mounted) return;
-      setState(() => _isLoading = true);
-      try {
-        final results = await StreetManager.instance.searchStreets(
-          value,
-          countryCode: widget.userCountry,
-          lat: widget.currentPosition?.latitude,
-          lon: widget.currentPosition?.longitude,
-        );
-        if (mounted) {
-          setState(() {
-            _suggestions = results;
-            _isLoading = false;
-          });
-        }
-      } catch (_) {
-        if (mounted) setState(() => _isLoading = false);
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    _debounce?.cancel();
-    super.dispose();
-  }
+  const _HistoryBottomSheet({
+    Key? key,
+    required this.history,
+    required this.onClear,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.8,
+      height: MediaQuery.of(context).size.height * 0.7,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: customColors().background,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         children: [
@@ -473,96 +418,32 @@ class _LocationSearchSheetState extends State<_LocationSearchSheet> {
             ),
           ),
           const SizedBox(height: 24),
-          TextField(
-            controller: _searchController,
-            autofocus: true,
-            style: TextStyle(color: customColors().textPrimary),
-            decoration: InputDecoration(
-              hintText:
-                  widget.isFrom ? "Search location" : "Search destination",
-              hintStyle: TextStyle(
-                color: customColors().textPrimary.withOpacity(0.3),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "All Recent Trips",
+                style: TextStyle(
+                  color: customColors().textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              prefixIcon: Icon(
-                widget.isFrom ? Icons.home : Icons.flag,
-                color:
-                    widget.isFrom
-                        ? Colors.grey
-                        : context.read<ThemeProvider>().accentColor,
+              TextButton(
+                onPressed: onClear,
+                child: const Text(
+                  "Clear All",
+                  style: TextStyle(color: Colors.red),
+                ),
               ),
-              filled: true,
-              fillColor: customColors().textPrimary.withOpacity(0.05),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              suffixIcon:
-                  _isLoading
-                      ? Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: context.read<ThemeProvider>().accentColor,
-                          ),
-                        ),
-                      )
-                      : IconButton(
-                        icon: const Icon(Icons.close, color: Colors.grey),
-                        onPressed: () => _searchController.clear(),
-                      ),
-            ),
-            onChanged: _onSearchChanged,
+            ],
           ),
-          if (widget.isFrom) ...[
-            const SizedBox(height: 16),
-            ListTile(
-              onTap: () async {
-                // Re-use current location logic
-                final details =
-                    await StreetManager.instance.getCurrentLocationDetails();
-                if (details != null && mounted) {
-                  widget.onSelected(details['address']!);
-                  Navigator.pop(context);
-                }
-              },
-              leading: Icon(
-                Icons.my_location,
-                color: context.read<ThemeProvider>().accentColor,
-              ),
-              title: Text(
-                "Use Current Location",
-                style: TextStyle(color: customColors().textPrimary),
-              ),
-            ),
-          ],
           const SizedBox(height: 16),
           Expanded(
-            child: ListView.separated(
-              itemCount: _suggestions.length,
-              separatorBuilder:
-                  (_, __) => Divider(
-                    color: customColors().textPrimary.withOpacity(0.05),
-                  ),
+            child: ListView.builder(
+              itemCount: history.length,
               itemBuilder: (context, index) {
-                return ListTile(
-                  onTap: () {
-                    widget.onSelected(_suggestions[index]);
-                    Navigator.pop(context);
-                  },
-                  leading: const Icon(
-                    Icons.location_on_outlined,
-                    color: Colors.grey,
-                  ),
-                  title: Text(
-                    _suggestions[index],
-                    style: TextStyle(color: customColors().textPrimary),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                );
+                return TripHistoryCard(trip: history[index]);
               },
             ),
           ),

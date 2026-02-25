@@ -21,6 +21,8 @@ class TripDetailsManager {
     null,
   );
 
+  final ValueNotifier<bool> isTrackingNotifier = ValueNotifier(false);
+
   bool _isTracking = false;
   bool get isTracking => _isTracking;
 
@@ -39,6 +41,7 @@ class TripDetailsManager {
     await clearLogs();
 
     _isTracking = true;
+    isTrackingNotifier.value = true;
 
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
@@ -161,6 +164,7 @@ class TripDetailsManager {
     _accelStreamSubscription = null;
 
     _isTracking = false;
+    isTrackingNotifier.value = false;
     _destinationLat = null;
     _destinationLon = null;
 

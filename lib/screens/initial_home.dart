@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:locami/core/model/user_model.dart';
 import 'package:locami/dbManager/app-status_manager.dart';
 import 'package:locami/core/dataset/country_list.dart';
@@ -23,6 +24,7 @@ class _InitialHomeState extends State<InitialHome> {
   List<String> countries = [];
   List<String> filteredCountries = [];
   bool isSubmitted = false;
+  Timer? _searchDebounce;
 
   Map<String, dynamic> userdata = {
     'name': '',
@@ -50,30 +52,44 @@ class _InitialHomeState extends State<InitialHome> {
 
   @override
   void initState() {
+    super.initState();
     countries =
         CountryData().countryList.map((c) => c['name'] as String).toList();
     filteredCountries = countries;
 
     // Get current theme from provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final themeProvider = context.read<ThemeProvider>();
-      setState(() {
-        userdata['theme'] = themeProvider.theme;
-      });
+      if (mounted) {
+        final themeProvider = context.read<ThemeProvider>();
+        setState(() {
+          userdata['theme'] = themeProvider.theme;
+        });
+      }
     });
+  }
 
-    super.initState();
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    nameController.dispose();
+    countrySearchController.dispose();
+    super.dispose();
   }
 
   void _filterCountries(String query) {
-    setState(() {
-      if (query.isEmpty) {
-        filteredCountries = countries;
-      } else {
-        filteredCountries =
-            countries
-                .where((c) => c.toLowerCase().contains(query.toLowerCase()))
-                .toList();
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        setState(() {
+          if (query.isEmpty) {
+            filteredCountries = countries;
+          } else {
+            filteredCountries =
+                countries
+                    .where((c) => c.toLowerCase().contains(query.toLowerCase()))
+                    .toList();
+          }
+        });
       }
     });
   }
@@ -88,6 +104,7 @@ class _InitialHomeState extends State<InitialHome> {
         userdata['name'] = nameController.text.trim();
         index++;
       });
+      FocusScope.of(context).unfocus();
     } else if (index == 1) {
       if (userdata['country'].toString().isEmpty) {
         showSnack('Please select your country');
@@ -96,6 +113,7 @@ class _InitialHomeState extends State<InitialHome> {
       setState(() {
         index++;
       });
+      FocusScope.of(context).unfocus();
     } else if (index == 2) {
       final themeProvider = context.read<ThemeProvider>();
 
@@ -112,10 +130,12 @@ class _InitialHomeState extends State<InitialHome> {
         UserModel(username: userdata['name'], country: userdata['country']),
       );
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const Home()),
-      );
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const Home()),
+        );
+      }
     }
   }
 
@@ -147,7 +167,7 @@ class _InitialHomeState extends State<InitialHome> {
               Row(
                 children: [
                   Icon(Icons.location_on, color: accentColor, size: 28),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Text(
                     "Locami",
                     style: TextStyle(
@@ -162,13 +182,16 @@ class _InitialHomeState extends State<InitialHome> {
 
               // Progress and Page Content
               Expanded(
-                child: IndexedStack(
-                  index: index,
-                  children: [
-                    _buildNameStep(accentColor),
-                    _buildCountryStep(accentColor),
-                    _buildThemeStep(accentColor),
-                  ],
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: IndexedStack(
+                    index: index,
+                    children: [
+                      _buildNameStep(accentColor),
+                      _buildCountryStep(accentColor),
+                      _buildThemeStep(accentColor),
+                    ],
+                  ),
                 ),
               ),
 
@@ -335,8 +358,10 @@ class _InitialHomeState extends State<InitialHome> {
         const SizedBox(height: 20),
 
         // List of countries
-        Expanded(
+        SizedBox(
+          height: 300, // Fixed height to prevent infinite height in scrolling
           child: ListView.separated(
+            padding: EdgeInsets.zero,
             itemCount: filteredCountries.length,
             separatorBuilder:
                 (context, index) =>
@@ -351,6 +376,7 @@ class _InitialHomeState extends State<InitialHome> {
                   setState(() {
                     userdata['country'] = country;
                   });
+                  FocusScope.of(context).unfocus();
                 },
                 contentPadding: EdgeInsets.zero,
                 leading: Text(flag, style: const TextStyle(fontSize: 24)),
