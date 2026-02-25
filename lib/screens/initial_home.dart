@@ -5,7 +5,6 @@ import 'package:locami/dbManager/app-status_manager.dart';
 import 'package:locami/core/dataset/country_list.dart';
 import 'package:locami/core/model/appstatus_model.dart';
 import 'package:locami/dbManager/userModel_manager.dart';
-import 'package:locami/screens/download_streetnames.dart';
 import 'package:locami/screens/home.dart';
 import 'package:locami/theme/app_text_style.dart';
 import 'package:locami/theme/them_provider.dart';
@@ -279,7 +278,7 @@ class _InitialHomeState extends State<InitialHome> {
 
               if (index == 1) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (focusNode != null && !focusNode.hasFocus) {
+                  if (!focusNode.hasFocus) {
                     focusNode.requestFocus();
                   }
                 });

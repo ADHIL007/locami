@@ -8,6 +8,8 @@ class UserModel {
   final Duration? totalTravel;
   final String? fromStreet;
   final String? destinationStreet;
+  final double? destinationLatitude;
+  final double? destinationLongitude;
   final String? travelMode;
 
   const UserModel({
@@ -20,6 +22,8 @@ class UserModel {
     this.totalTravel,
     this.fromStreet,
     this.destinationStreet,
+    this.destinationLatitude,
+    this.destinationLongitude,
     this.travelMode,
   });
 
@@ -33,6 +37,8 @@ class UserModel {
     'totalTravel': totalTravel?.inSeconds,
     'fromStreet': fromStreet,
     'destinationStreet': destinationStreet,
+    'destination_latitude': destinationLatitude,
+    'destination_longitude': destinationLongitude,
     'travelMode': travelMode,
   };
 
@@ -50,6 +56,8 @@ class UserModel {
             : null,
     fromStreet: json['fromStreet'],
     destinationStreet: json['destinationStreet'],
+    destinationLatitude: json['destination_latitude'],
+    destinationLongitude: json['destination_longitude'],
     travelMode: json['travelMode'],
   );
 
@@ -63,6 +71,8 @@ class UserModel {
     Duration? totalTravel,
     String? fromStreet,
     String? destinationStreet,
+    double? destinationLatitude,
+    double? destinationLongitude,
     String? travelMode,
   }) => UserModel(
     username: username ?? this.username,
@@ -74,6 +84,8 @@ class UserModel {
     totalTravel: totalTravel ?? this.totalTravel,
     fromStreet: fromStreet ?? this.fromStreet,
     destinationStreet: destinationStreet ?? this.destinationStreet,
+    destinationLatitude: destinationLatitude ?? this.destinationLatitude,
+    destinationLongitude: destinationLongitude ?? this.destinationLongitude,
     travelMode: travelMode ?? this.travelMode,
   );
 }

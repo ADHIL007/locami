@@ -28,6 +28,8 @@ class UserModelManager {
     Duration? totalTravel,
     String? fromStreet,
     String? destinationStreet,
+    double? destinationLatitude,
+    double? destinationLongitude,
     String? travelMode,
   }) async {
     final current = await user;
@@ -41,6 +43,8 @@ class UserModelManager {
       totalTravel: totalTravel,
       fromStreet: fromStreet,
       destinationStreet: destinationStreet,
+      destinationLatitude: destinationLatitude,
+      destinationLongitude: destinationLongitude,
       travelMode: travelMode,
     );
 

@@ -18,7 +18,12 @@ class UserDbHelper {
 
   Future<Database> _openDb() async {
     final path = join(await getDatabasesPath(), 'user_model.db');
-    return openDatabase(path, version: 1, onCreate: _onCreate);
+    return openDatabase(
+      path,
+      version: 2,
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+    );
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -34,11 +39,24 @@ class UserDbHelper {
         total_travel INTEGER,
         from_street TEXT,
         destination_street TEXT,
+        destination_latitude REAL,
+        destination_longitude REAL,
         travel_mode TEXT
       )
     ''');
 
     await db.insert(tableName, {'id': 1});
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute(
+        'ALTER TABLE $tableName ADD COLUMN destination_latitude REAL',
+      );
+      await db.execute(
+        'ALTER TABLE $tableName ADD COLUMN destination_longitude REAL',
+      );
+    }
   }
 
   Future<UserModel> getUser() async {
@@ -67,6 +85,8 @@ class UserDbHelper {
               : null,
       fromStreet: row['from_street'] as String?,
       destinationStreet: row['destination_street'] as String?,
+      destinationLatitude: row['destination_latitude'] as double?,
+      destinationLongitude: row['destination_longitude'] as double?,
       travelMode: row['travel_mode'] as String?,
     );
   }
@@ -85,6 +105,8 @@ class UserDbHelper {
       'total_travel': user.totalTravel?.inSeconds,
       'from_street': user.fromStreet,
       'destination_street': user.destinationStreet,
+      'destination_latitude': user.destinationLatitude,
+      'destination_longitude': user.destinationLongitude,
       'travel_mode': user.travelMode,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }

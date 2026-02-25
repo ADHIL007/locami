@@ -7,12 +7,16 @@ class TripDetailsModel {
   final double heading;
   final double accuracy;
   final double altitude;
-  final double?
-  distanceTraveled; // Distance from previous point or cumulative? usually cumulative for a trip segment or delta. Let's store cumulative.
+  final double? distanceTraveled;
   final String? country;
   final String? street;
   final double? acceleration;
   final String? destination;
+  final double? remainingDistance;
+  final double? totalDistance;
+  final double? totalDuration;
+  final double? destinationLatitude;
+  final double? destinationLongitude;
 
   const TripDetailsModel({
     this.id,
@@ -28,6 +32,11 @@ class TripDetailsModel {
     this.street,
     this.acceleration = 0.0,
     this.destination,
+    this.remainingDistance,
+    this.totalDistance,
+    this.totalDuration,
+    this.destinationLatitude,
+    this.destinationLongitude,
   });
 
   Map<String, dynamic> toJson() => {
@@ -44,6 +53,11 @@ class TripDetailsModel {
     'street': street,
     'acceleration': acceleration,
     'destination': destination,
+    'remaining_distance': remainingDistance,
+    'total_distance': totalDistance,
+    'total_duration': totalDuration,
+    'destination_latitude': destinationLatitude,
+    'destination_longitude': destinationLongitude,
   };
 
   factory TripDetailsModel.fromJson(Map<String, dynamic> json) =>
@@ -61,6 +75,11 @@ class TripDetailsModel {
         street: json['street'],
         acceleration: json['acceleration'] ?? 0.0,
         destination: json['destination'],
+        remainingDistance: json['remaining_distance'],
+        totalDistance: json['total_distance'],
+        totalDuration: json['total_duration'],
+        destinationLatitude: json['destination_latitude'],
+        destinationLongitude: json['destination_longitude'],
       );
 
   TripDetailsModel copyWith({
@@ -77,6 +96,11 @@ class TripDetailsModel {
     String? street,
     double? acceleration,
     String? destination,
+    double? remainingDistance,
+    double? totalDistance,
+    double? totalDuration,
+    double? destinationLatitude,
+    double? destinationLongitude,
   }) {
     return TripDetailsModel(
       id: id ?? this.id,
@@ -92,6 +116,11 @@ class TripDetailsModel {
       street: street ?? this.street,
       acceleration: acceleration ?? this.acceleration,
       destination: destination ?? this.destination,
+      remainingDistance: remainingDistance ?? this.remainingDistance,
+      totalDistance: totalDistance ?? this.totalDistance,
+      totalDuration: totalDuration ?? this.totalDuration,
+      destinationLatitude: destinationLatitude ?? this.destinationLatitude,
+      destinationLongitude: destinationLongitude ?? this.destinationLongitude,
     );
   }
 }

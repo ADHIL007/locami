@@ -20,7 +20,7 @@ class TripDbHelper {
     final path = join(await getDatabasesPath(), 'trip_details.db');
     return openDatabase(
       path,
-      version: 3,
+      version: 5,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -41,7 +41,12 @@ class TripDbHelper {
         country TEXT,
         street TEXT,
         acceleration REAL,
-        destination TEXT
+        destination TEXT,
+        remaining_distance REAL,
+        total_distance REAL,
+        total_duration REAL,
+        destination_latitude REAL,
+        destination_longitude REAL
       )
     ''');
   }
@@ -63,6 +68,33 @@ class TripDbHelper {
         print('Error adding column destination: $e');
       }
     }
+    if (oldVersion < 4) {
+      try {
+        await db.execute(
+          'ALTER TABLE $tableName ADD COLUMN remaining_distance REAL',
+        );
+      } catch (e) {
+        print('Error adding column remaining_distance: $e');
+      }
+    }
+    if (oldVersion < 5) {
+      try {
+        await db.execute(
+          'ALTER TABLE $tableName ADD COLUMN total_distance REAL',
+        );
+        await db.execute(
+          'ALTER TABLE $tableName ADD COLUMN total_duration REAL',
+        );
+        await db.execute(
+          'ALTER TABLE $tableName ADD COLUMN destination_latitude REAL',
+        );
+        await db.execute(
+          'ALTER TABLE $tableName ADD COLUMN destination_longitude REAL',
+        );
+      } catch (e) {
+        print('Error upgrading to version 5: $e');
+      }
+    }
   }
 
   Future<int> insertTripDetail(TripDetailsModel detail) async {
@@ -80,10 +112,50 @@ class TripDbHelper {
           fixed = true;
         } catch (_) {}
       }
-      if (error.contains('destination')) {
+      if (error.contains('destination') && !error.contains('latitude')) {
         try {
           await db.execute(
             'ALTER TABLE $tableName ADD COLUMN destination TEXT',
+          );
+          fixed = true;
+        } catch (_) {}
+      }
+      if (error.contains('remaining_distance')) {
+        try {
+          await db.execute(
+            'ALTER TABLE $tableName ADD COLUMN remaining_distance REAL',
+          );
+          fixed = true;
+        } catch (_) {}
+      }
+      if (error.contains('total_distance')) {
+        try {
+          await db.execute(
+            'ALTER TABLE $tableName ADD COLUMN total_distance REAL',
+          );
+          fixed = true;
+        } catch (_) {}
+      }
+      if (error.contains('total_duration')) {
+        try {
+          await db.execute(
+            'ALTER TABLE $tableName ADD COLUMN total_duration REAL',
+          );
+          fixed = true;
+        } catch (_) {}
+      }
+      if (error.contains('destination_latitude')) {
+        try {
+          await db.execute(
+            'ALTER TABLE $tableName ADD COLUMN destination_latitude REAL',
+          );
+          fixed = true;
+        } catch (_) {}
+      }
+      if (error.contains('destination_longitude')) {
+        try {
+          await db.execute(
+            'ALTER TABLE $tableName ADD COLUMN destination_longitude REAL',
           );
           fixed = true;
         } catch (_) {}

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:locami/theme/them_provider.dart';
 
 class Speedometer extends StatelessWidget {
-  final double speed; // in km/h
+  final double speed;
   final double maxSpeed;
 
   const Speedometer({Key? key, required this.speed, this.maxSpeed = 180})
@@ -76,7 +76,6 @@ class _SpeedometerPainter extends CustomPainter {
     final startAngle = 135 * pi / 180;
     final sweepAngle = 270 * pi / 180;
 
-    // Draw background arc
     final backgroundPaint =
         Paint()
           ..color = secondaryColor
@@ -92,7 +91,6 @@ class _SpeedometerPainter extends CustomPainter {
       backgroundPaint,
     );
 
-    // Draw progress arc
     final progressPaint =
         Paint()
           ..color = primaryColor
@@ -113,13 +111,12 @@ class _SpeedometerPainter extends CustomPainter {
       );
     }
 
-    // Draw ticks
     final tickPaint =
         Paint()
           ..color = primaryColor.withOpacity(0.5)
           ..strokeWidth = 2;
 
-    final tickCount = 9; // 0, 20, 40 ...
+    final tickCount = 9;
     final tickRadius = radius - strokeWidth - 10;
 
     for (int i = 0; i <= tickCount; i++) {
@@ -135,7 +132,7 @@ class _SpeedometerPainter extends CustomPainter {
         center.dy + (tickRadius - 5) * sin(angle),
       );
 
-      canvas.drawLine(p1, p2, tickPaint); // Optional: Draw ticks
+      canvas.drawLine(p1, p2, tickPaint);
     }
   }
 

@@ -4,7 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:locami/core/dbHelper/trip_db.dart';
 import 'package:locami/core/geo-location-Manager/street-Manager.dart';
 import 'package:locami/core/model/trip_details_model.dart';
-
+import 'package:locami/core/model/user_model.dart';
 import 'package:locami/dbManager/userModel_manager.dart';
 
 import 'dart:math';
@@ -24,16 +24,22 @@ class TripDetailsManager {
   bool _isTracking = false;
   bool get isTracking => _isTracking;
 
-  // Cache last known country to avoid excessive API calls
   String? _lastKnownCountry;
   String? _lastKnownStreet;
   double _currentAcceleration = 0.0;
+  double? _destinationLat;
+  double? _destinationLon;
+  double? _sourceLat;
+  double? _sourceLon;
+  double? _totalTripDistance;
 
   Future<void> startTracking() async {
     if (_isTracking) return;
+
+    await clearLogs();
+
     _isTracking = true;
 
-    // Ensure permissions are granted
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       _isTracking = false;
@@ -56,7 +62,69 @@ class TripDetailsManager {
       );
     }
 
-    // Initial fetch of address details to seed cache
+    UserModel user = await UserModelManager.instance.user;
+    debugPrint('QWERTYUIOP: startTracking');
+    debugPrint('QWERTYUIOP: fromStreet: ${user.fromStreet}');
+    debugPrint('QWERTYUIOP: destinationStreet: ${user.destinationStreet}');
+
+    if (user.fromStreet != null && user.fromStreet!.isNotEmpty) {
+      final sourceCoords = await StreetManager.instance.getCoordinates(
+        user.fromStreet!,
+      );
+      if (sourceCoords != null) {
+        _sourceLat = sourceCoords['lat'];
+        _sourceLon = sourceCoords['lon'];
+        debugPrint(
+          'QWERTYUIOP: Source Geocoded - lat: $_sourceLat, lon: $_sourceLon',
+        );
+      }
+    }
+
+    if (user.destinationStreet != null && user.destinationStreet!.isNotEmpty) {
+      if (user.destinationLatitude == null ||
+          user.destinationLongitude == null) {
+        debugPrint('QWERTYUIOP: Geocoding destination address...');
+        final coords = await StreetManager.instance.getCoordinates(
+          user.destinationStreet!,
+        );
+        if (coords != null) {
+          _destinationLat = coords['lat'];
+          _destinationLon = coords['lon'];
+          debugPrint(
+            'QWERTYUIOP: Destination Geocoded - lat: $_destinationLat, lon: $_destinationLon',
+          );
+
+          await UserModelManager.instance.patchUser(
+            destinationLatitude: _destinationLat,
+            destinationLongitude: _destinationLon,
+          );
+        } else {
+          debugPrint('QWERTYUIOP: Destination geocoding failed');
+        }
+      } else {
+        _destinationLat = user.destinationLatitude;
+        _destinationLon = user.destinationLongitude;
+        debugPrint(
+          'QWERTYUIOP: Using existing destination coords - lat: $_destinationLat, lon: $_destinationLon',
+        );
+      }
+    }
+
+    if (_sourceLat != null &&
+        _sourceLon != null &&
+        _destinationLat != null &&
+        _destinationLon != null) {
+      _totalTripDistance = Geolocator.distanceBetween(
+        _sourceLat!,
+        _sourceLon!,
+        _destinationLat!,
+        _destinationLon!,
+      );
+      debugPrint(
+        'QWERTYUIOP: Total Trip Distance calculated: $_totalTripDistance meters',
+      );
+    }
+
     await _updateAddressCache();
 
     const LocationSettings locationSettings = LocationSettings(
@@ -70,18 +138,14 @@ class TripDetailsManager {
       _handlePositionUpdate(position);
     });
 
-    // Start Accelerometer listener
     _accelStreamSubscription = userAccelerometerEventStream(
       samplingPeriod: SensorInterval.gameInterval,
     ).listen((event) {
-      // specific gravity is removed by userAccelerometerEventStream
-      // Calculate magnitude
       _currentAcceleration = sqrt(
         event.x * event.x + event.y * event.y + event.z * event.z,
       );
     });
 
-    // Update user status
     await UserModelManager.instance.patchUser(
       isTravelStarted: true,
       isTravelEnded: false,
@@ -97,6 +161,8 @@ class TripDetailsManager {
     _accelStreamSubscription = null;
 
     _isTracking = false;
+    _destinationLat = null;
+    _destinationLon = null;
 
     await UserModelManager.instance.patchUser(
       isTravelStarted: false,
@@ -106,7 +172,6 @@ class TripDetailsManager {
   }
 
   Future<void> _handlePositionUpdate(Position position) async {
-    // calculate distance from last point
     double distance = 0.0;
 
     final lastPoint = await TripDbHelper.instance.getLastPoint();
@@ -119,20 +184,35 @@ class TripDetailsManager {
       );
     }
 
-    // Refresh address cache if distance is significant (e.g. > 500m) or if not set
     if (_lastKnownCountry == null || (lastPoint != null && distance > 500)) {
       await _updateAddressCache();
     }
 
-    // Get current destination from user model
     final user = await UserModelManager.instance.user;
     final destination = user.destinationStreet;
+
+    double? remainingDist;
+    if (_destinationLat != null && _destinationLon != null) {
+      remainingDist = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        _destinationLat!,
+        _destinationLon!,
+      );
+      debugPrint(
+        'QWERTYUIOP: Position update - pos: ${position.latitude}, ${position.longitude}, dest: $_destinationLat, $_destinationLon, remainingDist: $remainingDist meters',
+      );
+    } else {
+      debugPrint(
+        'QWERTYUIOP: Remaining distance NOT calculated - destLat: $_destinationLat, destLon: $_destinationLon',
+      );
+    }
 
     final newDetail = TripDetailsModel(
       latitude: position.latitude,
       longitude: position.longitude,
       timestamp: DateTime.now(),
-      speed: position.speed, // Speed in m/s
+      speed: position.speed,
       heading: position.heading,
       altitude: position.altitude,
       accuracy: position.accuracy,
@@ -141,6 +221,11 @@ class TripDetailsManager {
       street: _lastKnownStreet,
       acceleration: _currentAcceleration,
       destination: destination,
+      remainingDistance: remainingDist,
+      totalDistance: _totalTripDistance,
+      totalDuration: lastPoint?.totalDuration,
+      destinationLatitude: _destinationLat,
+      destinationLongitude: _destinationLon,
     );
 
     await TripDbHelper.instance.insertTripDetail(newDetail);
@@ -159,7 +244,6 @@ class TripDetailsManager {
     }
   }
 
-  // Get all logs
   Future<List<TripDetailsModel>> getLogs() =>
       TripDbHelper.instance.getAllTripDetails();
 

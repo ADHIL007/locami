@@ -1,6 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:locami/core/geo-location-Manager/street-Manager.dart';
-import 'package:locami/core/model/user_model.dart';
 import 'package:locami/dbManager/userModel_manager.dart';
 import 'package:locami/dbManager/trip_details_manager.dart';
 import 'package:locami/screens/widgets/location_search_field.dart';
@@ -21,17 +22,42 @@ class _HomeState extends State<Home> {
   String userCountry = 'India';
   bool _isLocating = false;
   bool _isTracking = false;
+  Position? _currentPosition;
 
   @override
   void initState() {
     super.initState();
+
+    _fromController.addListener(_onTextChanged);
+    _toController.addListener(_onTextChanged);
+
     _loadUserCountryFromProfile();
     _loadNearbyStreets();
     _checkTrackingStatus();
+    _getInitialLocation();
+  }
+
+  Future<void> _getInitialLocation() async {
+    try {
+      _currentPosition = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.low,
+      );
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _fromController.dispose();
+    _toController.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _onTextChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _checkTrackingStatus() async {
-    // Ideally check from persistent state or manager
     if (TripDetailsManager.instance.isTracking) {
       setState(() => _isTracking = true);
     }
@@ -47,6 +73,8 @@ class _HomeState extends State<Home> {
           _fromController.text = details['address']!;
           userCountry = details['countryCode']!;
         });
+
+        _currentPosition = await Geolocator.getCurrentPosition();
       }
     } catch (e) {
       debugPrint('Error getting location: $e');
@@ -70,49 +98,35 @@ class _HomeState extends State<Home> {
   bool _isLoading = false;
 
   void _onSearchChanged(String value) {
-    if (value.length < 2) {
-      if (locations.isNotEmpty) setState(() => locations = []);
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+
+    if (value.trim().isEmpty) {
+      setState(() {
+        locations = [];
+        _isLoading = false;
+      });
       return;
     }
 
-    // Smarter logic:
-    // 1. If length == 2, always fetch 100 to seed the local cache.
-    // 2. If length > 2, check if we have enough local matches. If not, refetch specific query.
-
-    final localMatches =
-        locations
-            .where((e) => e.toLowerCase().contains(value.toLowerCase()))
-            .toList();
-    final bool needsRefetch =
-        (value.length == 2) || (value.length > 2 && localMatches.length < 5);
-
-    if (needsRefetch) {
-      if (_debounce?.isActive ?? false) _debounce!.cancel();
-      _debounce = Timer(const Duration(milliseconds: 500), () async {
-        setState(() => _isLoading = true);
-
-        // If we are refetching for >2 chars, we probably don't need 100 results, but 20 is safest to ensure diversity
-        // If 2 chars, we strictly want 100 as per request.
-        final limit = value.length == 2 ? 100 : 20;
-
-        try {
-          final result = await StreetManager.instance.searchStreets(
-            value,
-            countryCode: userCountry.toLowerCase(),
-            limit: limit,
-          );
-
-          if (mounted) {
-            setState(() {
-              locations = result;
-              _isLoading = false;
-            });
-          }
-        } catch (e) {
-          if (mounted) setState(() => _isLoading = false);
+    _debounce = Timer(const Duration(milliseconds: 300), () async {
+      setState(() => _isLoading = true);
+      try {
+        final results = await StreetManager.instance.searchStreets(
+          value,
+          countryCode: userCountry,
+          lat: _currentPosition?.latitude,
+          lon: _currentPosition?.longitude,
+        );
+        if (mounted) {
+          setState(() {
+            locations = results;
+            _isLoading = false;
+          });
         }
-      });
-    }
+      } catch (e) {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    });
   }
 
   void _loadUserCountryFromProfile() async {
@@ -130,6 +144,14 @@ class _HomeState extends State<Home> {
       setState(() => _isTracking = false);
     } else {
       try {
+        await UserModelManager.instance.patchUser(
+          fromStreet: _fromController.text,
+          destinationStreet: _toController.text,
+
+          destinationLatitude: null,
+          destinationLongitude: null,
+        );
+
         await TripDetailsManager.instance.startTracking();
         setState(() => _isTracking = true);
       } catch (e) {
@@ -142,6 +164,13 @@ class _HomeState extends State<Home> {
     }
   }
 
+  bool validateisTracking() {
+    if (_fromController.text.isNotEmpty && _toController.text.isNotEmpty) {
+      return true;
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -152,48 +181,60 @@ class _HomeState extends State<Home> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              LocationSearchField(
-                controller: _fromController,
-                label: 'From',
-                prefixIcon:
-                    _isLocating
-                        ? Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: customColors().textSecondary,
+              AnimatedSize(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                child:
+                    _isTracking
+                        ? const SizedBox.shrink()
+                        : Column(
+                          children: [
+                            LocationSearchField(
+                              controller: _fromController,
+                              label: 'From',
+                              prefixIcon:
+                                  _isLocating
+                                      ? Padding(
+                                        padding: const EdgeInsets.all(12.0),
+                                        child: SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: customColors().textSecondary,
+                                          ),
+                                        ),
+                                      )
+                                      : IconButton(
+                                        icon: Icon(
+                                          Icons.my_location,
+                                          size: 20,
+                                          color: customColors().textSecondary,
+                                        ),
+                                        onPressed: _onGpsIconPressed,
+                                        tooltip: 'Use current location',
+                                      ),
+                              suggestions: locations,
+                              isLoading: _isLoading,
+                              onSearchChanged: _onSearchChanged,
                             ),
-                          ),
-                        )
-                        : IconButton(
-                          icon: Icon(
-                            Icons.my_location,
-                            size: 20,
-                            color: customColors().textSecondary,
-                          ),
-                          onPressed: _onGpsIconPressed,
-                          tooltip: 'Use current location',
+                            const SizedBox(height: 12),
+                            LocationSearchField(
+                              controller: _toController,
+                              label: 'To',
+                              prefixIcon: Icon(
+                                Icons.flag_outlined,
+                                size: 20,
+                                color: customColors().textSecondary,
+                              ),
+                              suggestions: locations,
+                              isLoading: _isLoading,
+                              onSearchChanged: _onSearchChanged,
+                            ),
+                          ],
                         ),
-                suggestions: locations,
-                isLoading: _isLoading,
-                onSearchChanged: _onSearchChanged,
               ),
-              const SizedBox(height: 12),
-              LocationSearchField(
-                controller: _toController,
-                label: 'To',
-                prefixIcon: Icon(
-                  Icons.flag_outlined,
-                  size: 20,
-                  color: customColors().textSecondary,
-                ),
-                suggestions: locations,
-                isLoading: _isLoading,
-                onSearchChanged: _onSearchChanged,
-              ),
+
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -209,26 +250,34 @@ class _HomeState extends State<Home> {
                       )
                       : SizedBox(),
 
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          _isTracking ? Colors.red : customColors().textPrimary,
-                      foregroundColor: customColors().background,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                  Opacity(
+                    opacity: validateisTracking() ? 1 : 0.5,
+                    child: AbsorbPointer(
+                      absorbing: !validateisTracking(),
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              _isTracking
+                                  ? Colors.red
+                                  : customColors().textPrimary,
+                          foregroundColor: customColors().background,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onPressed: _toggleTracking,
+                        label: Text(
+                          _isTracking ? 'Stop Tracking' : 'Start Tracking',
+                        ),
+                        icon: Icon(_isTracking ? Icons.stop : Icons.play_arrow),
+                        iconAlignment: IconAlignment.end,
                       ),
                     ),
-                    onPressed: _toggleTracking,
-                    label: Text(
-                      _isTracking ? 'Stop Tracking' : 'Start Tracking',
-                    ),
-                    icon: Icon(_isTracking ? Icons.stop : Icons.play_arrow),
-                    iconAlignment: IconAlignment.end,
                   ),
                 ],
               ),
               const SizedBox(height: 20),
-              // Trip Details Section
+
               if (_isTracking || TripDetailsManager.instance.isTracking)
                 const TripInfoDisplay(),
             ],

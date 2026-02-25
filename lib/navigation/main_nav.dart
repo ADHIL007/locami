@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:locami/core/model/appstatus_model.dart';
 import 'package:locami/dbManager/app-status_manager.dart';
 import 'package:locami/screens/home.dart';
 import 'package:locami/screens/initial_home.dart';

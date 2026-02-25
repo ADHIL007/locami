@@ -67,7 +67,7 @@ class LocationSearchField extends StatelessWidget {
         );
       },
       optionsViewBuilder: (context, onSelected, options) {
-        if (options.isNotEmpty && options.first == '_LOADING_') {
+        if (isLoading) {
           return Material(
             color: customColors().background,
             elevation: 4,
@@ -75,23 +75,29 @@ class LocationSearchField extends StatelessWidget {
           );
         }
 
+        if (suggestions.isEmpty) return const SizedBox.shrink();
+
         return Material(
           color: customColors().background,
           elevation: 4,
-          child: ListView(
-            padding: EdgeInsets.zero,
-            shrinkWrap: true,
-            children:
-                options.map((o) {
-                  return ListTile(
-                    dense: true,
-                    title: Text(
-                      o,
-                      style: TextStyle(color: customColors().textPrimary),
-                    ),
-                    onTap: () => onSelected(o),
-                  );
-                }).toList(),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 250),
+            child: ListView.builder(
+              padding: EdgeInsets.zero,
+              shrinkWrap: true,
+              itemCount: suggestions.length,
+              itemBuilder: (context, index) {
+                final o = suggestions[index];
+                return ListTile(
+                  dense: true,
+                  title: Text(
+                    o,
+                    style: TextStyle(color: customColors().textPrimary),
+                  ),
+                  onTap: () => onSelected(o),
+                );
+              },
+            ),
           ),
         );
       },

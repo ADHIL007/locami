@@ -26,7 +26,7 @@ class TripInfoDisplay extends StatelessWidget {
         }
 
         final speedKmh = (details.speed * 3.6);
-        final distanceKm = (details.distanceTraveled ?? 0) / 1000;
+        final remainingKm = (details.remainingDistance ?? 0) / 1000;
         final gForce = (details.acceleration ?? 0) / 9.81;
         final activityIcon = _getActivityIcon(gForce, speedKmh);
         final activityLabel = _getActivityLabel(gForce, speedKmh);
@@ -48,8 +48,8 @@ class TripInfoDisplay extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _bigMetric(
-                    label: "Distance",
-                    value: distanceKm.toStringAsFixed(2),
+                    label: "Remaining",
+                    value: remainingKm.toStringAsFixed(2),
                     unit: "km",
                   ),
                   Column(
