@@ -279,7 +279,10 @@ class _HomeState extends State<Home> {
                 children: [
                   Text(
                     label,
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                    style: TextStyle(
+                      color: customColors().textSecondary,
+                      fontSize: 12,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   ValueListenableBuilder<TextEditingValue>(
@@ -300,7 +303,11 @@ class _HomeState extends State<Home> {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+            Icon(
+              Icons.chevron_right,
+              color: customColors().textSecondary,
+              size: 20,
+            ),
           ],
         ),
       ),
@@ -354,9 +361,12 @@ class _HomeState extends State<Home> {
             elevation: 0,
           ),
           icon: const Icon(Icons.play_arrow, size: 18),
-          label: const Text(
+          label: Text(
             "Start Tracking",
-            style: TextStyle(fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: customColors().textPrimary,
+            ),
           ),
         ),
       ),
@@ -448,8 +458,8 @@ class _LocationSearchSheetState extends State<_LocationSearchSheet> {
     return Container(
       height: MediaQuery.of(context).size.height * 0.8,
       padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        color: Color(0xFF151515),
+      decoration: BoxDecoration(
+        color: customColors().background,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(

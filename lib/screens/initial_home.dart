@@ -5,7 +5,7 @@ import 'package:locami/core/dataset/country_list.dart';
 import 'package:locami/core/model/appstatus_model.dart';
 import 'package:locami/dbManager/userModel_manager.dart';
 import 'package:locami/screens/home.dart';
-import 'package:locami/theme/app_text_style.dart';
+import 'package:locami/theme/app_theme.dart';
 import 'package:locami/theme/them_provider.dart';
 import 'package:provider/provider.dart';
 
@@ -136,9 +136,7 @@ class _InitialHomeState extends State<InitialHome> {
     final accentColor = context.watch<ThemeProvider>().accentColor;
 
     return Scaffold(
-      backgroundColor: const Color(
-        0xFF0E0E0E,
-      ), // Always dark for onboarding as per screenshot
+      backgroundColor: customColors().background,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
@@ -149,11 +147,11 @@ class _InitialHomeState extends State<InitialHome> {
               Row(
                 children: [
                   Icon(Icons.location_on, color: accentColor, size: 28),
-                  const SizedBox(width: 8),
-                  const Text(
+                  SizedBox(width: 8),
+                  Text(
                     "Locami",
                     style: TextStyle(
-                      color: Colors.white,
+                      color: customColors().textPrimary,
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
                     ),
@@ -190,7 +188,9 @@ class _InitialHomeState extends State<InitialHome> {
                           color:
                               i == index
                                   ? accentColor
-                                  : Colors.grey.withOpacity(0.3),
+                                  : customColors().textSecondary.withOpacity(
+                                    0.3,
+                                  ),
                         ),
                       );
                     }),
@@ -199,7 +199,7 @@ class _InitialHomeState extends State<InitialHome> {
                   Text(
                     "Step ${index + 1} of 3",
                     style: TextStyle(
-                      color: Colors.grey.withOpacity(0.6),
+                      color: customColors().textSecondary,
                       fontSize: 12,
                     ),
                   ),
@@ -222,17 +222,17 @@ class _InitialHomeState extends State<InitialHome> {
                         children: [
                           Text(
                             index == 0 ? "Continue" : "Next",
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: customColors().buttonTextColor,
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const Positioned(
+                          Positioned(
                             right: 20,
                             child: Icon(
                               Icons.chevron_right,
-                              color: Colors.white,
+                              color: customColors().buttonTextColor,
                             ),
                           ),
                         ],
@@ -255,8 +255,8 @@ class _InitialHomeState extends State<InitialHome> {
       children: [
         Text(
           title,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: customColors().textPrimary,
             fontSize: 28,
             fontWeight: FontWeight.bold,
           ),
@@ -264,7 +264,7 @@ class _InitialHomeState extends State<InitialHome> {
         const SizedBox(height: 8),
         Text(
           subtitle,
-          style: TextStyle(color: Colors.grey.withOpacity(0.8), fontSize: 16),
+          style: TextStyle(color: customColors().textSecondary, fontSize: 16),
         ),
         const SizedBox(height: 32),
       ],
@@ -278,18 +278,21 @@ class _InitialHomeState extends State<InitialHome> {
         _buildStepHeader("What's your name?", "Enter your name to continue."),
         Container(
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
+            color: customColors().borderColor.withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: TextField(
             controller: nameController,
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
+            style: TextStyle(color: customColors().textPrimary),
+            decoration: InputDecoration(
               hintText: "Name",
-              hintStyle: TextStyle(color: Colors.grey),
-              prefixIcon: Icon(Icons.person, color: Colors.grey),
+              hintStyle: TextStyle(color: customColors().textSecondary),
+              prefixIcon: Icon(
+                Icons.person,
+                color: customColors().textSecondary,
+              ),
               border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(vertical: 16),
+              contentPadding: const EdgeInsets.symmetric(vertical: 16),
             ),
             onSubmitted: (_) => validateNext(),
           ),
@@ -310,19 +313,22 @@ class _InitialHomeState extends State<InitialHome> {
         // Search bar
         Container(
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
+            color: customColors().borderColor.withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: TextField(
             controller: countrySearchController,
             onChanged: _filterCountries,
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
+            style: TextStyle(color: customColors().textPrimary),
+            decoration: InputDecoration(
               hintText: "Search country",
-              hintStyle: TextStyle(color: Colors.grey),
-              prefixIcon: Icon(Icons.search, color: Colors.grey),
+              hintStyle: TextStyle(color: customColors().textSecondary),
+              prefixIcon: Icon(
+                Icons.search,
+                color: customColors().textSecondary,
+              ),
               border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(vertical: 16),
+              contentPadding: const EdgeInsets.symmetric(vertical: 16),
             ),
           ),
         ),
@@ -334,7 +340,7 @@ class _InitialHomeState extends State<InitialHome> {
             itemCount: filteredCountries.length,
             separatorBuilder:
                 (context, index) =>
-                    Divider(color: Colors.white.withOpacity(0.05), height: 1),
+                    Divider(color: customColors().borderColor, height: 1),
             itemBuilder: (context, index) {
               final country = filteredCountries[index];
               final isSelected = userdata['country'] == country;
@@ -351,7 +357,10 @@ class _InitialHomeState extends State<InitialHome> {
                 title: Text(
                   country,
                   style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.grey,
+                    color:
+                        isSelected
+                            ? customColors().textPrimary
+                            : customColors().textSecondary,
                     fontSize: 16,
                     fontWeight:
                         isSelected ? FontWeight.bold : FontWeight.normal,
@@ -411,10 +420,13 @@ class _InitialHomeState extends State<InitialHome> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
-          color: mode == AppThemeMode.light ? Colors.white : Colors.black,
+          color:
+              mode == AppThemeMode.light
+                  ? lightTheme.background
+                  : darkTheme.background,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? accentColor : Colors.white.withOpacity(0.05),
+            color: isSelected ? accentColor : customColors().borderColor,
             width: 2,
           ),
           boxShadow:
@@ -434,15 +446,18 @@ class _InitialHomeState extends State<InitialHome> {
               icon,
               color:
                   mode == AppThemeMode.light
-                      ? Colors.grey[800]
-                      : Colors.grey[400],
+                      ? lightTheme.textPrimary
+                      : darkTheme.textPrimary,
               size: 28,
             ),
             const SizedBox(width: 16),
             Text(
               label,
               style: TextStyle(
-                color: mode == AppThemeMode.light ? Colors.black : Colors.white,
+                color:
+                    mode == AppThemeMode.light
+                        ? lightTheme.textPrimary
+                        : darkTheme.textPrimary,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),

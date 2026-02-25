@@ -37,7 +37,7 @@ class SettingsBottomSheet extends StatelessWidget {
               ),
               IconButton(
                 onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close, color: Colors.grey),
+                icon: Icon(Icons.close, color: customColors().textSecondary),
               ),
             ],
           ),
@@ -115,7 +115,10 @@ class SettingsBottomSheet extends StatelessWidget {
               "Alert Sound",
               style: TextStyle(color: customColors().textPrimary),
             ),
-            trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+            trailing: Icon(
+              Icons.chevron_right,
+              color: customColors().textSecondary,
+            ),
             onTap: () {},
           ),
           const SizedBox(height: 12),
@@ -147,16 +150,16 @@ class SettingsBottomSheet extends StatelessWidget {
               "Delete All Data?",
               style: TextStyle(color: customColors().textPrimary),
             ),
-            content: const Text(
+            content: Text(
               "This will permanently delete all your trip history and profile data. This action cannot be undone.",
-              style: TextStyle(color: Colors.grey),
+              style: TextStyle(color: customColors().textSecondary),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text(
+                child: Text(
                   "Cancel",
-                  style: TextStyle(color: Colors.grey),
+                  style: TextStyle(color: customColors().textSecondary),
                 ),
               ),
               TextButton(
@@ -187,7 +190,7 @@ class SettingsBottomSheet extends StatelessWidget {
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: const TextStyle(color: Colors.grey, fontSize: 14),
+      style: TextStyle(color: customColors().textSecondary, fontSize: 14),
     );
   }
 
@@ -227,14 +230,17 @@ class SettingsBottomSheet extends StatelessWidget {
             children: [
               Icon(
                 icon,
-                color: isSelected ? accentColor : Colors.grey,
+                color: isSelected ? accentColor : customColors().textSecondary,
                 size: 20,
               ),
               const SizedBox(height: 4),
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? customColors().textPrimary : Colors.grey,
+                  color:
+                      isSelected
+                          ? customColors().textPrimary
+                          : customColors().textSecondary,
                   fontSize: 12,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
