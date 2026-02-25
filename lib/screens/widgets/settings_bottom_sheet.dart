@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:locami/dbManager/app-status_manager.dart';
+import 'package:locami/dbManager/trip_details_manager.dart';
+import 'package:locami/dbManager/userModel_manager.dart';
+import 'package:locami/screens/initial_home.dart';
 import 'package:locami/theme/them_provider.dart';
 import 'package:provider/provider.dart';
 
@@ -114,9 +118,69 @@ class SettingsBottomSheet extends StatelessWidget {
             trailing: const Icon(Icons.chevron_right, color: Colors.grey),
             onTap: () {},
           ),
+          const SizedBox(height: 12),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(
+              Icons.delete_forever_outlined,
+              color: Colors.red,
+            ),
+            title: const Text(
+              "Delete All Data",
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
+            ),
+            onTap: () => _showDeleteConfirmation(context),
+          ),
           const SizedBox(height: 20),
         ],
       ),
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: Theme.of(context).cardColor,
+            title: Text(
+              "Delete All Data?",
+              style: TextStyle(color: customColors().textPrimary),
+            ),
+            content: const Text(
+              "This will permanently delete all your trip history and profile data. This action cannot be undone.",
+              style: TextStyle(color: Colors.grey),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  "Cancel",
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+              TextButton(
+                onPressed: () async {
+                  // Clear data
+                  await TripDetailsManager.instance.clearLogs();
+                  await UserModelManager.instance.clear();
+                  await AppStatusManager.instance.reset();
+
+                  if (context.mounted) {
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (_) => const InitialHome()),
+                      (route) => false,
+                    );
+                  }
+                },
+                child: const Text(
+                  "Delete",
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
     );
   }
 

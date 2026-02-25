@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:locami/core/model/user_model.dart';
 import 'package:locami/dbManager/app-status_manager.dart';
 import 'package:locami/core/dataset/country_list.dart';
@@ -20,26 +19,63 @@ class InitialHome extends StatefulWidget {
 class _InitialHomeState extends State<InitialHome> {
   int index = 0;
   final TextEditingController nameController = TextEditingController();
-  final TextEditingController countryController = TextEditingController();
+  final TextEditingController countrySearchController = TextEditingController();
   List<String> countries = [];
-  final appStatus = AppStatusManager.instance.status;
+  List<String> filteredCountries = [];
   bool isSubmitted = false;
+
   Map<String, dynamic> userdata = {
     'name': '',
     'country': '',
-    'theme': AppThemeMode.light,
+    'theme': AppThemeMode.dark, // Default to dark as per screenshot preference
+  };
+
+  final Map<String, String> flagMapping = {
+    'India': '🇮🇳',
+    'United States': '🇺🇸',
+    'United Kingdom': '🇬🇧',
+    'Canada': '🇨🇦',
+    'Australia': '🇦🇺',
+    'Brazil': '🇧🇷',
+    'Japan': '🇯🇵',
+    'Germany': '🇩🇪',
+    'France': '🇫🇷',
+    'China': '🇨🇳',
+    'Russia': '🇷🇺',
+    'Italy': '🇮🇹',
+    'Spain': '🇪🇸',
+    'Pakistan': '🇵🇰',
+    'Bangladesh': '🇧🇩',
   };
 
   @override
   void initState() {
     countries =
         CountryData().countryList.map((c) => c['name'] as String).toList();
+    filteredCountries = countries;
 
-    final themeProvider = ThemeProvider.instance;
-
-    userdata['theme'] = themeProvider.theme;
+    // Get current theme from provider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final themeProvider = context.read<ThemeProvider>();
+      setState(() {
+        userdata['theme'] = themeProvider.theme;
+      });
+    });
 
     super.initState();
+  }
+
+  void _filterCountries(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        filteredCountries = countries;
+      } else {
+        filteredCountries =
+            countries
+                .where((c) => c.toLowerCase().contains(query.toLowerCase()))
+                .toList();
+      }
+    });
   }
 
   void validateNext() async {
@@ -48,31 +84,25 @@ class _InitialHomeState extends State<InitialHome> {
         showSnack('Please enter your name');
         return;
       }
-
       setState(() {
         userdata['name'] = nameController.text.trim();
         index++;
       });
     } else if (index == 1) {
-      if (countryController.text.trim().isEmpty) {
+      if (userdata['country'].toString().isEmpty) {
         showSnack('Please select your country');
         return;
       }
-
-      if (!countries.contains(countryController.text.trim())) {
-        showSnack('Please choose a valid country from the list');
-        return;
-      }
-
       setState(() {
-        userdata['country'] = countryController.text.trim();
         index++;
       });
-    }
-    if (index == 2) {
+    } else if (index == 2) {
+      final themeProvider = context.read<ThemeProvider>();
+
       await AppStatusManager.instance.updateStatus(
         AppStatus(
           theme: userdata['theme'] == AppThemeMode.dark ? 'dark' : 'light',
+          accentColor: themeProvider.accentColor.value,
           isFirstTimeUser: false,
           isLoggedIn: true,
         ),
@@ -101,307 +131,327 @@ class _InitialHomeState extends State<InitialHome> {
       );
   }
 
-  List<Widget> get pages => [
-    inputName('Your name please?'),
-    inputCountry(),
-    inputTheme(ThemeProvider.instance.accentColor),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final accentColor = context.watch<ThemeProvider>().accentColor;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (index > 0)
-              Align(
-                alignment: Alignment.topLeft,
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      index = 0;
-                    });
-                  },
-                  child: Text(
-                    'Hi ${nameController.text}!',
-                    style: AppTextStyles.headline.copyWith(
-                      color: customColors().textPrimary,
+
+    return Scaffold(
+      backgroundColor: const Color(
+        0xFF0E0E0E,
+      ), // Always dark for onboarding as per screenshot
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                children: [
+                  Icon(Icons.location_on, color: accentColor, size: 28),
+                  const SizedBox(width: 8),
+                  const Text(
+                    "Locami",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 48),
+
+              // Progress and Page Content
+              Expanded(
+                child: IndexedStack(
+                  index: index,
+                  children: [
+                    _buildNameStep(accentColor),
+                    _buildCountryStep(accentColor),
+                    _buildThemeStep(accentColor),
+                  ],
                 ),
               ),
-            const Spacer(),
-            ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: double.infinity,
-                minHeight: 100,
-              ),
-              child: IndexedStack(index: index, children: pages),
-            ),
-            const Spacer(),
-            if (index < 3)
-              Align(
-                alignment: Alignment.centerRight,
-                child: ElevatedButton(
-                  onPressed: validateNext,
-                  style: ButtonStyle(
-                    backgroundColor: WidgetStateProperty.all(accentColor),
+
+              // Footer
+              Column(
+                children: [
+                  // Step Indicator Dots
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(3, (i) {
+                      return Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color:
+                              i == index
+                                  ? accentColor
+                                  : Colors.grey.withOpacity(0.3),
+                        ),
+                      );
+                    }),
                   ),
-                  child: Text(
-                    index == 2 ? 'Done' : "Next",
-                    style: AppTextStyles.buttonText.copyWith(
-                      color: customColors().buttonTextColor,
+                  const SizedBox(height: 12),
+                  Text(
+                    "Step ${index + 1} of 3",
+                    style: TextStyle(
+                      color: Colors.grey.withOpacity(0.6),
+                      fontSize: 12,
                     ),
                   ),
-                ),
+                  const SizedBox(height: 24),
+
+                  // Main Button
+                  GestureDetector(
+                    onTap: validateNext,
+                    child: Container(
+                      height: 56,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [accentColor, accentColor.withOpacity(0.8)],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Text(
+                            index == 0 ? "Continue" : "Next",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const Positioned(
+                            right: 20,
+                            child: Icon(
+                              Icons.chevron_right,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-          ],
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget inputName(String text) {
+  Widget _buildStepHeader(String title, String subtitle) {
     return Column(
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(color: customColors().borderColor, width: 1),
-            ),
-          ),
-          child: TextField(
-            onSubmitted: (_) => validateNext(),
-
-            cursorColor: customColors().textPrimary,
-            autofocus: true,
-            keyboardType: TextInputType.name,
-            textInputAction: TextInputAction.next,
-
-            controller: nameController,
-            textAlign: TextAlign.center,
-            style: AppTextStyles.question.copyWith(
-              color: customColors().textPrimary,
-            ),
-            decoration: InputDecoration(
-              hintText: text,
-              hintStyle: AppTextStyles.question.copyWith(
-                color: customColors().textSecondary,
-              ),
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget inputCountry() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            color: customColors().background,
-            border: Border(
-              bottom: BorderSide(color: customColors().borderColor, width: 1),
-            ),
-          ),
-          child: TypeAheadField<String>(
-            suggestionsCallback: (pattern) {
-              if (pattern.isEmpty) return [];
-
-              final query = pattern.toLowerCase();
-
-              final startsWith =
-                  countries
-                      .where((c) => c.toLowerCase().startsWith(query))
-                      .toList();
-
-              final contains =
-                  countries
-                      .where(
-                        (c) =>
-                            !c.toLowerCase().startsWith(query) &&
-                            c.toLowerCase().contains(query),
-                      )
-                      .toList();
-
-              return [...startsWith, ...contains];
-            },
-
-            itemBuilder: (context, suggestion) {
-              return Container(
-                decoration: BoxDecoration(
-                  color: customColors().background,
-                  border: Border(
-                    bottom: BorderSide(
-                      color: customColors().borderColor.withOpacity(0.2),
-                      width: 1,
-                    ),
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 12,
-                    horizontal: 16,
-                  ),
-                  child: Text(
-                    suggestion,
-                    style: AppTextStyles.body.copyWith(
-                      color: customColors().textPrimary,
-                    ),
-                  ),
-                ),
-              );
-            },
-            onSelected: (suggestion) {
-              setState(() {
-                countryController.text = suggestion;
-                userdata['country'] = suggestion;
-              });
-            },
-            hideOnEmpty: true,
-            builder: (context, typeAheadController, focusNode) {
-              typeAheadController.text = countryController.text;
-              if (typeAheadController.text != countryController.text) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  typeAheadController.text = countryController.text;
-                });
-              }
-
-              if (index == 1) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (!focusNode.hasFocus) {
-                    focusNode.requestFocus();
-                  }
-                });
-              }
-
-              return TextField(
-                autofocus: true,
-                cursorColor: customColors().textPrimary,
-                keyboardType: TextInputType.name,
-                textInputAction: TextInputAction.done,
-
-                controller: typeAheadController,
-                focusNode: focusNode,
-                textAlign: TextAlign.center,
-                style: AppTextStyles.question.copyWith(
-                  color: customColors().textPrimary,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Enter your country ?',
-                  hintStyle: AppTextStyles.question.copyWith(
-                    color: customColors().textSecondary,
-                  ),
-
-                  prefixIconConstraints: const BoxConstraints(
-                    minWidth: 0,
-                    minHeight: 0,
-                  ),
-                  border: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                ),
-                onChanged: (value) {
-                  countryController.text = value;
-                  userdata['country'] = value;
-                },
-              );
-            },
-            decorationBuilder: (context, child) {
-              return Material(
-                type: MaterialType.card,
-                elevation: 4,
-                borderRadius: BorderRadius.circular(4),
-                color: customColors().background,
-                child: child,
-              );
-            },
-            offset: const Offset(0, 12),
-            constraints: const BoxConstraints(maxHeight: 300),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget inputTheme(Color accentColor) {
-    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Choose your theme',
-          style: AppTextStyles.question.copyWith(
-            color: customColors().textPrimary,
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          subtitle,
+          style: TextStyle(color: Colors.grey.withOpacity(0.8), fontSize: 16),
+        ),
+        const SizedBox(height: 32),
+      ],
+    );
+  }
+
+  Widget _buildNameStep(Color accentColor) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildStepHeader("What's your name?", "Enter your name to continue."),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: TextField(
+            controller: nameController,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+              hintText: "Name",
+              hintStyle: TextStyle(color: Colors.grey),
+              prefixIcon: Icon(Icons.person, color: Colors.grey),
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(vertical: 16),
+            ),
+            onSubmitted: (_) => validateNext(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCountryStep(Color accentColor) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildStepHeader(
+          "Select your country",
+          "This helps display details accurately.",
+        ),
+
+        // Search bar
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: TextField(
+            controller: countrySearchController,
+            onChanged: _filterCountries,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+              hintText: "Search country",
+              hintStyle: TextStyle(color: Colors.grey),
+              prefixIcon: Icon(Icons.search, color: Colors.grey),
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(vertical: 16),
+            ),
           ),
         ),
         const SizedBox(height: 20),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            ElevatedButton.icon(
-              onPressed: () {
-                setState(() {
-                  userdata['theme'] = AppThemeMode.light;
-                  ThemeProvider.instance.setTheme(AppThemeMode.light);
-                });
-              },
 
-              icon: Icon(Icons.wb_sunny, color: Colors.orange[700]),
-              label: Text(
-                'Light',
-                style: AppTextStyles.buttonText.copyWith(
-                  color: customColors().buttonTextColor,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: customColors().buttonColor,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                side:
-                    userdata['theme'] == AppThemeMode.light
-                        ? BorderSide(color: accentColor, width: 2)
-                        : BorderSide.none,
-              ),
-            ),
-            ElevatedButton.icon(
-              onPressed: () {
-                setState(() {
-                  userdata['theme'] = AppThemeMode.dark;
-                  ThemeProvider.instance.setTheme(AppThemeMode.dark);
-                });
-              },
+        // List of countries
+        Expanded(
+          child: ListView.separated(
+            itemCount: filteredCountries.length,
+            separatorBuilder:
+                (context, index) =>
+                    Divider(color: Colors.white.withOpacity(0.05), height: 1),
+            itemBuilder: (context, index) {
+              final country = filteredCountries[index];
+              final isSelected = userdata['country'] == country;
+              final flag = flagMapping[country] ?? '🏳️';
 
-              icon: Icon(Icons.nightlight_round, color: Colors.indigo[300]),
-              label: Text(
-                'Dark',
-                style: AppTextStyles.buttonText.copyWith(
-                  color: customColors().buttonTextColor,
+              return ListTile(
+                onTap: () {
+                  setState(() {
+                    userdata['country'] = country;
+                  });
+                },
+                contentPadding: EdgeInsets.zero,
+                leading: Text(flag, style: const TextStyle(fontSize: 24)),
+                title: Text(
+                  country,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : Colors.grey,
+                    fontSize: 16,
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
                 ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: customColors().buttonColor,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                side:
-                    userdata['theme'] == AppThemeMode.dark
-                        ? BorderSide(color: accentColor, width: 2)
-                        : BorderSide.none,
-              ),
-            ),
-          ],
+                trailing:
+                    isSelected ? Icon(Icons.check, color: accentColor) : null,
+              );
+            },
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _buildThemeStep(Color accentColor) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildStepHeader("Choose your theme", "Pick the app theme you prefer."),
+
+        _buildThemeCard(
+          "Light",
+          Icons.wb_sunny_outlined,
+          AppThemeMode.light,
+          accentColor,
+        ),
+        const SizedBox(height: 16),
+        _buildThemeCard(
+          "Dark",
+          Icons.dark_mode_outlined,
+          AppThemeMode.dark,
+          accentColor,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildThemeCard(
+    String label,
+    IconData icon,
+    AppThemeMode mode,
+    Color accentColor,
+  ) {
+    final isSelected = userdata['theme'] == mode;
+    final themeProvider = context.read<ThemeProvider>();
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          userdata['theme'] = mode;
+        });
+        themeProvider.setTheme(mode);
+      },
+      child: Container(
+        height: 80,
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          color: mode == AppThemeMode.light ? Colors.white : Colors.black,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? accentColor : Colors.white.withOpacity(0.05),
+            width: 2,
+          ),
+          boxShadow:
+              isSelected && mode == AppThemeMode.dark
+                  ? [
+                    BoxShadow(
+                      color: accentColor.withOpacity(0.2),
+                      blurRadius: 10,
+                      spreadRadius: 2,
+                    ),
+                  ]
+                  : null,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color:
+                  mode == AppThemeMode.light
+                      ? Colors.grey[800]
+                      : Colors.grey[400],
+              size: 28,
+            ),
+            const SizedBox(width: 16),
+            Text(
+              label,
+              style: TextStyle(
+                color: mode == AppThemeMode.light ? Colors.black : Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const Spacer(),
+            if (isSelected) Icon(Icons.check, color: accentColor, size: 24),
+          ],
+        ),
+      ),
     );
   }
 }

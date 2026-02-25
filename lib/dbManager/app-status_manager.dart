@@ -39,4 +39,19 @@ class AppStatusManager {
     );
     await updateStatus(updated);
   }
+
+  Future<void> reset() async {
+    await updateStatus(
+      const AppStatus(
+        isFirstTimeUser: true,
+        isLoggedIn: false,
+        isTripStarted: false,
+        isTripEnded: false,
+        isInternetOn: false,
+        isGpsOn: false,
+        theme: 'system',
+        accentColor: 4293212469,
+      ),
+    );
+  }
 }
