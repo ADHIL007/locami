@@ -9,7 +9,9 @@ Designed especially for commuters and bus travelers, Locami ensures you never mi
 
 ## Design Concept
 
-<img width="624" height="1024" alt="locami" src="https://github.com/user-attachments/assets/77e428e7-b0a4-431c-b842-3195e6918140" />
+<img width="4990" height="2436" alt="Untitled design (1)" src="https://github.com/user-attachments/assets/39883a84-405c-43b0-b577-74fd3bd46bc7" />
+
+<img width="4990" height="2436" alt="Untitled design (2)" src="https://github.com/user-attachments/assets/9000a786-32ee-4488-89fc-f987b27978fc" />
 
 ## Features
 
