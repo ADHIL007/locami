@@ -6,6 +6,8 @@ import 'package:locami/screens/initial_home.dart';
 import 'package:locami/theme/them_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 class SettingsBottomSheet extends StatelessWidget {
   const SettingsBottomSheet({super.key});
@@ -148,6 +150,8 @@ class SettingsBottomSheet extends StatelessWidget {
     );
   }
 
+  static final AudioPlayer _audioPlayer = AudioPlayer();
+
   void _showSoundPicker(BuildContext context) {
     final themeProvider = context.read<ThemeProvider>();
     final accentColor = themeProvider.accentColor;
@@ -196,11 +200,34 @@ class SettingsBottomSheet extends StatelessWidget {
                   themeProvider,
                 ),
                 const SizedBox(height: 12),
+                const Divider(),
+                const SizedBox(height: 12),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.library_music_outlined, color: accentColor),
+                  title: Text(
+                    "Pick from Device",
+                    style: TextStyle(color: customColors().textPrimary),
+                  ),
+                  subtitle: Text(
+                    themeProvider.isCustomSound
+                        ? themeProvider.alertSoundName
+                        : "Select local audio file",
+                    style: TextStyle(
+                      color: customColors().textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.add, size: 20),
+                  onTap: () => _pickCustomFile(context),
+                ),
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
                       FlutterRingtonePlayer().stop();
+                      _audioPlayer.stop();
                       Navigator.pop(context);
                     },
                     style: ElevatedButton.styleFrom(
@@ -241,6 +268,7 @@ class SettingsBottomSheet extends StatelessWidget {
       onTap: () {
         provider.setAlertSound(key, name);
         // Play sample
+        _audioPlayer.stop();
         FlutterRingtonePlayer().stop();
         if (key == 'alarm') {
           FlutterRingtonePlayer().playAlarm();
@@ -251,6 +279,27 @@ class SettingsBottomSheet extends StatelessWidget {
         }
       },
     );
+  }
+
+  Future<void> _pickCustomFile(BuildContext context) async {
+    final themeProvider = context.read<ThemeProvider>();
+
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.audio,
+      allowMultiple: false,
+    );
+
+    if (result != null && result.files.single.path != null) {
+      final path = result.files.single.path!;
+      final name = result.files.single.name;
+
+      themeProvider.setCustomSound(path, name);
+
+      // Play sample
+      FlutterRingtonePlayer().stop();
+      _audioPlayer.stop();
+      await _audioPlayer.play(DeviceFileSource(path));
+    }
   }
 
   void _showDeleteConfirmation(BuildContext context) {

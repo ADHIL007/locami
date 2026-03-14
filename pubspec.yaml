@@ -23,6 +23,8 @@ dependencies:
   cached_network_image: ^3.4.1
   flutter_ringtone_player: ^4.0.0+4
   audioplayers: ^6.1.1
+  file_picker: ^8.1.4
+  flutter_background_service: ^5.0.10
 
 dev_dependencies:
   flutter_test:

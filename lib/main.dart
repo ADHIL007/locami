@@ -6,9 +6,11 @@ import 'package:locami/navigation/main_nav.dart';
 import 'package:locami/theme/app_theme.dart';
 import 'package:locami/theme/them_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:locami/core/utils/background_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeService();
 
   final appStatus = await AppStatusManager.instance.status;
 

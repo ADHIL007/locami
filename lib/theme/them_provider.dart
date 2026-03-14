@@ -24,6 +24,8 @@ class ThemeProvider extends ChangeNotifier {
   Color accentColor = const Color(0xFFE53935);
   String alertSound = 'alarm';
   String alertSoundName = 'Default Alarm';
+  bool isCustomSound = false;
+  String? customSoundPath;
 
   void _applyTheme() {
     if (isMatchWithSystem) {
@@ -79,6 +81,15 @@ class ThemeProvider extends ChangeNotifier {
   void setAlertSound(String sound, String name) {
     alertSound = sound;
     alertSoundName = name;
+    isCustomSound = false;
+    _saveStatus();
+    notifyListeners();
+  }
+
+  void setCustomSound(String path, String name) {
+    customSoundPath = path;
+    alertSoundName = name;
+    isCustomSound = true;
     _saveStatus();
     notifyListeners();
   }
@@ -94,6 +105,8 @@ class ThemeProvider extends ChangeNotifier {
         accentColor: accentColor.value,
         alertSound: alertSound,
         alertSoundName: alertSoundName,
+        isCustomSound: isCustomSound,
+        customSoundPath: customSoundPath,
       ),
     );
   }
@@ -108,6 +121,8 @@ class ThemeProvider extends ChangeNotifier {
     accentColor = Color(status.accentColor);
     alertSound = status.alertSound;
     alertSoundName = status.alertSoundName;
+    isCustomSound = status.isCustomSound;
+    customSoundPath = status.customSoundPath;
     notifyListeners();
   }
 }

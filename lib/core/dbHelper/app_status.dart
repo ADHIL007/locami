@@ -20,7 +20,7 @@ class AppStatusDbHelper {
     final path = join(await getDatabasesPath(), 'app_status.db');
     return openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -40,6 +40,14 @@ class AppStatusDbHelper {
         'ALTER TABLE $tableName ADD COLUMN alert_sound_name TEXT NOT NULL DEFAULT "Default Alarm"',
       );
     }
+    if (oldVersion < 4) {
+      await db.execute(
+        'ALTER TABLE $tableName ADD COLUMN is_custom_sound INTEGER NOT NULL DEFAULT 0 CHECK (is_custom_sound IN (0,1))',
+      );
+      await db.execute(
+        'ALTER TABLE $tableName ADD COLUMN custom_sound_path TEXT',
+      );
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -55,7 +63,9 @@ class AppStatusDbHelper {
         theme TEXT NOT NULL DEFAULT 'system',
         accent_color INTEGER NOT NULL DEFAULT 4293212469,
         alert_sound TEXT NOT NULL DEFAULT 'alarm',
-        alert_sound_name TEXT NOT NULL DEFAULT 'Default Alarm'
+        alert_sound_name TEXT NOT NULL DEFAULT 'Default Alarm',
+        is_custom_sound INTEGER NOT NULL DEFAULT 0 CHECK (is_custom_sound IN (0,1)),
+        custom_sound_path TEXT
       )
     ''');
 
@@ -80,6 +90,8 @@ class AppStatusDbHelper {
       accentColor: row['accent_color'] as int,
       alertSound: row['alert_sound'] as String? ?? 'alarm',
       alertSoundName: row['alert_sound_name'] as String? ?? 'Default Alarm',
+      isCustomSound: row['is_custom_sound'] == 1,
+      customSoundPath: row['custom_sound_path'] as String?,
     );
   }
 
@@ -98,6 +110,8 @@ class AppStatusDbHelper {
       'accent_color': status.accentColor,
       'alert_sound': status.alertSound,
       'alert_sound_name': status.alertSoundName,
+      'is_custom_sound': status.isCustomSound ? 1 : 0,
+      'custom_sound_path': status.customSoundPath,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 }

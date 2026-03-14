@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:geolocator_android/geolocator_android.dart';
 import 'package:locami/core/dbHelper/trip_db.dart';
 import 'package:locami/core/geo-location-Manager/street-Manager.dart';
 import 'package:locami/core/model/trip_details_model.dart';
@@ -9,6 +10,7 @@ import 'package:locami/dbManager/userModel_manager.dart';
 
 import 'dart:math';
 import 'package:sensors_plus/sensors_plus.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 
 class TripDetailsManager {
   TripDetailsManager._internal();
@@ -47,6 +49,14 @@ class TripDetailsManager {
 
     _isTracking = true;
     isTrackingNotifier.value = true;
+    
+    // Start background service
+    try {
+      await FlutterBackgroundService().startService();
+    } catch (e) {
+      debugPrint("Error starting background service: $e");
+    }
+
     _alertDistance = alertDistance;
     _alertTriggered = false;
     alertTriggeredNotifier.value = null;
@@ -144,9 +154,14 @@ class TripDetailsManager {
 
     await _updateAddressCache();
 
-    const LocationSettings locationSettings = LocationSettings(
+    final LocationSettings locationSettings = AndroidSettings(
       accuracy: LocationAccuracy.best,
       distanceFilter: 0,
+      foregroundNotificationConfig: const ForegroundNotificationConfig(
+        notificationText: "Locami is monitoring your arrival",
+        notificationTitle: "Location Alarm Active",
+        enableWakeLock: true,
+      ),
     );
 
     _positionStreamSubscription = Geolocator.getPositionStream(
@@ -176,6 +191,9 @@ class TripDetailsManager {
 
     await _accelStreamSubscription?.cancel();
     _accelStreamSubscription = null;
+
+    // Stop background service
+    FlutterBackgroundService().invoke("stopService");
 
     _isTracking = false;
     isTrackingNotifier.value = false;

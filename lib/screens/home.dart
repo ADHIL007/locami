@@ -16,6 +16,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:locami/screens/widgets/arrival_alert.dart';
 
 class Home extends StatefulWidget {
   const Home({Key? key}) : super(key: key);
@@ -35,6 +37,7 @@ class _HomeState extends State<Home> {
   bool _showLocami = true;
 
   int _alertDistance = 500;
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
   void initState() {
@@ -66,45 +69,51 @@ class _HomeState extends State<Home> {
   void _showArrivalAlert(double distance) {
     final themeProvider = context.read<ThemeProvider>();
     final soundKey = themeProvider.alertSound;
+    final isCustom = themeProvider.isCustomSound;
+    final customPath = themeProvider.customSoundPath;
 
     // Start playing sound
-    FlutterRingtonePlayer().stop(); // Stop any previous sound before playing
-    if (soundKey == 'alarm') {
-      FlutterRingtonePlayer().playAlarm(looping: true);
-    } else if (soundKey == 'ringtone') {
-      FlutterRingtonePlayer().playRingtone(looping: true);
+    _stopAllSounds();
+
+    if (isCustom && customPath != null) {
+      _audioPlayer.play(DeviceFileSource(customPath));
+      _audioPlayer.setReleaseMode(ReleaseMode.loop);
     } else {
-      FlutterRingtonePlayer().playNotification(looping: true);
+      if (soundKey == 'alarm') {
+        FlutterRingtonePlayer().playAlarm(looping: true);
+      } else if (soundKey == 'ringtone') {
+        FlutterRingtonePlayer().playRingtone(looping: true);
+      } else {
+        FlutterRingtonePlayer().playNotification(looping: true);
+      }
     }
+
+    final destination =
+        TripDetailsManager.instance.currentTripDetail.value?.destination ??
+        "Destination";
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder:
-          (context) => AlertDialog(
-            title: const Text("Arrival Alert!"),
-            content: Text(
-              "You are within ${distance.toStringAsFixed(0)} meters of your destination!",
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  FlutterRingtonePlayer().stop();
-                  Navigator.pop(context);
-                },
-                child: const Text("Got it"),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  FlutterRingtonePlayer().stop();
-                  Navigator.pop(context);
-                  _toggleTracking();
-                },
-                child: const Text("Stop Tracking"),
-              ),
-            ],
+          (context) => ArrivalAlert(
+            destination: destination,
+            onDone: () {
+              _stopAllSounds();
+              Navigator.pop(context);
+              _toggleTracking();
+            },
+            onThanks: () {
+              _stopAllSounds();
+              Navigator.pop(context);
+            },
           ),
     );
+  }
+
+  void _stopAllSounds() {
+    FlutterRingtonePlayer().stop();
+    _audioPlayer.stop();
   }
 
   void _onTrackingStatusChanged() {

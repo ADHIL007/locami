@@ -9,6 +9,8 @@ class AppStatus {
   final int accentColor;
   final String alertSound;
   final String alertSoundName;
+  final bool isCustomSound;
+  final String? customSoundPath;
 
   const AppStatus({
     this.isFirstTimeUser = true,
@@ -21,6 +23,8 @@ class AppStatus {
     this.accentColor = 0xFFE53935,
     this.alertSound = 'alarm',
     this.alertSoundName = 'Default Alarm',
+    this.isCustomSound = false,
+    this.customSoundPath,
   });
 
   Map<String, dynamic> toJson() => {
@@ -34,6 +38,8 @@ class AppStatus {
     'accentColor': accentColor,
     'alertSound': alertSound,
     'alertSoundName': alertSoundName,
+    'isCustomSound': isCustomSound,
+    'customSoundPath': customSoundPath,
   };
 
   factory AppStatus.fromJson(Map<String, dynamic> json) => AppStatus(
@@ -47,6 +53,8 @@ class AppStatus {
     accentColor: json['accentColor'] ?? 0xFFE53935,
     alertSound: json['alertSound'] ?? 'alarm',
     alertSoundName: json['alertSoundName'] ?? 'Default Alarm',
+    isCustomSound: json['isCustomSound'] ?? false,
+    customSoundPath: json['customSoundPath'],
   );
 
   AppStatus copyWith({
@@ -60,6 +68,8 @@ class AppStatus {
     int? accentColor,
     String? alertSound,
     String? alertSoundName,
+    bool? isCustomSound,
+    String? customSoundPath,
   }) => AppStatus(
     isFirstTimeUser: isFirstTimeUser ?? this.isFirstTimeUser,
     isTripStarted: isTripStarted ?? this.isTripStarted,
@@ -71,5 +81,7 @@ class AppStatus {
     accentColor: accentColor ?? this.accentColor,
     alertSound: alertSound ?? this.alertSound,
     alertSoundName: alertSoundName ?? this.alertSoundName,
+    isCustomSound: isCustomSound ?? this.isCustomSound,
+    customSoundPath: customSoundPath ?? this.customSoundPath,
   );
 }
