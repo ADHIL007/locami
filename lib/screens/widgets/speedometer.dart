@@ -110,7 +110,7 @@ class _SpeedometerPainter extends CustomPainter {
     );
 
     // Draw progress arc
-    final progressRatio = (speed / maxSpeed).clamp(0.01, 1.0);
+    final progressRatio = (speed / maxSpeed).clamp(0.0, 1.0);
     final progressSweepAngle = sweepAngle * progressRatio;
 
     final progressPaint =

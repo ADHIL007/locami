@@ -18,7 +18,8 @@ class TripInfoDisplay extends StatelessWidget {
           return const SizedBox.shrink();
         }
 
-        final speedKmh = (details.speed * 3.6);
+        final rawSpeed = details.speed < 0 ? 0.0 : details.speed;
+        final speedKmh = (rawSpeed * 3.6);
         final remainingKm = (details.remainingDistance ?? 0) / 1000;
         final activityLabel = _getActivityLabel(speedKmh);
 

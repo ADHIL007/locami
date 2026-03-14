@@ -42,6 +42,12 @@ class TripDetailsManager {
 
     _isTracking = true;
     isTrackingNotifier.value = true;
+    
+    _sourceLat = null;
+    _sourceLon = null;
+    _destinationLat = null;
+    _destinationLon = null;
+    _totalTripDistance = null;
 
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {

@@ -76,7 +76,7 @@ class TripHistoryCard extends StatelessWidget {
                 ),
                 _buildStat(
                   Icons.speed,
-                  "${(trip.speed * 3.6).toStringAsFixed(0)} km/h",
+                  "${((trip.speed < 0 ? 0.0 : trip.speed) * 3.6).toStringAsFixed(0)} km/h",
                   "Avg Speed",
                 ),
                 _buildStat(

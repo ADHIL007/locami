@@ -33,19 +33,21 @@ class UserModelManager {
     String? travelMode,
   }) async {
     final current = await user;
-    final updated = current.copyWith(
-      username: username,
-      country: country,
-      isTravelStarted: isTravelStarted,
-      isTravelEnded: isTravelEnded,
-      startTime: startTime,
-      endTime: endTime,
-      totalTravel: totalTravel,
-      fromStreet: fromStreet,
-      destinationStreet: destinationStreet,
-      destinationLatitude: destinationLatitude,
-      destinationLongitude: destinationLongitude,
-      travelMode: travelMode,
+    final bool streetChanged = destinationStreet != null && destinationStreet != current.destinationStreet;
+
+    final updated = UserModel(
+      username: username ?? current.username,
+      country: country ?? current.country,
+      isTravelStarted: isTravelStarted ?? current.isTravelStarted,
+      isTravelEnded: isTravelEnded ?? current.isTravelEnded,
+      startTime: startTime ?? current.startTime,
+      endTime: endTime ?? current.endTime,
+      totalTravel: totalTravel ?? current.totalTravel,
+      fromStreet: fromStreet ?? current.fromStreet,
+      destinationStreet: destinationStreet ?? current.destinationStreet,
+      destinationLatitude: streetChanged ? null : (destinationLatitude ?? current.destinationLatitude),
+      destinationLongitude: streetChanged ? null : (destinationLongitude ?? current.destinationLongitude),
+      travelMode: travelMode ?? current.travelMode,
     );
 
     await updateUser(updated);
