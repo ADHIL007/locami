@@ -2,10 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:locami/core/model/trip_details_model.dart';
 import 'package:locami/dbManager/trip_details_manager.dart';
 import 'package:locami/screens/widgets/speedometer.dart';
+import 'package:locami/core/utils/trip_simulator.dart';
 import 'package:locami/theme/them_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/foundation.dart';
 
 class TripInfoDisplay extends StatelessWidget {
+  static const bool _showSimulation =
+      true; //simulation set to false to disable simulation
+
   const TripInfoDisplay({Key? key}) : super(key: key);
 
   @override
@@ -24,15 +29,16 @@ class TripInfoDisplay extends StatelessWidget {
         final activityLabel = _getActivityLabel(speedKmh);
 
         return Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Center(
               child: SizedBox(
-                height: 250,
-                width: 250,
+                height: 200,
+                width: 200,
                 child: Speedometer(speed: speedKmh, maxSpeed: 140),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -41,7 +47,7 @@ class TripInfoDisplay extends StatelessWidget {
                 Text(
                   remainingKm.toStringAsFixed(2),
                   style: TextStyle(
-                    fontSize: 32,
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
                     color: customColors().textPrimary,
                   ),
@@ -50,56 +56,38 @@ class TripInfoDisplay extends StatelessWidget {
                 Text(
                   "km From Destination",
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 14,
                     color: customColors().textPrimary.withOpacity(0.7),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
                   Icons.gps_fixed,
-                  size: 14,
+                  size: 12,
                   color: customColors().textPrimary.withOpacity(0.5),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   "$activityLabel, GPS Active",
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 12,
                     color: customColors().textPrimary.withOpacity(0.5),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            // Divider(color: Colors.white.withOpacity(0.1), thickness: 1),
-            // const SizedBox(height: 24),
-            // _buildSectionHeader("Current Location"),
-            // const SizedBox(height: 16),
-            // _buildLocationRow(
-            //   icon: Icons.location_on_outlined,
-            //   label: "Coordinates",
-            //   value:
-            //       "${details.latitude.toStringAsFixed(4)}, ${details.longitude.toStringAsFixed(4)}",
-            //   trailing: "± ${details.accuracy.toStringAsFixed(1)} m",
-            // ),
-            // const SizedBox(height: 12),
-            // _buildLocationRow(
-            //   icon: Icons.height,
-            //   label: "Altitude",
-            //   value: "${details.altitude.toStringAsFixed(0)} m",
-            // ),
-            // const SizedBox(height: 40),
-            _buildAlertProgress(accentColor),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+
+            _buildAlertProgress(details, accentColor),
+            const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
-              height: 56,
+              height: 50,
               child: ElevatedButton(
                 onPressed: () => TripDetailsManager.instance.stopTracking(),
                 style: ElevatedButton.styleFrom(
@@ -128,7 +116,7 @@ class TripInfoDisplay extends StatelessWidget {
                     const Text(
                       "Stop Tracking",
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -136,13 +124,67 @@ class TripInfoDisplay extends StatelessWidget {
                 ),
               ),
             ),
+            if (kDebugMode && _showSimulation) ...[
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        textStyle: const TextStyle(fontSize: 11),
+                      ),
+                      onPressed: () => TripSimulator.simulateMoveTowards(),
+                      icon: const Icon(Icons.fast_forward, size: 16),
+                      label: const Text("10% Closer"),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        textStyle: const TextStyle(fontSize: 11),
+                      ),
+                      onPressed: () => TripSimulator.simulateArrival(),
+                      icon: const Icon(Icons.location_on, size: 16),
+                      label: const Text("Simulate Arrival"),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         );
       },
     );
   }
 
-  Widget _buildAlertProgress(Color accentColor) {
+  Widget _buildAlertProgress(TripDetailsModel details, Color accentColor) {
+    final alertDistance = TripDetailsManager.instance.alertDistance ?? 500.0;
+    final remaining = details.remainingDistance ?? 0.0;
+    final total =
+        details.totalDistance ?? (details.distanceTraveled ?? 0) + remaining;
+
+    double progress = 0.0;
+    if (total > 0) {
+      progress = (details.distanceTraveled ?? 0) / total;
+    }
+    progress = progress.clamp(0.0, 1.0);
+
+    String alertText;
+    if (remaining > alertDistance) {
+      final toAlert = remaining - alertDistance;
+      if (toAlert >= 1000) {
+        alertText = "${(toAlert / 1000).toStringAsFixed(1)} km";
+      } else {
+        alertText = "${toAlert.toStringAsFixed(0)} m";
+      }
+    } else {
+      alertText = "Alert Triggered";
+    }
+
     return Column(
       children: [
         Row(
@@ -157,9 +199,9 @@ class TripInfoDisplay extends StatelessWidget {
                 ),
               ),
               child: Icon(
-                Icons.download,
+                Icons.notifications_active_outlined,
                 size: 16,
-                color: customColors().textPrimary.withOpacity(0.5),
+                color: accentColor,
               ),
             ),
             const SizedBox(width: 12),
@@ -172,7 +214,7 @@ class TripInfoDisplay extends StatelessWidget {
             ),
             const Spacer(),
             Text(
-              "500 m",
+              alertText,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -185,11 +227,32 @@ class TripInfoDisplay extends StatelessWidget {
         ClipRRect(
           borderRadius: BorderRadius.circular(4),
           child: LinearProgressIndicator(
-            value: 0.8, // Static for now matching screenshot
+            value: progress,
             backgroundColor: customColors().textPrimary.withOpacity(0.1),
             valueColor: AlwaysStoppedAnimation<Color>(accentColor),
-            minHeight: 6,
+            minHeight: 8,
           ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              "${((details.distanceTraveled ?? 0) / 1000).toStringAsFixed(1)} km traveled",
+              style: TextStyle(
+                fontSize: 12,
+                color: customColors().textPrimary.withOpacity(0.5),
+              ),
+            ),
+            Text(
+              "${(progress * 100).toStringAsFixed(0)}%",
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: accentColor,
+              ),
+            ),
+          ],
         ),
       ],
     );

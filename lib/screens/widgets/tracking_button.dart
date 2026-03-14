@@ -27,8 +27,7 @@ class TrackingButton extends StatelessWidget {
         child: ElevatedButton(
           onPressed: isLoading ? null : onPressed,
           style: ElevatedButton.styleFrom(
-            backgroundColor:
-                isTracking ? Colors.red.withOpacity(0.8) : accentColor,
+            backgroundColor: accentColor,
             foregroundColor: customColors().textPrimary,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             shape: RoundedRectangleBorder(
@@ -37,31 +36,35 @@ class TrackingButton extends StatelessWidget {
             elevation: 0,
             minimumSize: const Size(120, 40),
           ),
-          child: isLoading
-              ? SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      customColors().textPrimary,
-                    ),
-                  ),
-                )
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(isTracking ? Icons.stop : Icons.play_arrow, size: 18),
-                    const SizedBox(width: 8),
-                    Text(
-                      isTracking ? "Stop" : "Start Tracking",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: customColors().textPrimary,
+          child:
+              isLoading
+                  ? SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        customColors().textPrimary,
                       ),
                     ),
-                  ],
-                ),
+                  )
+                  : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isTracking ? Icons.stop : Icons.play_arrow,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        isTracking ? "Stop" : "Start Tracking",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: customColors().textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
         ),
       ),
     );

@@ -15,6 +15,7 @@ import 'package:locami/theme/them_provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
+import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 
 class Home extends StatefulWidget {
   const Home({Key? key}) : super(key: key);
@@ -33,6 +34,8 @@ class _HomeState extends State<Home> {
   Timer? _transmissionTimer;
   bool _showLocami = true;
 
+  int _alertDistance = 500;
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +50,60 @@ class _HomeState extends State<Home> {
     _getInitialLocation();
     TripDetailsManager.instance.isTrackingNotifier.addListener(
       _onTrackingStatusChanged,
+    );
+    TripDetailsManager.instance.alertTriggeredNotifier.addListener(
+      _onAlertTriggered,
+    );
+  }
+
+  void _onAlertTriggered() {
+    final distance = TripDetailsManager.instance.alertTriggeredNotifier.value;
+    if (distance != null && mounted) {
+      _showArrivalAlert(distance);
+    }
+  }
+
+  void _showArrivalAlert(double distance) {
+    final themeProvider = context.read<ThemeProvider>();
+    final soundKey = themeProvider.alertSound;
+
+    // Start playing sound
+    FlutterRingtonePlayer().stop(); // Stop any previous sound before playing
+    if (soundKey == 'alarm') {
+      FlutterRingtonePlayer().playAlarm(looping: true);
+    } else if (soundKey == 'ringtone') {
+      FlutterRingtonePlayer().playRingtone(looping: true);
+    } else {
+      FlutterRingtonePlayer().playNotification(looping: true);
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => AlertDialog(
+            title: const Text("Arrival Alert!"),
+            content: Text(
+              "You are within ${distance.toStringAsFixed(0)} meters of your destination!",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  FlutterRingtonePlayer().stop();
+                  Navigator.pop(context);
+                },
+                child: const Text("Got it"),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  FlutterRingtonePlayer().stop();
+                  Navigator.pop(context);
+                  _toggleTracking();
+                },
+                child: const Text("Stop Tracking"),
+              ),
+            ],
+          ),
     );
   }
 
@@ -67,8 +124,6 @@ class _HomeState extends State<Home> {
     }
   }
 
-  // Remove old _onTripDetailChanged if it was there
-
   Future<void> _getInitialLocation() async {
     try {
       _currentPosition = await Geolocator.getCurrentPosition(
@@ -84,6 +139,9 @@ class _HomeState extends State<Home> {
     _transmissionTimer?.cancel();
     TripDetailsManager.instance.isTrackingNotifier.removeListener(
       _onTrackingStatusChanged,
+    );
+    TripDetailsManager.instance.alertTriggeredNotifier.removeListener(
+      _onAlertTriggered,
     );
     super.dispose();
   }
@@ -185,7 +243,9 @@ class _HomeState extends State<Home> {
           destinationLongitude: null,
         );
 
-        await TripDetailsManager.instance.startTracking();
+        await TripDetailsManager.instance.startTracking(
+          alertDistance: _alertDistance.toDouble(),
+        );
         if (mounted) {
           setState(() {
             _isTracking = true;
@@ -278,7 +338,6 @@ class _HomeState extends State<Home> {
               ),
               const SizedBox(height: 32),
 
-              // From Field
               HomeInputCard(
                 controller: _fromController,
                 label: "From",
@@ -288,7 +347,6 @@ class _HomeState extends State<Home> {
               ),
               const SizedBox(height: 12),
 
-              // To Field
               HomeInputCard(
                 controller: _toController,
                 label: "To",
@@ -299,7 +357,6 @@ class _HomeState extends State<Home> {
               ),
               const SizedBox(height: 24),
 
-              // Alert selection row
               Row(
                 children: [
                   Text(
@@ -311,9 +368,30 @@ class _HomeState extends State<Home> {
                     ),
                   ),
                   const SizedBox(width: 16),
-                  const HomeDistanceOption(distance: "500m", isSelected: true),
-                  const HomeDistanceOption(distance: "1km", isSelected: false),
-                  const HomeDistanceOption(distance: "2km", isSelected: false),
+                  HomeDistanceOption(
+                    distance: "500m",
+                    isSelected: _alertDistance == 500,
+                    onTap:
+                        _isTracking
+                            ? null
+                            : () => setState(() => _alertDistance = 500),
+                  ),
+                  HomeDistanceOption(
+                    distance: "1km",
+                    isSelected: _alertDistance == 1000,
+                    onTap:
+                        _isTracking
+                            ? null
+                            : () => setState(() => _alertDistance = 1000),
+                  ),
+                  HomeDistanceOption(
+                    distance: "2km",
+                    isSelected: _alertDistance == 2000,
+                    onTap:
+                        _isTracking
+                            ? null
+                            : () => setState(() => _alertDistance = 2000),
+                  ),
                   const Spacer(),
                   TrackingButton(
                     isTracking: _isTracking,
@@ -359,15 +437,15 @@ class _HomeState extends State<Home> {
                             _tripHistory
                                 .take(3)
                                 .map(
-                                  (TripDetailsModel trip) =>
-                                      TripHistoryCard(
-                                        trip: trip,
-                                        onRestart: () {
-                                          _fromController.text = trip.street ?? "";
-                                          _toController.text = trip.destination ?? "";
-                                          _toggleTracking();
-                                        },
-                                      ),
+                                  (TripDetailsModel trip) => TripHistoryCard(
+                                    trip: trip,
+                                    onRestart: () {
+                                      _fromController.text = trip.street ?? "";
+                                      _toController.text =
+                                          trip.destination ?? "";
+                                      _toggleTracking();
+                                    },
+                                  ),
                                 )
                                 .toList(),
                       ),

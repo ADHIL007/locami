@@ -22,6 +22,7 @@ class TripDetailsManager {
   );
 
   final ValueNotifier<bool> isTrackingNotifier = ValueNotifier(false);
+  final ValueNotifier<double?> alertTriggeredNotifier = ValueNotifier(null);
 
   bool _isTracking = false;
   bool get isTracking => _isTracking;
@@ -35,12 +36,21 @@ class TripDetailsManager {
   double? _sourceLon;
   double? _totalTripDistance;
 
-  Future<void> startTracking() async {
+  double? get alertDistance => _alertDistance;
+  double? get totalTripDistance => _totalTripDistance;
+
+  double? _alertDistance;
+  bool _alertTriggered = false;
+
+  Future<void> startTracking({double alertDistance = 500.0}) async {
     if (_isTracking) return;
 
     _isTracking = true;
     isTrackingNotifier.value = true;
-    
+    _alertDistance = alertDistance;
+    _alertTriggered = false;
+    alertTriggeredNotifier.value = null;
+
     _sourceLat = null;
     _sourceLon = null;
     _destinationLat = null;
@@ -171,12 +181,19 @@ class TripDetailsManager {
     isTrackingNotifier.value = false;
     _destinationLat = null;
     _destinationLon = null;
+    _alertTriggered = false;
+    alertTriggeredNotifier.value = null;
 
     await UserModelManager.instance.patchUser(
       isTravelStarted: false,
       isTravelEnded: true,
       endTime: DateTime.now(),
     );
+  }
+
+  Future<void> simulateLocationUpdate(Position position) async {
+    if (!_isTracking) return;
+    await _handlePositionUpdate(position);
   }
 
   Future<void> _handlePositionUpdate(Position position) async {
@@ -210,6 +227,13 @@ class TripDetailsManager {
       debugPrint(
         'QWERTYUIOP: Position update - pos: ${position.latitude}, ${position.longitude}, dest: $_destinationLat, $_destinationLon, remainingDist: $remainingDist meters',
       );
+
+      if (!_alertTriggered &&
+          _alertDistance != null &&
+          remainingDist <= _alertDistance!) {
+        _alertTriggered = true;
+        _triggerAlert(remainingDist);
+      }
     } else {
       debugPrint(
         'QWERTYUIOP: Remaining distance NOT calculated - destLat: $_destinationLat, destLon: $_destinationLon',
@@ -240,6 +264,13 @@ class TripDetailsManager {
     currentTripDetail.value = newDetail;
   }
 
+  void _triggerAlert(double distance) {
+    debugPrint(
+      'QWERTYUIOP: ALERT TRIGGERED! Distance remaining: $distance meters',
+    );
+    alertTriggeredNotifier.value = distance;
+  }
+
   Future<void> _updateAddressCache() async {
     try {
       final details = await StreetManager.instance.getCurrentLocationDetails();
@@ -257,22 +288,29 @@ class TripDetailsManager {
     if (allLogs.isEmpty) return [];
 
     List<TripDetailsModel> distinctTrips = [];
-    
+
     TripDetailsModel currentTripLatest = allLogs.first;
     TripDetailsModel currentTripEarliest = allLogs.first;
     String? firstKnownStreet = allLogs.first.street;
 
     for (int i = 1; i < allLogs.length; i++) {
       final log = allLogs[i];
-      
-      final timeGap = currentTripEarliest.timestamp.difference(log.timestamp).abs();
 
-      if (log.destination != currentTripLatest.destination || timeGap.inMinutes > 30) {
-        distinctTrips.add(currentTripLatest.copyWith(
-          street: firstKnownStreet ?? currentTripEarliest.street ?? "Unknown Location",
-          timestamp: currentTripEarliest.timestamp,
-        ));
-        
+      final timeGap =
+          currentTripEarliest.timestamp.difference(log.timestamp).abs();
+
+      if (log.destination != currentTripLatest.destination ||
+          timeGap.inMinutes > 30) {
+        distinctTrips.add(
+          currentTripLatest.copyWith(
+            street:
+                firstKnownStreet ??
+                currentTripEarliest.street ??
+                "Unknown Location",
+            timestamp: currentTripEarliest.timestamp,
+          ),
+        );
+
         currentTripLatest = log;
         currentTripEarliest = log;
         firstKnownStreet = log.street;
@@ -283,11 +321,16 @@ class TripDetailsManager {
         }
       }
     }
-    
-    distinctTrips.add(currentTripLatest.copyWith(
-      street: firstKnownStreet ?? currentTripEarliest.street ?? "Unknown Location",
-      timestamp: currentTripEarliest.timestamp,
-    ));
+
+    distinctTrips.add(
+      currentTripLatest.copyWith(
+        street:
+            firstKnownStreet ??
+            currentTripEarliest.street ??
+            "Unknown Location",
+        timestamp: currentTripEarliest.timestamp,
+      ),
+    );
 
     return distinctTrips;
   }

@@ -5,6 +5,7 @@ import 'package:locami/dbManager/userModel_manager.dart';
 import 'package:locami/screens/initial_home.dart';
 import 'package:locami/theme/them_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 
 class SettingsBottomSheet extends StatelessWidget {
   const SettingsBottomSheet({super.key});
@@ -115,11 +116,18 @@ class SettingsBottomSheet extends StatelessWidget {
               "Alert Sound",
               style: TextStyle(color: customColors().textPrimary),
             ),
+            subtitle: Text(
+              themeProvider.alertSoundName,
+              style: TextStyle(
+                color: customColors().textSecondary,
+                fontSize: 12,
+              ),
+            ),
             trailing: Icon(
               Icons.chevron_right,
               color: customColors().textSecondary,
             ),
-            onTap: () {},
+            onTap: () => _showSoundPicker(context),
           ),
           const SizedBox(height: 12),
           ListTile(
@@ -137,6 +145,111 @@ class SettingsBottomSheet extends StatelessWidget {
           const SizedBox(height: 20),
         ],
       ),
+    );
+  }
+
+  void _showSoundPicker(BuildContext context) {
+    final themeProvider = context.read<ThemeProvider>();
+    final accentColor = themeProvider.accentColor;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder:
+          (context) => Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Select Alert Sound",
+                  style: TextStyle(
+                    color: customColors().textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildSoundOption(
+                  context,
+                  "Default Alarm",
+                  "alarm",
+                  themeProvider,
+                ),
+                _buildSoundOption(
+                  context,
+                  "Default Ringtone",
+                  "ringtone",
+                  themeProvider,
+                ),
+                _buildSoundOption(
+                  context,
+                  "Default Notification",
+                  "notification",
+                  themeProvider,
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      FlutterRingtonePlayer().stop();
+                      Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: accentColor,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text("Done"),
+                  ),
+                ),
+              ],
+            ),
+          ),
+    );
+  }
+
+  Widget _buildSoundOption(
+    BuildContext context,
+    String name,
+    String key,
+    ThemeProvider provider,
+  ) {
+    final isSelected = provider.alertSound == key;
+    final accentColor = provider.accentColor;
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(
+        name,
+        style: TextStyle(
+          color: isSelected ? accentColor : customColors().textPrimary,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+      trailing:
+          isSelected
+              ? Icon(Icons.check_circle, color: accentColor)
+              : Icon(Icons.circle_outlined, color: customColors().textSecondary),
+      onTap: () {
+        provider.setAlertSound(key, name);
+        // Play sample
+        FlutterRingtonePlayer().stop();
+        if (key == 'alarm') {
+          FlutterRingtonePlayer().playAlarm();
+        } else if (key == 'ringtone') {
+          FlutterRingtonePlayer().playRingtone();
+        } else {
+          FlutterRingtonePlayer().playNotification();
+        }
+      },
     );
   }
 

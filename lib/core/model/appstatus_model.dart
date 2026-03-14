@@ -7,6 +7,8 @@ class AppStatus {
   final bool isLoggedIn;
   final String theme;
   final int accentColor;
+  final String alertSound;
+  final String alertSoundName;
 
   const AppStatus({
     this.isFirstTimeUser = true,
@@ -17,6 +19,8 @@ class AppStatus {
     this.isLoggedIn = false,
     this.theme = 'system',
     this.accentColor = 0xFFE53935,
+    this.alertSound = 'alarm',
+    this.alertSoundName = 'Default Alarm',
   });
 
   Map<String, dynamic> toJson() => {
@@ -28,6 +32,8 @@ class AppStatus {
     'isLoggedIn': isLoggedIn,
     'theme': theme,
     'accentColor': accentColor,
+    'alertSound': alertSound,
+    'alertSoundName': alertSoundName,
   };
 
   factory AppStatus.fromJson(Map<String, dynamic> json) => AppStatus(
@@ -39,6 +45,8 @@ class AppStatus {
     isLoggedIn: json['isLoggedIn'] ?? false,
     theme: json['theme'] ?? 'system',
     accentColor: json['accentColor'] ?? 0xFFE53935,
+    alertSound: json['alertSound'] ?? 'alarm',
+    alertSoundName: json['alertSoundName'] ?? 'Default Alarm',
   );
 
   AppStatus copyWith({
@@ -50,6 +58,8 @@ class AppStatus {
     bool? isLoggedIn,
     String? theme,
     int? accentColor,
+    String? alertSound,
+    String? alertSoundName,
   }) => AppStatus(
     isFirstTimeUser: isFirstTimeUser ?? this.isFirstTimeUser,
     isTripStarted: isTripStarted ?? this.isTripStarted,
@@ -59,5 +69,7 @@ class AppStatus {
     isLoggedIn: isLoggedIn ?? this.isLoggedIn,
     theme: theme ?? this.theme,
     accentColor: accentColor ?? this.accentColor,
+    alertSound: alertSound ?? this.alertSound,
+    alertSoundName: alertSoundName ?? this.alertSoundName,
   );
 }

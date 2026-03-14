@@ -22,6 +22,8 @@ class ThemeProvider extends ChangeNotifier {
   AppThemeMode theme = AppThemeMode.light;
   bool isMatchWithSystem = true;
   Color accentColor = const Color(0xFFE53935);
+  String alertSound = 'alarm';
+  String alertSoundName = 'Default Alarm';
 
   void _applyTheme() {
     if (isMatchWithSystem) {
@@ -74,6 +76,13 @@ class ThemeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setAlertSound(String sound, String name) {
+    alertSound = sound;
+    alertSoundName = name;
+    _saveStatus();
+    notifyListeners();
+  }
+
   Future<void> _saveStatus() async {
     final status = await AppStatusDbHelper.instance.getStatus();
     await AppStatusDbHelper.instance.saveStatus(
@@ -83,6 +92,8 @@ class ThemeProvider extends ChangeNotifier {
                 ? 'system'
                 : (theme == AppThemeMode.dark ? 'dark' : 'light'),
         accentColor: accentColor.value,
+        alertSound: alertSound,
+        alertSoundName: alertSoundName,
       ),
     );
   }
@@ -95,6 +106,8 @@ class ThemeProvider extends ChangeNotifier {
       setTheme(status.theme == 'dark' ? AppThemeMode.dark : AppThemeMode.light);
     }
     accentColor = Color(status.accentColor);
+    alertSound = status.alertSound;
+    alertSoundName = status.alertSoundName;
     notifyListeners();
   }
 }

@@ -20,7 +20,7 @@ class AppStatusDbHelper {
     final path = join(await getDatabasesPath(), 'app_status.db');
     return openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -31,6 +31,14 @@ class AppStatusDbHelper {
       await db.execute(
         'ALTER TABLE $tableName ADD COLUMN accent_color INTEGER NOT NULL DEFAULT 4293212469',
       ); // 0xFFE53935
+    }
+    if (oldVersion < 3) {
+      await db.execute(
+        'ALTER TABLE $tableName ADD COLUMN alert_sound TEXT NOT NULL DEFAULT "alarm"',
+      );
+      await db.execute(
+        'ALTER TABLE $tableName ADD COLUMN alert_sound_name TEXT NOT NULL DEFAULT "Default Alarm"',
+      );
     }
   }
 
@@ -45,7 +53,9 @@ class AppStatusDbHelper {
         is_internet_on INTEGER NOT NULL DEFAULT 0 CHECK (is_internet_on IN (0,1)),
         is_gps_on INTEGER NOT NULL DEFAULT 0 CHECK (is_gps_on IN (0,1)),
         theme TEXT NOT NULL DEFAULT 'system',
-        accent_color INTEGER NOT NULL DEFAULT 4293212469
+        accent_color INTEGER NOT NULL DEFAULT 4293212469,
+        alert_sound TEXT NOT NULL DEFAULT 'alarm',
+        alert_sound_name TEXT NOT NULL DEFAULT 'Default Alarm'
       )
     ''');
 
@@ -68,6 +78,8 @@ class AppStatusDbHelper {
       isGpsOn: row['is_gps_on'] == 1,
       theme: row['theme'] as String,
       accentColor: row['accent_color'] as int,
+      alertSound: row['alert_sound'] as String? ?? 'alarm',
+      alertSoundName: row['alert_sound_name'] as String? ?? 'Default Alarm',
     );
   }
 
@@ -84,6 +96,8 @@ class AppStatusDbHelper {
       'is_gps_on': status.isGpsOn ? 1 : 0,
       'theme': status.theme,
       'accent_color': status.accentColor,
+      'alert_sound': status.alertSound,
+      'alert_sound_name': status.alertSoundName,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 }
