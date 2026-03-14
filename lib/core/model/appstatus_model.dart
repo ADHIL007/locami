@@ -11,6 +11,7 @@ class AppStatus {
   final String alertSoundName;
   final bool isCustomSound;
   final String? customSoundPath;
+  final bool loopAlarm;
 
   const AppStatus({
     this.isFirstTimeUser = true,
@@ -25,6 +26,7 @@ class AppStatus {
     this.alertSoundName = 'Default Alarm',
     this.isCustomSound = false,
     this.customSoundPath,
+    this.loopAlarm = true,
   });
 
   Map<String, dynamic> toJson() => {
@@ -40,6 +42,7 @@ class AppStatus {
     'alertSoundName': alertSoundName,
     'isCustomSound': isCustomSound,
     'customSoundPath': customSoundPath,
+    'loopAlarm': loopAlarm,
   };
 
   factory AppStatus.fromJson(Map<String, dynamic> json) => AppStatus(
@@ -55,6 +58,7 @@ class AppStatus {
     alertSoundName: json['alertSoundName'] ?? 'Default Alarm',
     isCustomSound: json['isCustomSound'] ?? false,
     customSoundPath: json['customSoundPath'],
+    loopAlarm: json['loopAlarm'] ?? true,
   );
 
   AppStatus copyWith({
@@ -70,6 +74,7 @@ class AppStatus {
     String? alertSoundName,
     bool? isCustomSound,
     String? customSoundPath,
+    bool? loopAlarm,
   }) => AppStatus(
     isFirstTimeUser: isFirstTimeUser ?? this.isFirstTimeUser,
     isTripStarted: isTripStarted ?? this.isTripStarted,
@@ -83,5 +88,6 @@ class AppStatus {
     alertSoundName: alertSoundName ?? this.alertSoundName,
     isCustomSound: isCustomSound ?? this.isCustomSound,
     customSoundPath: customSoundPath ?? this.customSoundPath,
+    loopAlarm: loopAlarm ?? this.loopAlarm,
   );
 }

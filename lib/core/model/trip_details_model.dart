@@ -17,6 +17,7 @@ class TripDetailsModel {
   final double? totalDuration;
   final double? destinationLatitude;
   final double? destinationLongitude;
+  final String? tripId;
 
   const TripDetailsModel({
     this.id,
@@ -37,6 +38,7 @@ class TripDetailsModel {
     this.totalDuration,
     this.destinationLatitude,
     this.destinationLongitude,
+    this.tripId,
   });
 
   Map<String, dynamic> toJson() => {
@@ -58,6 +60,7 @@ class TripDetailsModel {
     'total_duration': totalDuration,
     'destination_latitude': destinationLatitude,
     'destination_longitude': destinationLongitude,
+    'trip_id': tripId,
   };
 
   factory TripDetailsModel.fromJson(Map<String, dynamic> json) =>
@@ -80,6 +83,7 @@ class TripDetailsModel {
         totalDuration: json['total_duration'],
         destinationLatitude: json['destination_latitude'],
         destinationLongitude: json['destination_longitude'],
+        tripId: json['trip_id'],
       );
 
   TripDetailsModel copyWith({
@@ -101,6 +105,7 @@ class TripDetailsModel {
     double? totalDuration,
     double? destinationLatitude,
     double? destinationLongitude,
+    String? tripId,
   }) {
     return TripDetailsModel(
       id: id ?? this.id,
@@ -121,6 +126,7 @@ class TripDetailsModel {
       totalDuration: totalDuration ?? this.totalDuration,
       destinationLatitude: destinationLatitude ?? this.destinationLatitude,
       destinationLongitude: destinationLongitude ?? this.destinationLongitude,
+      tripId: tripId ?? this.tripId,
     );
   }
 }

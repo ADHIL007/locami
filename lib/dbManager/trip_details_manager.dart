@@ -40,6 +40,7 @@ class TripDetailsManager {
   double? _sourceLat;
   double? _sourceLon;
   double? _totalTripDistance;
+  String? _currentTripId;
 
   double? get alertDistance => _alertDistance;
   double? get totalTripDistance => _totalTripDistance;
@@ -63,6 +64,7 @@ class TripDetailsManager {
 
     _isTracking = true;
     isTrackingNotifier.value = true;
+    _currentTripId = DateTime.now().millisecondsSinceEpoch.toString();
 
     _alertDistance = alertDistance;
     _alertTriggered = false;
@@ -289,6 +291,7 @@ class TripDetailsManager {
       totalDuration: lastPoint?.totalDuration,
       destinationLatitude: _destinationLat,
       destinationLongitude: _destinationLon,
+      tripId: _currentTripId,
     );
 
     await TripDbHelper.instance.insertTripDetail(newDetail);
@@ -384,50 +387,73 @@ class TripDetailsManager {
     final allLogs = await TripDbHelper.instance.getAllTripDetails();
     if (allLogs.isEmpty) return [];
 
-    List<TripDetailsModel> distinctTrips = [];
+    // Group logs by trip_id
+    Map<String, List<TripDetailsModel>> groups = {};
+    List<TripDetailsModel> untrackedLogs = [];
 
-    TripDetailsModel currentTripLatest = allLogs.first;
-    TripDetailsModel currentTripEarliest = allLogs.first;
-    String? firstKnownStreet = allLogs.first.street;
-
-    for (int i = 1; i < allLogs.length; i++) {
-      final log = allLogs[i];
-
-      final timeGap =
-          currentTripEarliest.timestamp.difference(log.timestamp).abs();
-
-      if (log.destination != currentTripLatest.destination ||
-          timeGap.inMinutes > 30) {
-        distinctTrips.add(
-          currentTripLatest.copyWith(
-            street:
-                firstKnownStreet ??
-                currentTripEarliest.street ??
-                "Unknown Location",
-            timestamp: currentTripEarliest.timestamp,
-          ),
-        );
-
-        currentTripLatest = log;
-        currentTripEarliest = log;
-        firstKnownStreet = log.street;
+    for (var log in allLogs) {
+      if (log.tripId != null) {
+        groups.putIfAbsent(log.tripId!, () => []).add(log);
       } else {
-        currentTripEarliest = log;
-        if (log.street != null) {
-          firstKnownStreet = log.street;
-        }
+        untrackedLogs.add(log);
       }
     }
 
-    distinctTrips.add(
-      currentTripLatest.copyWith(
-        street:
-            firstKnownStreet ??
-            currentTripEarliest.street ??
-            "Unknown Location",
-        timestamp: currentTripEarliest.timestamp,
-      ),
-    );
+    List<TripDetailsModel> distinctTrips = [];
+
+    // Process grouped trips
+    groups.forEach((tripId, points) {
+      if (points.isNotEmpty) {
+        // Sort by timestamp just in case
+        points.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+        final latest = points.last;
+        final earliest = points.first;
+        
+        distinctTrips.add(
+          latest.copyWith(
+            street: earliest.street ?? "Unknown Location",
+            timestamp: earliest.timestamp, // Use start time for history
+          ),
+        );
+      }
+    });
+
+    // Handle logs without tripId using the old heuristic (if any exist from old version)
+    if (untrackedLogs.isNotEmpty) {
+      untrackedLogs.sort((a, b) => b.timestamp.compareTo(a.timestamp)); // Reversed
+      TripDetailsModel currentTripLatest = untrackedLogs.first;
+      TripDetailsModel currentTripEarliest = untrackedLogs.first;
+      String? firstKnownStreet = untrackedLogs.first.street;
+
+      for (int i = 1; i < untrackedLogs.length; i++) {
+        final log = untrackedLogs[i];
+        final timeGap = currentTripEarliest.timestamp.difference(log.timestamp).abs();
+
+        if (log.destination != currentTripLatest.destination || timeGap.inMinutes > 30) {
+          distinctTrips.add(
+            currentTripLatest.copyWith(
+              street: firstKnownStreet ?? currentTripEarliest.street ?? "Unknown Location",
+              timestamp: currentTripEarliest.timestamp,
+            ),
+          );
+          currentTripLatest = log;
+          currentTripEarliest = log;
+          firstKnownStreet = log.street;
+        } else {
+          currentTripEarliest = log;
+          if (log.street != null) firstKnownStreet = log.street;
+        }
+      }
+      distinctTrips.add(
+        currentTripLatest.copyWith(
+          street: firstKnownStreet ?? currentTripEarliest.street ?? "Unknown Location",
+          timestamp: currentTripEarliest.timestamp,
+        ),
+      );
+    }
+
+    // Sort all summarized trips by timestamp descending
+    distinctTrips.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
     return distinctTrips;
   }

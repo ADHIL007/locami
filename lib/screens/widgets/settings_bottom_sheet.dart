@@ -131,6 +131,19 @@ class SettingsBottomSheet extends StatelessWidget {
             ),
             onTap: () => _showSoundPicker(context),
           ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.repeat, color: accentColor),
+            title: Text(
+              "Loop Alarm",
+              style: TextStyle(color: customColors().textPrimary),
+            ),
+            trailing: Switch(
+              value: themeProvider.loopAlarm,
+              activeColor: accentColor,
+              onChanged: (val) => themeProvider.setLoopAlarm(val),
+            ),
+          ),
           const SizedBox(height: 12),
           ListTile(
             contentPadding: EdgeInsets.zero,

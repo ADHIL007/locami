@@ -26,6 +26,7 @@ class ThemeProvider extends ChangeNotifier {
   String alertSoundName = 'Default Alarm';
   bool isCustomSound = false;
   String? customSoundPath;
+  bool loopAlarm = true;
 
   void _applyTheme() {
     if (isMatchWithSystem) {
@@ -94,6 +95,12 @@ class ThemeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setLoopAlarm(bool value) {
+    loopAlarm = value;
+    _saveStatus();
+    notifyListeners();
+  }
+
   Future<void> _saveStatus() async {
     final status = await AppStatusDbHelper.instance.getStatus();
     await AppStatusDbHelper.instance.saveStatus(
@@ -107,6 +114,7 @@ class ThemeProvider extends ChangeNotifier {
         alertSoundName: alertSoundName,
         isCustomSound: isCustomSound,
         customSoundPath: customSoundPath,
+        loopAlarm: loopAlarm,
       ),
     );
   }
@@ -123,6 +131,7 @@ class ThemeProvider extends ChangeNotifier {
     alertSoundName = status.alertSoundName;
     isCustomSound = status.isCustomSound;
     customSoundPath = status.customSoundPath;
+    loopAlarm = status.loopAlarm;
     notifyListeners();
   }
 }
