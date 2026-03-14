@@ -38,8 +38,6 @@ class TripDetailsManager {
   Future<void> startTracking() async {
     if (_isTracking) return;
 
-    await clearLogs();
-
     _isTracking = true;
     isTrackingNotifier.value = true;
     
@@ -254,8 +252,45 @@ class TripDetailsManager {
     }
   }
 
-  Future<List<TripDetailsModel>> getLogs() =>
-      TripDbHelper.instance.getAllTripDetails();
+  Future<List<TripDetailsModel>> getLogs() async {
+    final allLogs = await TripDbHelper.instance.getAllTripDetails();
+    if (allLogs.isEmpty) return [];
+
+    List<TripDetailsModel> distinctTrips = [];
+    
+    TripDetailsModel currentTripLatest = allLogs.first;
+    TripDetailsModel currentTripEarliest = allLogs.first;
+    String? firstKnownStreet = allLogs.first.street;
+
+    for (int i = 1; i < allLogs.length; i++) {
+      final log = allLogs[i];
+      
+      final timeGap = currentTripEarliest.timestamp.difference(log.timestamp).abs();
+
+      if (log.destination != currentTripLatest.destination || timeGap.inMinutes > 30) {
+        distinctTrips.add(currentTripLatest.copyWith(
+          street: firstKnownStreet ?? currentTripEarliest.street ?? "Unknown Location",
+          timestamp: currentTripEarliest.timestamp,
+        ));
+        
+        currentTripLatest = log;
+        currentTripEarliest = log;
+        firstKnownStreet = log.street;
+      } else {
+        currentTripEarliest = log;
+        if (log.street != null) {
+          firstKnownStreet = log.street;
+        }
+      }
+    }
+    
+    distinctTrips.add(currentTripLatest.copyWith(
+      street: firstKnownStreet ?? currentTripEarliest.street ?? "Unknown Location",
+      timestamp: currentTripEarliest.timestamp,
+    ));
+
+    return distinctTrips;
+  }
 
   Future<void> clearLogs() async {
     await TripDbHelper.instance.clearAll();

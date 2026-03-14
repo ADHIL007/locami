@@ -1,20 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:locami/core/model/trip_details_model.dart';
+import 'package:locami/screens/trip_details_screen.dart';
 import 'package:locami/theme/them_provider.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:locami/core/utils/map_utils.dart';
 
-class TripHistoryCard extends StatelessWidget {
+class TripHistoryCard extends StatefulWidget {
   final TripDetailsModel trip;
+  final VoidCallback? onRestart;
 
-  const TripHistoryCard({Key? key, required this.trip}) : super(key: key);
+  const TripHistoryCard({Key? key, required this.trip, this.onRestart})
+    : super(key: key);
+
+  @override
+  State<TripHistoryCard> createState() => _TripHistoryCardState();
+}
+
+class _TripHistoryCardState extends State<TripHistoryCard> {
 
   @override
   Widget build(BuildContext context) {
+    final trip = widget.trip;
+    final onRestart = widget.onRestart;
     final dateStr = DateFormat('MMM dd, yyyy • hh:mm a').format(trip.timestamp);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: customColors().textPrimary.withOpacity(0.05),
         borderRadius: BorderRadius.circular(16),
@@ -23,72 +35,237 @@ class TripHistoryCard extends StatelessWidget {
           width: 1,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.history, color: Colors.blue, size: 20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          if (onRestart != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder:
+                    (context) =>
+                        TripDetailsScreen(trip: trip, onStartAgain: onRestart),
               ),
-              const SizedBox(width: 12),
+            );
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  width: 120,
+                  height: 100,
+                  child: _buildMapPreview(trip),
+                ),
+              ),
+              const SizedBox(width: 16),
+
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      trip.destination ?? "Unknown Destination",
-                      style: TextStyle(
-                        color: customColors().textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 1,
+                    RichText(
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
+                      text: TextSpan(
+                        style: TextStyle(
+                          color: customColors().textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Inter',
+                        ),
+                        children: [
+                          TextSpan(
+                            text:
+                                (trip.street?.split(',').first ??
+                                        "Unknown Location")
+                                    .trim(),
+                          ),
+                          TextSpan(
+                            text: " → ",
+                            style: TextStyle(
+                              color: customColors().textPrimary.withOpacity(
+                                0.6,
+                              ),
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                          TextSpan(
+                            text:
+                                (trip.destination?.split(',').first ??
+                                        "Unknown Destination")
+                                    .trim(),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 6),
+
                     Text(
                       dateStr,
                       style: TextStyle(
                         color: customColors().textSecondary,
-                        fontSize: 12,
+                        fontSize: 13,
                       ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        RichText(
+                          text: TextSpan(
+                            style: TextStyle(
+                              color: customColors().textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            children: [
+                              TextSpan(
+                                text:
+                                    "${(((trip.totalDistance ?? trip.distanceTraveled) ?? 0) / 1000).toStringAsFixed(1)} km",
+                              ),
+                              TextSpan(
+                                text: "  •  ",
+                                style: TextStyle(
+                                  color: customColors().textSecondary,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              TextSpan(
+                                text:
+                                    "${((trip.speed < 0 ? 0.0 : trip.speed) * 3.6).toStringAsFixed(0)} km/h",
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        if (onRestart != null)
+                          Row(
+                            children: [
+                              Text(
+                                "View Trip",
+                                style: TextStyle(
+                                  color: customColors().textSecondary
+                                      .withOpacity(0.8),
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(width: 2),
+                              Icon(
+                                Icons.chevron_right,
+                                size: 16,
+                                color: customColors().textSecondary.withOpacity(
+                                  0.8,
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          if ((trip.distanceTraveled ?? 0) > 0) ...[
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildStat(
-                  Icons.map_outlined,
-                  "${((trip.distanceTraveled ?? 0) / 1000).toStringAsFixed(1)} km",
-                  "Distance",
-                ),
-                _buildStat(
-                  Icons.speed,
-                  "${((trip.speed < 0 ? 0.0 : trip.speed) * 3.6).toStringAsFixed(0)} km/h",
-                  "Avg Speed",
-                ),
-                _buildStat(
-                  Icons.location_on_outlined,
-                  trip.street?.split(',').first ?? "N/A",
-                  "Location",
-                ),
-              ],
-            ),
-          ],
-        ],
+        ),
       ),
+    );
+  }
+
+
+  Widget _buildMapPreview(TripDetailsModel trip) {
+    if (trip.destinationLatitude == null || trip.destinationLongitude == null) {
+      return _fallbackMapImage();
+    }
+
+    final double startLat = trip.latitude;
+    final double startLon = trip.longitude;
+    final double endLat = trip.destinationLatitude!;
+    final double endLon = trip.destinationLongitude!;
+
+    final double centerLat = (startLat + endLat) / 2;
+    final double centerLon = (startLon + endLon) / 2;
+
+    double distance = MapUtils.distanceInKm(startLat, startLon, endLat, endLon);
+    int zoom = MapUtils.calculateZoom(distance);
+
+    final String url =
+        "https://static-maps.yandex.ru/1.x/"
+        "?l=map"
+        "&lang=en_US"
+        "&size=450,220"
+        "&z=$zoom"
+        "&ll=$centerLon,$centerLat"
+        "&pt=$startLon,$startLat,pm2blm~$endLon,$endLat,pm2rdm"
+        "&pl=c:1A73E8,w:4,$startLon,$startLat,$endLon,$endLat";
+
+    return CachedNetworkImage(
+      imageUrl: url,
+      fit: BoxFit.cover,
+      placeholder:
+          (context, url) =>
+              const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      errorWidget: (context, url, error) => _fallbackMapImage(),
+    );
+  }
+
+  Widget _fallbackMapImage() {
+    return Container(
+      color: customColors().background.withOpacity(0.3),
+      child: Center(
+        child: Icon(
+          Icons.map_outlined,
+          color: customColors().textSecondary.withOpacity(0.5),
+          size: 32,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLocationRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: color),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: customColors().textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: TextStyle(
+                  color: customColors().textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -114,7 +291,7 @@ class TripHistoryCard extends StatelessWidget {
           value,
           style: TextStyle(
             color: customColors().textPrimary,
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
         ),

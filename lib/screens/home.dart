@@ -28,6 +28,7 @@ class _HomeState extends State<Home> {
   final _toController = TextEditingController();
   String userCountry = 'India';
   bool _isTracking = false;
+  bool _isTrackingLoading = false;
   Position? _currentPosition;
   Timer? _transmissionTimer;
   bool _showLocami = true;
@@ -154,11 +155,26 @@ class _HomeState extends State<Home> {
   }
 
   Future<void> _toggleTracking() async {
+    if (_isTrackingLoading) return;
+
+    setState(() => _isTrackingLoading = true);
     if (_isTracking) {
-      await TripDetailsManager.instance.stopTracking();
-      if (mounted) {
-        setState(() => _isTracking = false);
-        _stopTransmission();
+      try {
+        await TripDetailsManager.instance.stopTracking();
+        if (mounted) {
+          setState(() {
+            _isTracking = false;
+            _isTrackingLoading = false;
+          });
+          _stopTransmission();
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isTrackingLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error stopping tracking: $e')),
+          );
+        }
       }
     } else {
       try {
@@ -171,11 +187,15 @@ class _HomeState extends State<Home> {
 
         await TripDetailsManager.instance.startTracking();
         if (mounted) {
-          setState(() => _isTracking = true);
+          setState(() {
+            _isTracking = true;
+            _isTrackingLoading = false;
+          });
           _startTransmission();
         }
       } catch (e) {
         if (mounted) {
+          setState(() => _isTrackingLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error starting tracking: $e')),
           );
@@ -227,6 +247,12 @@ class _HomeState extends State<Home> {
               await TripDetailsManager.instance.clearLogs();
               _loadTripHistory();
               Navigator.pop(context);
+            },
+            onRestart: (TripDetailsModel trip) {
+              _fromController.text = trip.street ?? "";
+              _toController.text = trip.destination ?? "";
+              Navigator.pop(context);
+              _toggleTracking();
             },
           ),
     );
@@ -291,6 +317,7 @@ class _HomeState extends State<Home> {
                   const Spacer(),
                   TrackingButton(
                     isTracking: _isTracking,
+                    isLoading: _isTrackingLoading,
                     canStart: validateisTracking(),
                     accentColor: accentColor,
                     onPressed: _toggleTracking,
@@ -333,7 +360,14 @@ class _HomeState extends State<Home> {
                                 .take(3)
                                 .map(
                                   (TripDetailsModel trip) =>
-                                      TripHistoryCard(trip: trip),
+                                      TripHistoryCard(
+                                        trip: trip,
+                                        onRestart: () {
+                                          _fromController.text = trip.street ?? "";
+                                          _toController.text = trip.destination ?? "";
+                                          _toggleTracking();
+                                        },
+                                      ),
                                 )
                                 .toList(),
                       ),
@@ -391,11 +425,13 @@ class _HomeState extends State<Home> {
 class _HistoryBottomSheet extends StatelessWidget {
   final List<TripDetailsModel> history;
   final VoidCallback onClear;
+  final Function(TripDetailsModel) onRestart;
 
   const _HistoryBottomSheet({
     Key? key,
     required this.history,
     required this.onClear,
+    required this.onRestart,
   }) : super(key: key);
 
   @override
@@ -443,7 +479,10 @@ class _HistoryBottomSheet extends StatelessWidget {
             child: ListView.builder(
               itemCount: history.length,
               itemBuilder: (context, index) {
-                return TripHistoryCard(trip: history[index]);
+                return TripHistoryCard(
+                  trip: history[index],
+                  onRestart: () => onRestart(history[index]),
+                );
               },
             ),
           ),
