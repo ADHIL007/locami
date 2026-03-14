@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geolocator_android/geolocator_android.dart';
@@ -11,7 +12,7 @@ import 'package:locami/dbManager/userModel_manager.dart';
 import 'dart:math';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class TripDetailsManager {
@@ -292,6 +293,72 @@ class TripDetailsManager {
 
     await TripDbHelper.instance.insertTripDetail(newDetail);
     currentTripDetail.value = newDetail;
+
+    _updateForegroundNotification(newDetail);
+  }
+
+  void _updateForegroundNotification(TripDetailsModel details) async {
+    final remaining = details.remainingDistance ?? 0.0;
+    final traveled = details.distanceTraveled ?? 0.0;
+    final totalDist = _totalTripDistance ?? (traveled + remaining);
+    
+    double progressDouble = totalDist > 0 ? (traveled / totalDist) * 100 : 0.0;
+    int progress = progressDouble.clamp(0, 100).toInt();
+
+    final remainingKm = (remaining / 1000).toStringAsFixed(1);
+    final fromStr = details.street ?? "Current Location";
+    final toStr = details.destination ?? "Destination";
+
+    final speedKmh = details.speed * 3.6;
+    String timeStr = "";
+    if (speedKmh > 1.0 && remainingKm != "0.0") {
+       final hoursRaw = (remaining / 1000) / speedKmh;
+       int h = hoursRaw.floor();
+       int m = ((hoursRaw - h) * 60).round();
+       timeStr = h > 0 ? " • ${h}h ${m}m elapsed" : " • ${m}m elapsed";
+    }
+
+    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+        FlutterLocalNotificationsPlugin();
+
+    AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'locami_tracking_channel',
+      'Locami Tracking Service',
+      channelDescription: 'Ongoing notification for location tracking',
+      importance: Importance.low,
+      priority: Priority.low,
+      ongoing: true,
+      autoCancel: false,
+      silent: true,
+      showProgress: true,
+      maxProgress: 100,
+      progress: progress,
+      icon: '@mipmap/ic_launcher',
+      category: AndroidNotificationCategory.service,
+      // Notification visual styling matching dark theme requests
+      color: const Color(0xFF16171B), // Dark aesthetic
+      colorized: true, // Forces background if Android supports it for this channel
+      // Adds a native button to reopen the app directly from notification
+      actions: <AndroidNotificationAction>[
+        const AndroidNotificationAction(
+          'view_trip_action',
+          'VIEW TRIP',
+          showsUserInterface: true, // Bringing app to foreground
+        ),
+      ],
+      // showWhen sets the timestamp in notification
+      showWhen: false,
+    );
+
+    NotificationDetails notificationDetails =
+        NotificationDetails(android: androidDetails);
+
+    await flutterLocalNotificationsPlugin.show(
+      888,
+      '$fromStr → $toStr',
+      '$remainingKm km$timeStr',
+      notificationDetails,
+    );
   }
 
   void _triggerAlert(double distance) {

@@ -19,7 +19,7 @@ class LocamiApplication : Application() {
             val trackingChannel = NotificationChannel(
                 "locami_tracking_channel",
                 "Locami Tracking Service",
-                NotificationManager.IMPORTANCE_HIGH
+                NotificationManager.IMPORTANCE_LOW
             ).apply {
                 description = "Ongoing notification for location tracking"
             }
