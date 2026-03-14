@@ -12,6 +12,8 @@ import 'dart:math';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 
+import 'package:permission_handler/permission_handler.dart';
+
 class TripDetailsManager {
   TripDetailsManager._internal();
   static final TripDetailsManager instance = TripDetailsManager._internal();
@@ -47,15 +49,19 @@ class TripDetailsManager {
   Future<void> startTracking({double alertDistance = 500.0}) async {
     if (_isTracking) return;
 
+    // Check for Notification Permission (Android 13+) — MUST be granted
+    // before starting the foreground service, otherwise Android throws
+    // CannotPostForegroundServiceNotificationException.
+    if (await Permission.notification.isDenied) {
+      final status = await Permission.notification.request();
+      if (!status.isGranted) {
+        debugPrint("Notification permission not granted, cannot start foreground service.");
+        throw Exception('Notification permission is required to track your trip in the background.');
+      }
+    }
+
     _isTracking = true;
     isTrackingNotifier.value = true;
-    
-    // Start background service
-    try {
-      await FlutterBackgroundService().startService();
-    } catch (e) {
-      debugPrint("Error starting background service: $e");
-    }
 
     _alertDistance = alertDistance;
     _alertTriggered = false;
@@ -87,6 +93,17 @@ class TripDetailsManager {
       throw Exception(
         'Location permissions are permanently denied, we cannot request permissions.',
       );
+    }
+
+    // Start background service AFTER all permissions are confirmed.
+    // The foreground notification requires POST_NOTIFICATIONS (checked above)
+    // and location permissions to be granted.
+    try {
+      await FlutterBackgroundService().startService();
+      // Give Android time to post the foreground notification
+      await Future.delayed(const Duration(milliseconds: 500));
+    } catch (e) {
+      debugPrint("Error starting background service: $e");
     }
 
     UserModel user = await UserModelManager.instance.user;
@@ -154,14 +171,9 @@ class TripDetailsManager {
 
     await _updateAddressCache();
 
-    final LocationSettings locationSettings = AndroidSettings(
+    const LocationSettings locationSettings = LocationSettings(
       accuracy: LocationAccuracy.best,
       distanceFilter: 0,
-      foregroundNotificationConfig: const ForegroundNotificationConfig(
-        notificationText: "Locami is monitoring your arrival",
-        notificationTitle: "Location Alarm Active",
-        enableWakeLock: true,
-      ),
     );
 
     _positionStreamSubscription = Geolocator.getPositionStream(
