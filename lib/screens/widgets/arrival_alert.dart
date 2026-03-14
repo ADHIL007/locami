@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:locami/theme/them_provider.dart';
 import 'package:locami/dbManager/trip_details_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:locami/core/utils/map_utils.dart';
@@ -24,12 +23,12 @@ class ArrivalAlert extends StatelessWidget {
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24),
       child: Container(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(28),
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(32),
+          color: const Color(0xFF1A1A1A), // Dark background matching image
+          borderRadius: BorderRadius.circular(36),
           border: Border.all(
-            color: customColors().textPrimary.withOpacity(0.05),
+            color: Colors.white.withOpacity(0.05),
           ),
         ),
         child: Column(
@@ -37,8 +36,8 @@ class ArrivalAlert extends StatelessWidget {
           children: [
             // Success Icon
             Container(
-              height: 64,
-              width: 64,
+              height: 72,
+              width: 72,
               decoration: const BoxDecoration(
                 color: Color(0xFF66BB6A),
                 shape: BoxShape.circle,
@@ -55,19 +54,19 @@ class ArrivalAlert extends StatelessWidget {
             Text(
               "$destination Reached!",
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: customColors().textPrimary,
-                fontSize: 24,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 26,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             
             // Subtitle
             Text(
               "You've arrived at your destination",
               style: TextStyle(
-                color: customColors().textSecondary,
+                color: Colors.white.withOpacity(0.5),
                 fontSize: 16,
               ),
             ),
@@ -76,9 +75,9 @@ class ArrivalAlert extends StatelessWidget {
             // Map Clip
             if (trip != null) 
               ClipRRect(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(24),
                 child: SizedBox(
-                  height: 140,
+                  height: 160,
                   width: double.infinity,
                   child: _buildMapSnippet(trip),
                 ),
@@ -91,12 +90,12 @@ class ArrivalAlert extends StatelessWidget {
               children: [
                 Expanded(
                   child: SizedBox(
-                    height: 56,
+                    height: 60,
                     child: ElevatedButton(
                       onPressed: onThanks,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: customColors().textPrimary.withOpacity(0.1),
-                        foregroundColor: customColors().textPrimary,
+                        backgroundColor: const Color(0xFF2C2C2C), // Dark gray from image
+                        foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
@@ -107,19 +106,20 @@ class ArrivalAlert extends StatelessWidget {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.1,
+                          fontSize: 16,
                         ),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
                 Expanded(
                   child: SizedBox(
-                    height: 56,
+                    height: 60,
                     child: ElevatedButton(
                       onPressed: onDone,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE53935), // Red from image
+                        backgroundColor: const Color(0xFFB71C1C), // Deep red from image
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -131,6 +131,7 @@ class ArrivalAlert extends StatelessWidget {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.1,
+                          fontSize: 16,
                         ),
                       ),
                     ),
@@ -160,9 +161,10 @@ class ArrivalAlert extends StatelessWidget {
     final double dist = MapUtils.distanceInKm(startLat, startLon, endLat, endLon);
     final int zoom = MapUtils.calculateZoom(dist);
 
+    // Using satellite view (l=sat) to match the image look
     final String url =
         "https://static-maps.yandex.ru/1.x/"
-        "?l=map"
+        "?l=sat"
         "&lang=en_US"
         "&size=450,200"
         "&scale=2"
