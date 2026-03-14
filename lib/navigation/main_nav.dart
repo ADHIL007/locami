@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:locami/dbManager/app-status_manager.dart';
-import 'package:locami/screens/home.dart';
-import 'package:locami/screens/initial_home.dart';
+import 'package:locami/modules/home/bindings/home_binding.dart';
+import 'package:locami/modules/home/views/home_view.dart';
+import 'package:locami/modules/initial/bindings/initial_home_binding.dart';
+import 'package:locami/modules/initial/views/initial_home_view.dart';
 
 class MainNav extends StatefulWidget {
   const MainNav({Key? key}) : super(key: key);
@@ -32,6 +34,32 @@ class _MainNavState extends State<MainNav> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return isFirstTimeUser! ? const InitialHome() : const Home();
+    if (isFirstTimeUser!) {
+      // Use Get.put if we are embedding it in MainNav, or GetView if we navigate
+      // Since it's inside Scaffold in main.dart, we can use Get.put manually or use a wrapper
+      return const InitialHomeWrapper();
+    } else {
+      return const HomeWrapper();
+    }
+  }
+}
+
+class InitialHomeWrapper extends StatelessWidget {
+  const InitialHomeWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    InitialHomeBinding().dependencies();
+    return const InitialHomeView();
+  }
+}
+
+class HomeWrapper extends StatelessWidget {
+  const HomeWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    HomeBinding().dependencies();
+    return const HomeView();
   }
 }

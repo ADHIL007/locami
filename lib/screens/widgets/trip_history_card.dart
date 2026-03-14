@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:locami/core/model/trip_details_model.dart';
-import 'package:locami/screens/trip_details_screen.dart';
+import 'package:locami/modules/trip/views/trip_details_view.dart';
 import 'package:locami/theme/them_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:locami/core/utils/map_utils.dart';
+import 'package:locami/core/widgets/glass_container.dart';
 
-class TripHistoryCard extends StatefulWidget {
+class TripHistoryCard extends StatelessWidget {
   final TripDetailsModel trip;
   final VoidCallback? onRestart;
 
@@ -14,39 +16,19 @@ class TripHistoryCard extends StatefulWidget {
     : super(key: key);
 
   @override
-  State<TripHistoryCard> createState() => _TripHistoryCardState();
-}
-
-class _TripHistoryCardState extends State<TripHistoryCard> {
-
-  @override
   Widget build(BuildContext context) {
-    final trip = widget.trip;
-    final onRestart = widget.onRestart;
     final dateStr = DateFormat('MMM dd, yyyy • hh:mm a').format(trip.timestamp);
 
-    return Container(
+    return GlassContainer(
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: customColors().textPrimary.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: customColors().textPrimary.withOpacity(0.1),
-          width: 1,
-        ),
-      ),
+      opacity: 0.1,
+      blur: 20,
+      borderRadius: 16,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {
           if (onRestart != null) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder:
-                    (context) =>
-                        TripDetailsScreen(trip: trip, onStartAgain: onRestart),
-              ),
-            );
+            Get.to(() => TripDetailsView(trip: trip, onStartAgain: onRestart!));
           }
         },
         child: Padding(
@@ -226,76 +208,6 @@ class _TripHistoryCardState extends State<TripHistoryCard> {
           size: 32,
         ),
       ),
-    );
-  }
-
-  Widget _buildLocationRow({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 20, color: color),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  color: customColors().textSecondary,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: TextStyle(
-                  color: customColors().textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStat(IconData icon, String value, String label) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 14, color: customColors().textSecondary),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: customColors().textSecondary,
-                fontSize: 10,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: TextStyle(
-            color: customColors().textPrimary,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
     );
   }
 }

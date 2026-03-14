@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:locami/dbManager/app-status_manager.dart';
 import 'package:locami/dbManager/trip_details_manager.dart';
 import 'package:locami/dbManager/userModel_manager.dart';
-import 'package:locami/screens/initial_home.dart';
 import 'package:locami/theme/them_provider.dart';
+import 'package:locami/core/widgets/glass_container.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:locami/navigation/main_nav.dart';
 
 class SettingsBottomSheet extends StatelessWidget {
   const SettingsBottomSheet({super.key});
@@ -17,12 +18,12 @@ class SettingsBottomSheet extends StatelessWidget {
     final themeProvider = context.watch<ThemeProvider>();
     final accentColor = themeProvider.accentColor;
 
-    return Container(
+    return GlassContainer(
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      opacity: 0.8,
+      blur: 20,
+      color: Theme.of(context).cardColor,
+      borderRadius: 24,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -173,14 +174,12 @@ class SettingsBottomSheet extends StatelessWidget {
       context: context,
       backgroundColor: Colors.transparent,
       builder:
-          (context) => Container(
+          (context) => GlassContainer(
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(24),
-              ),
-            ),
+            opacity: 0.8,
+            blur: 20,
+            color: Theme.of(context).cardColor,
+            borderRadius: 24,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -217,7 +216,10 @@ class SettingsBottomSheet extends StatelessWidget {
                 const SizedBox(height: 12),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.library_music_outlined, color: accentColor),
+                  leading: Icon(
+                    Icons.library_music_outlined,
+                    color: accentColor,
+                  ),
                   title: Text(
                     "Pick from Device",
                     style: TextStyle(color: customColors().textPrimary),
@@ -277,7 +279,10 @@ class SettingsBottomSheet extends StatelessWidget {
       trailing:
           isSelected
               ? Icon(Icons.check_circle, color: accentColor)
-              : Icon(Icons.circle_outlined, color: customColors().textSecondary),
+              : Icon(
+                Icons.circle_outlined,
+                color: customColors().textSecondary,
+              ),
       onTap: () {
         provider.setAlertSound(key, name);
         // Play sample
@@ -347,7 +352,7 @@ class SettingsBottomSheet extends StatelessWidget {
                   if (context.mounted) {
                     Navigator.pushAndRemoveUntil(
                       context,
-                      MaterialPageRoute(builder: (_) => const InitialHome()),
+                      MaterialPageRoute(builder: (_) => const MainNav()),
                       (route) => false,
                     );
                   }

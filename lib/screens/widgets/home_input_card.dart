@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:locami/theme/them_provider.dart';
+import 'package:locami/core/widgets/glass_container.dart';
 
 class HomeInputCard extends StatelessWidget {
   final TextEditingController controller;
@@ -23,12 +24,11 @@ class HomeInputCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      child: GlassContainer(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: customColors().textPrimary.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(12),
-        ),
+        opacity: 0.1,
+        blur: 20,
+        borderRadius: 16,
         child: Row(
           children: [
             Icon(icon, color: iconColor, size: 24),

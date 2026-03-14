@@ -8,8 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart';
 
 class TripInfoDisplay extends StatelessWidget {
-  static const bool _showSimulation =
-      true; //simulation set to false to disable simulation
+  static const bool _showSimulation = true;
 
   const TripInfoDisplay({Key? key}) : super(key: key);
 
@@ -31,70 +30,79 @@ class TripInfoDisplay extends StatelessWidget {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Center(
-              child: SizedBox(
-                height: 200,
-                width: 200,
-                child: Speedometer(speed: speedKmh, maxSpeed: 140),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
+            Column(
               children: [
-                Text(
-                  remainingKm.toStringAsFixed(2),
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: customColors().textPrimary,
+                Center(
+                  child: SizedBox(
+                    height: 180,
+                    width: 180,
+                    child: Speedometer(speed: speedKmh, maxSpeed: 140),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  "km From Destination",
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: customColors().textPrimary.withOpacity(0.7),
-                    fontWeight: FontWeight.w500,
-                  ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      remainingKm.toStringAsFixed(2),
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: customColors().textPrimary,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      "km to go",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: customColors().textPrimary.withOpacity(0.7),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.gps_fixed,
+                      size: 12,
+                      color: customColors().textPrimary.withOpacity(0.5),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      "$activityLabel, GPS Active",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: customColors().textPrimary.withOpacity(0.5),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.gps_fixed,
-                  size: 12,
-                  color: customColors().textPrimary.withOpacity(0.5),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  "$activityLabel, GPS Active",
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: customColors().textPrimary.withOpacity(0.5),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
 
-            _buildAlertProgress(details, accentColor),
-            const SizedBox(height: 16),
+            Column(
+              children: [
+                _buildAlertProgress(details, accentColor),
+              ],
+            ),
+            const SizedBox(height: 24),
+            
             SizedBox(
               width: double.infinity,
-              height: 50,
+              height: 60,
               child: ElevatedButton(
                 onPressed: () => TripDetailsManager.instance.stopTracking(),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: accentColor,
                   foregroundColor: customColors().textPrimary,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   elevation: 0,
                 ),
@@ -105,12 +113,12 @@ class TripInfoDisplay extends StatelessWidget {
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
                         border: Border.all(
-                          color: customColors().textPrimary,
+                          color: Colors.white,
                           width: 2,
                         ),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Icon(Icons.stop, size: 14),
+                      child: const Icon(Icons.stop, size: 14, color: Colors.white),
                     ),
                     const SizedBox(width: 12),
                     const Text(
@@ -118,6 +126,7 @@ class TripInfoDisplay extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
                     ),
                   ],
@@ -125,27 +134,27 @@ class TripInfoDisplay extends StatelessWidget {
               ),
             ),
             if (kDebugMode && _showSimulation) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        textStyle: const TextStyle(fontSize: 11),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () => TripSimulator.simulateMoveTowards(),
                       icon: const Icon(Icons.fast_forward, size: 16),
                       label: const Text("10% Closer"),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        textStyle: const TextStyle(fontSize: 11),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () => TripSimulator.simulateArrival(),
                       icon: const Icon(Icons.location_on, size: 16),
@@ -164,8 +173,7 @@ class TripInfoDisplay extends StatelessWidget {
   Widget _buildAlertProgress(TripDetailsModel details, Color accentColor) {
     final alertDistance = TripDetailsManager.instance.alertDistance ?? 500.0;
     final remaining = details.remainingDistance ?? 0.0;
-    final total =
-        details.totalDistance ?? (details.distanceTraveled ?? 0) + remaining;
+    final total = details.totalDistance ?? (details.distanceTraveled ?? 0) + remaining;
 
     double progress = 0.0;
     if (total > 0) {
@@ -190,17 +198,14 @@ class TripInfoDisplay extends StatelessWidget {
         Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
+                color: accentColor.withOpacity(0.1),
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: customColors().textPrimary.withOpacity(0.2),
-                  width: 2,
-                ),
               ),
               child: Icon(
                 Icons.notifications_active_outlined,
-                size: 16,
+                size: 20,
                 color: accentColor,
               ),
             ),
@@ -209,31 +214,31 @@ class TripInfoDisplay extends StatelessWidget {
               "Alerting in",
               style: TextStyle(
                 fontSize: 18,
-                color: customColors().textPrimary.withOpacity(0.7),
+                color: customColors().textPrimary.withOpacity(0.8),
               ),
             ),
             const Spacer(),
             Text(
               alertText,
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: customColors().textPrimary,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         ClipRRect(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(10),
           child: LinearProgressIndicator(
             value: progress,
-            backgroundColor: customColors().textPrimary.withOpacity(0.1),
+            backgroundColor: customColors().textPrimary.withOpacity(0.05),
             valueColor: AlwaysStoppedAnimation<Color>(accentColor),
-            minHeight: 8,
+            minHeight: 10,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -247,7 +252,7 @@ class TripInfoDisplay extends StatelessWidget {
             Text(
               "${(progress * 100).toStringAsFixed(0)}%",
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: FontWeight.bold,
                 color: accentColor,
               ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:locami/dbManager/trip_details_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:locami/core/utils/map_utils.dart';
+import 'package:locami/core/widgets/glass_container.dart';
 
 class ArrivalAlert extends StatelessWidget {
   final String destination;
@@ -22,15 +23,12 @@ class ArrivalAlert extends StatelessWidget {
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Container(
+      child: GlassContainer(
         padding: const EdgeInsets.all(28),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A), // Dark background matching image
-          borderRadius: BorderRadius.circular(36),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.05),
-          ),
-        ),
+        opacity: 0.8,
+        blur: 25,
+        borderRadius: 36,
+        color: const Color(0xFF1A1A1A),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -41,6 +39,13 @@ class ArrivalAlert extends StatelessWidget {
               decoration: const BoxDecoration(
                 color: Color(0xFF66BB6A),
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x6666BB6A),
+                    blurRadius: 15,
+                    spreadRadius: 2,
+                  )
+                ]
               ),
               child: const Icon(
                 Icons.check,
@@ -94,7 +99,7 @@ class ArrivalAlert extends StatelessWidget {
                     child: ElevatedButton(
                       onPressed: onThanks,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2C2C2C), // Dark gray from image
+                        backgroundColor: Colors.white.withOpacity(0.1),
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -119,7 +124,7 @@ class ArrivalAlert extends StatelessWidget {
                     child: ElevatedButton(
                       onPressed: onDone,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFB71C1C), // Deep red from image
+                        backgroundColor: const Color(0xFFB71C1C).withOpacity(0.8),
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -161,7 +166,6 @@ class ArrivalAlert extends StatelessWidget {
     final double dist = MapUtils.distanceInKm(startLat, startLon, endLat, endLon);
     final int zoom = MapUtils.calculateZoom(dist);
 
-    // Using satellite view (l=sat) to match the image look
     final String url =
         "https://static-maps.yandex.ru/1.x/"
         "?l=sat"

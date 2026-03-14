@@ -23,11 +23,11 @@ class ColorTheme {
 }
 
 const ColorTheme lightTheme = ColorTheme(
-  background: Color(0xFFFFFFFF),
-  textPrimary: Color(0xFF111111),
-  textSecondary: Color(0xFF6B6B6B),
-  borderColor: Color(0xFFE0E0E0),
-  buttonColor: Color(0xFF111111),
+  background: Color(0xFFF8FAFC), // Slate 50
+  textPrimary: Color(0xFF0F172A), // Slate 900
+  textSecondary: Color(0xFF64748B), // Slate 500
+  borderColor: Color(0xFFE2E8F0), // Slate 200
+  buttonColor: Color(0xFF0F172A),
   buttonTextColor: Color(0xFFFFFFFF),
 );
 

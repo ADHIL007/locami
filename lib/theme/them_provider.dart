@@ -50,13 +50,25 @@ class ThemeProvider extends ChangeNotifier {
   void _setLight() {
     theme = AppThemeMode.light;
     currentTheme = lightTheme;
-    _themeData = materialLightTheme;
+    _themeData = ThemeData.light().copyWith(
+      primaryColor: accentColor,
+      colorScheme: ColorScheme.light(
+        primary: accentColor,
+        secondary: accentColor,
+      ),
+    );
   }
 
   void _setDark() {
     theme = AppThemeMode.dark;
     currentTheme = darkTheme;
-    _themeData = materialDarkTheme;
+    _themeData = ThemeData.dark().copyWith(
+      primaryColor: accentColor,
+      colorScheme: ColorScheme.dark(
+        primary: accentColor,
+        secondary: accentColor,
+      ),
+    );
   }
 
   void setMatchWithSystem(bool value) {
@@ -75,6 +87,7 @@ class ThemeProvider extends ChangeNotifier {
 
   void setAccentColor(Color color) {
     accentColor = color;
+    _applyTheme();
     _saveStatus();
     notifyListeners();
   }
@@ -121,12 +134,13 @@ class ThemeProvider extends ChangeNotifier {
 
   void applyFromStatus(AppStatus status) {
     if (status.theme == 'system') {
-      setMatchWithSystem(true);
+      isMatchWithSystem = true;
     } else {
-      setMatchWithSystem(false);
-      setTheme(status.theme == 'dark' ? AppThemeMode.dark : AppThemeMode.light);
+      isMatchWithSystem = false;
+      theme = status.theme == 'dark' ? AppThemeMode.dark : AppThemeMode.light;
     }
     accentColor = Color(status.accentColor);
+    _applyTheme();
     alertSound = status.alertSound;
     alertSoundName = status.alertSoundName;
     isCustomSound = status.isCustomSound;

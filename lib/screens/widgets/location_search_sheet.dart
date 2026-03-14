@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:locami/core/geo-location-Manager/street-Manager.dart';
 import 'package:locami/theme/them_provider.dart';
+import 'package:locami/core/widgets/glass_container.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 
@@ -89,13 +90,13 @@ class _LocationSearchSheetState extends State<LocationSearchSheet> {
   Widget build(BuildContext context) {
     final accentColor = context.read<ThemeProvider>().accentColor;
 
-    return Container(
+    return GlassContainer(
       height: MediaQuery.of(context).size.height * 0.8,
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: customColors().background,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      opacity: 0.8,
+      blur: 20,
+      color: customColors().background,
+      borderRadius: 24,
       child: Column(
         children: [
           Container(
