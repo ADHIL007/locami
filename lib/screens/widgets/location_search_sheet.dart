@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:locami/core/geo_location_manager/street_manager.dart';
 import 'package:locami/theme/theme_provider.dart';
 import 'package:locami/core/widgets/glass_container.dart';
+import 'package:locami/core/utils/environment.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 
@@ -13,6 +14,7 @@ class LocationSearchSheet extends StatefulWidget {
   final String userCountry;
   final Position? currentPosition;
   final Function(String) onSelected;
+  final VoidCallback? onTestNearby;
 
   const LocationSearchSheet({
     super.key,
@@ -21,6 +23,7 @@ class LocationSearchSheet extends StatefulWidget {
     required this.userCountry,
     this.currentPosition,
     required this.onSelected,
+    this.onTestNearby,
   });
 
   @override
@@ -175,6 +178,27 @@ class _LocationSearchSheetState extends State<LocationSearchSheet> {
               title: Text(
                 "Use Current Location",
                 style: TextStyle(color: customColors().textPrimary),
+              ),
+            ),
+          ],
+          if (!widget.isFrom && widget.onTestNearby != null && EnvironmentConfig.isDevelopment) ...[
+            const SizedBox(height: 16),
+            ListTile(
+              onTap: () {
+                widget.onTestNearby?.call();
+                Navigator.pop(context);
+              },
+              leading: Icon(SolarIconsOutline.testTube, color: accentColor),
+              title: Text(
+                "Set nearby for testing",
+                style: TextStyle(color: customColors().textPrimary),
+              ),
+              subtitle: Text(
+                "Destination at alert distance + 2m",
+                style: TextStyle(
+                  color: customColors().textPrimary.withValues(alpha: 0.5),
+                  fontSize: 12,
+                ),
               ),
             ),
           ],

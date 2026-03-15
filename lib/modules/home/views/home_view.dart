@@ -39,6 +39,7 @@ class HomeView extends GetView<HomeController> {
           }
           controller.update();
         },
+        onTestNearby: isFrom ? null : controller.setNearbyTestLocation,
       ),
       isScrollControlled: true,
       backgroundColor: Colors.transparent,

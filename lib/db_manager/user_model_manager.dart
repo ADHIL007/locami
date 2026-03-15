@@ -45,8 +45,8 @@ class UserModelManager {
       totalTravel: totalTravel ?? current.totalTravel,
       fromStreet: fromStreet ?? current.fromStreet,
       destinationStreet: destinationStreet ?? current.destinationStreet,
-      destinationLatitude: streetChanged ? null : (destinationLatitude ?? current.destinationLatitude),
-      destinationLongitude: streetChanged ? null : (destinationLongitude ?? current.destinationLongitude),
+      destinationLatitude: destinationLatitude ?? (streetChanged ? null : current.destinationLatitude),
+      destinationLongitude: destinationLongitude ?? (streetChanged ? null : current.destinationLongitude),
       travelMode: travelMode ?? current.travelMode,
     );
 

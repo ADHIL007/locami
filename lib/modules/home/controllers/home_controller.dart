@@ -27,6 +27,8 @@ class HomeController extends GetxController {
   final locations = <String>[].obs;
   final fromAddress = "".obs;
   final toAddress = "".obs;
+  final destinationLatitude = Rx<double?>(null);
+  final destinationLongitude = Rx<double?>(null);
 
 
   Timer? _transmissionTimer;
@@ -44,6 +46,10 @@ class HomeController extends GetxController {
       update();
     });
     toController.addListener(() {
+      if (toAddress.value != toController.text) {
+        destinationLatitude.value = null;
+        destinationLongitude.value = null;
+      }
       toAddress.value = toController.text;
       update();
     });
@@ -227,8 +233,8 @@ class HomeController extends GetxController {
         await UserModelManager.instance.patchUser(
           fromStreet: fromController.text,
           destinationStreet: toController.text,
-          destinationLatitude: null,
-          destinationLongitude: null,
+          destinationLatitude: destinationLatitude.value,
+          destinationLongitude: destinationLongitude.value,
         );
 
         await TripDetailsManager.instance.startTracking(
@@ -254,5 +260,21 @@ class HomeController extends GetxController {
     if (!isTracking.value) {
       alertDistance.value = distance;
     }
+  }
+
+  Future<void> setNearbyTestLocation() async {
+    final position = currentPosition.value ?? await Geolocator.getCurrentPosition();
+    currentPosition.value = position;
+    
+    // Calculate a point that is (alertDistance + 2) meters away
+    // 1 degree latitude is approximately 111,111 meters
+    final double distanceInMeters = alertDistance.value.toDouble() + 2.0;
+    final double deltaLat = distanceInMeters / 111111.0;
+    
+    destinationLatitude.value = position.latitude + deltaLat;
+    destinationLongitude.value = position.longitude;
+    toAddress.value = "Test Destination (Nearby)";
+    toController.text = "Test Destination (Nearby)";
+    update();
   }
 }
