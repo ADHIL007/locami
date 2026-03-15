@@ -1,135 +1,164 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:get/get.dart';
 
 import 'package:locami/modules/initial/controllers/initial_home_controller.dart';
-
 import 'package:locami/theme/them_provider.dart';
 import 'package:locami/core/widgets/glass_container.dart';
+import 'package:locami/core/widgets/reflector_bg.dart';
+import 'dart:ui';
 
 class InitialHomeView extends GetView<InitialHomeController> {
   const InitialHomeView({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = ThemeProvider.instance;
+    final themeProvider = context.watch<ThemeProvider>();
     final accentColor = themeProvider.accentColor;
 
     return Scaffold(
-      backgroundColor: customColors().background,
-      body: GestureDetector(
-        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-              Row(
-                children: [
-                  Icon(Icons.location_on, color: accentColor, size: 28),
-                  const SizedBox(width: 8),
-                  Text(
-                    "Locami",
-                    style: TextStyle(
-                      color: customColors().textPrimary,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 48),
-
-              // Progress and Page Content
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  child: Obx(() => IndexedStack(
-                    index: controller.index.value,
-                    children: [
-                      _buildNameStep(accentColor),
-                      _buildCountryStep(accentColor),
-                      _buildThemeStep(accentColor),
+      backgroundColor: themeProvider.themeData.scaffoldBackgroundColor,
+      body: Stack(
+        children: [
+          // Dynamic Background
+          ReflectionBackground(accentColor: accentColor, speed: 0.8),
+          
+          // Blur Layer
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      themeProvider.themeData.scaffoldBackgroundColor.withOpacity(0.4),
+                      accentColor.withOpacity(0.04),
+                      themeProvider.themeData.scaffoldBackgroundColor.withOpacity(0.7),
                     ],
-                  )),
+                  ),
                 ),
               ),
+            ),
+          ),
 
-              // Footer
-              Column(
-                children: [
-                  // Step Indicator Dots
-                  Obx(() => Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(3, (i) {
-                      return Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: i == controller.index.value
-                              ? accentColor
-                              : customColors().textSecondary.withOpacity(0.3),
+          GestureDetector(
+            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header
+                    Row(
+                      children: [
+                        Icon(Icons.location_on, color: accentColor, size: 28),
+                        const SizedBox(width: 8),
+                        Text(
+                          "Locami",
+                          style: TextStyle(
+                            color: customColors().textPrimary,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      );
-                    }),
-                  )),
-                  const SizedBox(height: 12),
-                  Obx(() => Text(
-                    "Step ${controller.index.value + 1} of 3",
-                    style: TextStyle(
-                      color: customColors().textSecondary,
-                      fontSize: 12,
+                      ],
                     ),
-                  )),
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 48),
 
-                  // Main Button
-                  GestureDetector(
-                    onTap: controller.validateNext,
-                    child: Container(
-                      height: 56,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [accentColor, accentColor.withOpacity(0.8)],
-                        ),
-                        borderRadius: BorderRadius.circular(16),
+                    // Progress and Page Content
+                    Expanded(
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        child: Obx(() => IndexedStack(
+                          index: controller.index.value,
+                          children: [
+                            _buildNameStep(accentColor),
+                            _buildCountryStep(accentColor),
+                            _buildThemeStep(accentColor),
+                          ],
+                        )),
                       ),
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Obx(() => Text(
-                            controller.index.value == 0 ? "Continue" : "Next",
-                            style: TextStyle(
-                              color: customColors().buttonTextColor,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                    ),
+
+                    // Footer
+                    Column(
+                      children: [
+                        // Step Indicator Dots
+                        Obx(() => Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(3, (i) {
+                            return Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: i == controller.index.value
+                                    ? accentColor
+                                    : customColors().textSecondary.withOpacity(0.3),
+                              ),
+                            );
+                          }),
+                        )),
+                        const SizedBox(height: 12),
+                        Obx(() => Text(
+                          "Step ${controller.index.value + 1} of 3",
+                          style: TextStyle(
+                            color: customColors().textSecondary,
+                            fontSize: 12,
+                          ),
+                        )),
+                        const SizedBox(height: 24),
+
+                        // Main Button
+                        GestureDetector(
+                          onTap: controller.validateNext,
+                          child: Container(
+                            height: 56,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [accentColor, accentColor.withOpacity(0.8)],
+                              ),
+                              borderRadius: BorderRadius.circular(16),
                             ),
-                          )),
-                          Positioned(
-                            right: 20,
-                            child: Icon(
-                              Icons.chevron_right,
-                              color: customColors().buttonTextColor,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Obx(() => Text(
+                                  controller.index.value == 0 ? "Continue" : "Next",
+                                  style: TextStyle(
+                                    color: customColors().buttonTextColor,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                )),
+                                Positioned(
+                                  right: 20,
+                                  child: Icon(
+                                    Icons.chevron_right,
+                                    color: customColors().buttonTextColor,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                  ],
+                ),
               ),
-              const SizedBox(height: 16),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildStepHeader(String title, String subtitle) {
     return Column(
@@ -191,26 +220,53 @@ class InitialHomeView extends GetView<InitialHomeController> {
           "This helps display details accurately.",
         ),
 
-        // Search bar
-        GlassContainer(
-          opacity: 0.1,
-          blur: 10,
-          borderRadius: 12,
-          child: TextField(
-            controller: controller.countrySearchController,
-            onChanged: controller.filterCountries,
-            style: TextStyle(color: customColors().textPrimary),
-            decoration: InputDecoration(
-              hintText: "Search country",
-              hintStyle: TextStyle(color: customColors().textSecondary),
-              prefixIcon: Icon(
-                Icons.search,
-                color: customColors().textSecondary,
+        Row(
+          children: [
+            Expanded(
+              child: GlassContainer(
+                opacity: 0.1,
+                blur: 10,
+                borderRadius: 12,
+                child: TextField(
+                  controller: controller.countrySearchController,
+                  onChanged: controller.filterCountries,
+                  style: TextStyle(color: customColors().textPrimary),
+                  decoration: InputDecoration(
+                    hintText: "Search country",
+                    hintStyle: TextStyle(color: customColors().textSecondary),
+                    prefixIcon: Icon(
+                      Icons.search,
+                      color: customColors().textSecondary,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                ),
               ),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 16),
             ),
-          ),
+            const SizedBox(width: 12),
+            Obx(() => GestureDetector(
+              onTap: controller.isLocating.value ? null : controller.autoLocateCountry,
+              child: Container(
+                height: 52,
+                width: 52,
+                decoration: BoxDecoration(
+                  color: accentColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: accentColor.withOpacity(0.3)),
+                ),
+                child: controller.isLocating.value
+                    ? const Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : Icon(Icons.my_location, color: accentColor),
+              ),
+            )),
+          ],
         ),
         const SizedBox(height: 20),
 
@@ -223,23 +279,24 @@ class InitialHomeView extends GetView<InitialHomeController> {
             separatorBuilder: (context, index) => Divider(color: customColors().borderColor, height: 1),
             itemBuilder: (context, index) {
               final country = controller.filteredCountries[index];
-              final isSelected = controller.userdata['country'] == country;
               final flag = controller.flagMapping[country] ?? '🏳️';
-
-              return ListTile(
-                onTap: () => controller.selectCountry(country),
-                contentPadding: EdgeInsets.zero,
-                leading: Text(flag, style: const TextStyle(fontSize: 24)),
-                title: Text(
-                  country,
-                  style: TextStyle(
-                    color: isSelected ? customColors().textPrimary : customColors().textSecondary,
-                    fontSize: 16,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              return Obx(() {
+                final isSelected = controller.userdata['country'] == country;
+                return ListTile(
+                  onTap: () => controller.selectCountry(country),
+                  contentPadding: EdgeInsets.zero,
+                  leading: Text(flag, style: const TextStyle(fontSize: 24)),
+                  title: Text(
+                    country,
+                    style: TextStyle(
+                      color: isSelected ? customColors().textPrimary : customColors().textSecondary,
+                      fontSize: 16,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
                   ),
-                ),
-                trailing: isSelected ? Icon(Icons.check, color: accentColor) : null,
-              );
+                  trailing: isSelected ? Icon(Icons.check, color: accentColor) : null,
+                );
+              });
             },
           )),
         ),
@@ -254,16 +311,23 @@ class InitialHomeView extends GetView<InitialHomeController> {
         _buildStepHeader("Choose your theme", "Pick the app theme you prefer."),
 
         Obx(() => _buildThemeCard(
+          "System Default",
+          Icons.brightness_auto_outlined,
+          'system',
+          accentColor,
+        )),
+        const SizedBox(height: 16),
+        Obx(() => _buildThemeCard(
           "Light",
           Icons.wb_sunny_outlined,
-          AppThemeMode.light,
+          'light',
           accentColor,
         )),
         const SizedBox(height: 16),
         Obx(() => _buildThemeCard(
           "Dark",
           Icons.dark_mode_outlined,
-          AppThemeMode.dark,
+          'dark',
           accentColor,
         )),
       ],
@@ -273,13 +337,21 @@ class InitialHomeView extends GetView<InitialHomeController> {
   Widget _buildThemeCard(
     String label,
     IconData icon,
-    AppThemeMode mode,
+    String mode, // 'light', 'dark', or 'system'
     Color accentColor,
   ) {
     final isSelected = controller.userdata['theme'] == mode;
 
     return GestureDetector(
-      onTap: () => controller.setTheme(mode),
+      onTap: () {
+        if (mode == 'system') {
+          controller.setThemeToSystem();
+        } else if (mode == 'light') {
+          controller.setTheme(AppThemeMode.light);
+        } else {
+          controller.setTheme(AppThemeMode.dark);
+        }
+      },
       child: GlassContainer(
         height: 80,
         width: double.infinity,
