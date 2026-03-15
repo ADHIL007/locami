@@ -77,6 +77,7 @@ class InitialHomeController extends GetxController {
   }
 
   Future<void> validateNext() async {
+    FocusManager.instance.primaryFocus?.unfocus();
     if (index.value == 0) {
       if (nameController.text.trim().isEmpty) {
         showSnack('Please enter your name');
@@ -112,6 +113,7 @@ class InitialHomeController extends GetxController {
 
   void selectCountry(String country) {
     userdata['country'] = country;
+    FocusManager.instance.primaryFocus?.unfocus();
   }
 
   void setTheme(AppThemeMode mode) {

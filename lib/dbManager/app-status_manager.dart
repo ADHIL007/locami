@@ -26,6 +26,9 @@ class AppStatusManager {
     bool? isTripEnded,
     bool? isLoggedIn,
     String? theme,
+    bool? loopAlarm,
+    bool? showWaves,
+    bool? enableSimulation,
   }) async {
     final current = await status;
     final updated = current.copyWith(
@@ -36,6 +39,9 @@ class AppStatusManager {
       isTripEnded: isTripEnded,
       isLoggedIn: isLoggedIn,
       theme: theme,
+      loopAlarm: loopAlarm,
+      showWaves: showWaves,
+      enableSimulation: enableSimulation,
     );
     await updateStatus(updated);
   }
@@ -51,6 +57,7 @@ class AppStatusManager {
         isGpsOn: false,
         theme: 'system',
         accentColor: 4293212469,
+        showWaves: true,
       ),
     );
   }

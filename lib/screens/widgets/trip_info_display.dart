@@ -6,9 +6,9 @@ import 'package:locami/core/utils/trip_simulator.dart';
 import 'package:locami/theme/them_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart';
+import 'package:locami/core/utils/environment.dart';
 
 class TripInfoDisplay extends StatelessWidget {
-  static const bool _showSimulation = true;
 
   const TripInfoDisplay({Key? key}) : super(key: key);
 
@@ -133,7 +133,7 @@ class TripInfoDisplay extends StatelessWidget {
                 ),
               ),
             ),
-            if (kDebugMode && _showSimulation) ...[
+            if (EnvironmentConfig.isDevelopment && context.watch<ThemeProvider>().enableSimulation) ...[
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,

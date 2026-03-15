@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:locami/theme/them_provider.dart';
 
 class TrackingButton extends StatelessWidget {
   final bool isTracking;
@@ -24,47 +23,59 @@ class TrackingButton extends StatelessWidget {
       opacity: (isTracking || canStart) && !isLoading ? 1 : 0.5,
       child: AbsorbPointer(
         absorbing: (!isTracking && !canStart) || isLoading,
-        child: ElevatedButton(
-          onPressed: isLoading ? null : onPressed,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: accentColor,
-            foregroundColor: customColors().textPrimary,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            elevation: 0,
-            minimumSize: const Size(120, 40),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: accentColor.withOpacity(0.3),
+                blurRadius: 15,
+                offset: const Offset(0, 5),
+              ),
+            ],
           ),
-          child:
-              isLoading
-                  ? SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        customColors().textPrimary,
+          child: ElevatedButton(
+            onPressed: isLoading ? null : onPressed,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: accentColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              elevation: 0,
+              minimumSize: const Size(140, 52),
+            ),
+            child:
+                isLoading
+                    ? const SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
-                    ),
-                  )
-                  : Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        isTracking ? Icons.stop : Icons.play_arrow,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        isTracking ? "Stop" : "Start Tracking",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: customColors().textPrimary,
+                    )
+                    : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isTracking ? Icons.stop : Icons.play_arrow,
+                          size: 22,
+                          color: Colors.white,
                         ),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(width: 10),
+                        Text(
+                          isTracking ? "Stop Tracking" : "Start Tracking",
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+          ),
         ),
       ),
     );

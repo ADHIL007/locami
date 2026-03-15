@@ -16,13 +16,15 @@ class InitialHomeView extends GetView<InitialHomeController> {
 
     return Scaffold(
       backgroundColor: customColors().background,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
+      body: GestureDetector(
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
               Row(
                 children: [
                   Icon(Icons.location_on, color: accentColor, size: 28),
@@ -125,8 +127,9 @@ class InitialHomeView extends GetView<InitialHomeController> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildStepHeader(String title, String subtitle) {
     return Column(

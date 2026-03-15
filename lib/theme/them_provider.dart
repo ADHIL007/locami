@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:locami/core/dbHelper/app_status.dart';
 import 'package:locami/core/model/appstatus_model.dart';
 import 'package:locami/theme/app_theme.dart';
+import 'package:locami/core/utils/environment.dart';
 
 enum AppThemeMode { light, dark }
 
@@ -27,6 +28,8 @@ class ThemeProvider extends ChangeNotifier {
   bool isCustomSound = false;
   String? customSoundPath;
   bool loopAlarm = true;
+  bool showWaves = true;
+  bool enableSimulation = false;
 
   void _applyTheme() {
     if (isMatchWithSystem) {
@@ -51,10 +54,26 @@ class ThemeProvider extends ChangeNotifier {
     theme = AppThemeMode.light;
     currentTheme = lightTheme;
     _themeData = ThemeData.light().copyWith(
+      scaffoldBackgroundColor: const Color(0xFFF8FAFC),
       primaryColor: accentColor,
+      cardColor: Colors.white,
       colorScheme: ColorScheme.light(
         primary: accentColor,
         secondary: accentColor,
+        surface: Colors.white,
+        background: const Color(0xFFF8FAFC),
+        onPrimary: Colors.white,
+      ),
+      cardTheme: CardTheme(
+        color: Colors.white,
+        elevation: 2,
+        shadowColor: accentColor.withOpacity(0.1),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
       ),
     );
   }
@@ -114,6 +133,22 @@ class ThemeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setShowWaves(bool value) {
+    showWaves = value;
+    _saveStatus();
+    notifyListeners();
+  }
+
+  void setEnableSimulation(bool value) {
+    if (!EnvironmentConfig.isDevelopment) {
+      enableSimulation = false;
+    } else {
+      enableSimulation = value;
+    }
+    _saveStatus();
+    notifyListeners();
+  }
+
   Future<void> _saveStatus() async {
     final status = await AppStatusDbHelper.instance.getStatus();
     await AppStatusDbHelper.instance.saveStatus(
@@ -128,6 +163,8 @@ class ThemeProvider extends ChangeNotifier {
         isCustomSound: isCustomSound,
         customSoundPath: customSoundPath,
         loopAlarm: loopAlarm,
+        showWaves: showWaves,
+        enableSimulation: enableSimulation,
       ),
     );
   }
@@ -146,6 +183,8 @@ class ThemeProvider extends ChangeNotifier {
     isCustomSound = status.isCustomSound;
     customSoundPath = status.customSoundPath;
     loopAlarm = status.loopAlarm;
+    showWaves = status.showWaves;
+    enableSimulation = EnvironmentConfig.isDevelopment && status.enableSimulation;
     notifyListeners();
   }
 }

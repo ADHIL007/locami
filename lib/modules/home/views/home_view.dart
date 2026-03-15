@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:locami/core/widgets/reflector_bg.dart';
 import 'package:locami/modules/home/controllers/home_controller.dart';
 import 'package:locami/screens/widgets/trip_info_display.dart';
 import 'package:locami/screens/widgets/home_header.dart';
@@ -15,6 +16,7 @@ import 'package:locami/dbManager/trip_details_manager.dart';
 import 'package:locami/core/widgets/glass_container.dart';
 import 'package:locami/core/widgets/wave_background.dart';
 import 'dart:ui';
+import 'package:provider/provider.dart';
 
 class HomeView extends GetView<HomeController> {
   const HomeView({Key? key}) : super(key: key);
@@ -23,7 +25,10 @@ class HomeView extends GetView<HomeController> {
     Get.bottomSheet(
       LocationSearchSheet(
         isFrom: isFrom,
-        initialValue: isFrom ? controller.fromController.text : controller.toController.text,
+        initialValue:
+            isFrom
+                ? controller.fromController.text
+                : controller.toController.text,
         userCountry: controller.userCountry.value,
         currentPosition: controller.currentPosition.value,
         onSelected: (address) {
@@ -63,21 +68,53 @@ class HomeView extends GetView<HomeController> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = ThemeProvider.instance;
+    final themeProvider = context.watch<ThemeProvider>();
     final accentColor = themeProvider.accentColor;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
-          WaveBackground(accentColor: accentColor),
+          if (themeProvider.showWaves)
+            ReflectionBackground(accentColor: accentColor, speed: 1.0),
+
           Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-              child: Container(
-                color: Theme.of(context).scaffoldBackgroundColor.withOpacity(0.4),
-              ),
-            ),
+            child:
+                themeProvider.showWaves
+                    ? BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Theme.of(
+                                context,
+                              ).scaffoldBackgroundColor.withOpacity(0.5),
+                              accentColor.withOpacity(0.04),
+                              Theme.of(
+                                context,
+                              ).scaffoldBackgroundColor.withOpacity(0.6),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                    : Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Theme.of(
+                              context,
+                            ).scaffoldBackgroundColor.withOpacity(0.2),
+                          ],
+                        ),
+                      ),
+                    ),
           ),
           SafeArea(
             child: SingleChildScrollView(
@@ -85,28 +122,40 @@ class HomeView extends GetView<HomeController> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Obx(() => HomeHeader(
-                        isTracking: controller.isTracking.value,
-                        showLocami: controller.showLocami.value,
-                        accentColor: accentColor,
-                      )),
+                  Obx(
+                    () => HomeHeader(
+                      isTracking: controller.isTracking.value,
+                      showLocami: controller.showLocami.value,
+                      accentColor: accentColor,
+                    ),
+                  ),
                   const SizedBox(height: 32),
-                  Obx(() => HomeInputCard(
-                        controller: controller.fromController,
-                        label: "From",
-                        hint: "Select starting point",
-                        icon: Icons.home,
-                        onTap: controller.isTracking.value ? null : () => _showLocationSearch(true),
-                      )),
+                  Obx(
+                    () => HomeInputCard(
+                      controller: controller.fromController,
+                      label: "From",
+                      hint: "Select starting point",
+                      icon: Icons.home,
+                      onTap:
+                          controller.isTracking.value
+                              ? null
+                              : () => _showLocationSearch(true),
+                    ),
+                  ),
                   const SizedBox(height: 12),
-                  Obx(() => HomeInputCard(
-                        controller: controller.toController,
-                        label: "To",
-                        hint: "Select destination",
-                        icon: Icons.flag,
-                        iconColor: accentColor,
-                        onTap: controller.isTracking.value ? null : () => _showLocationSearch(false),
-                      )),
+                  Obx(
+                    () => HomeInputCard(
+                      controller: controller.toController,
+                      label: "To",
+                      hint: "Select destination",
+                      icon: Icons.flag,
+                      iconColor: accentColor,
+                      onTap:
+                          controller.isTracking.value
+                              ? null
+                              : () => _showLocationSearch(false),
+                    ),
+                  ),
                   const SizedBox(height: 24),
                   Row(
                     children: [
@@ -119,33 +168,51 @@ class HomeView extends GetView<HomeController> {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      Obx(() => HomeDistanceOption(
-                            distance: "500m",
-                            isSelected: controller.alertDistance.value == 500,
-                            onTap: controller.isTracking.value ? null : () => controller.setAlertDistance(500),
-                          )),
-                      Obx(() => HomeDistanceOption(
-                            distance: "1km",
-                            isSelected: controller.alertDistance.value == 1000,
-                            onTap: controller.isTracking.value ? null : () => controller.setAlertDistance(1000),
-                          )),
-                      Obx(() => HomeDistanceOption(
-                            distance: "2km",
-                            isSelected: controller.alertDistance.value == 2000,
-                            onTap: controller.isTracking.value ? null : () => controller.setAlertDistance(2000),
-                          )),
+                      Obx(
+                        () => HomeDistanceOption(
+                          distance: "500m",
+                          isSelected: controller.alertDistance.value == 500,
+                          onTap:
+                              controller.isTracking.value
+                                  ? null
+                                  : () => controller.setAlertDistance(500),
+                        ),
+                      ),
+                      Obx(
+                        () => HomeDistanceOption(
+                          distance: "1km",
+                          isSelected: controller.alertDistance.value == 1000,
+                          onTap:
+                              controller.isTracking.value
+                                  ? null
+                                  : () => controller.setAlertDistance(1000),
+                        ),
+                      ),
+                      Obx(
+                        () => HomeDistanceOption(
+                          distance: "2km",
+                          isSelected: controller.alertDistance.value == 2000,
+                          onTap:
+                              controller.isTracking.value
+                                  ? null
+                                  : () => controller.setAlertDistance(2000),
+                        ),
+                      ),
                       const Spacer(),
-                      Obx(() => TrackingButton(
-                            isTracking: controller.isTracking.value,
-                            isLoading: controller.isTrackingLoading.value,
-                            canStart: controller.validateIsTracking(),
-                            accentColor: accentColor,
-                            onPressed: controller.toggleTracking,
-                          )),
+                      Obx(
+                        () => TrackingButton(
+                          isTracking: controller.isTracking.value,
+                          isLoading: controller.isTrackingLoading.value,
+                          canStart: controller.validateIsTracking(),
+                          accentColor: accentColor,
+                          onPressed: controller.toggleTracking,
+                        ),
+                      ),
                     ],
                   ),
                   Obx(() {
-                    if (controller.isTracking.value || TripDetailsManager.instance.isTracking) {
+                    if (controller.isTracking.value ||
+                        TripDetailsManager.instance.isTracking) {
                       return Column(
                         children: [
                           const SizedBox(height: 32),
@@ -181,19 +248,24 @@ class HomeView extends GetView<HomeController> {
                             Stack(
                               children: [
                                 Column(
-                                  children: controller.tripHistory
-                                      .take(3)
-                                      .map(
-                                        (TripDetailsModel trip) => TripHistoryCard(
-                                          trip: trip,
-                                          onRestart: () {
-                                            controller.fromController.text = trip.street ?? "";
-                                            controller.toController.text = trip.destination ?? "";
-                                            controller.toggleTracking();
-                                          },
-                                        ),
-                                      )
-                                      .toList(),
+                                  children:
+                                      controller.tripHistory
+                                          .take(3)
+                                          .map(
+                                            (
+                                              TripDetailsModel trip,
+                                            ) => TripHistoryCard(
+                                              trip: trip,
+                                              onRestart: () {
+                                                controller.fromController.text =
+                                                    trip.street ?? "";
+                                                controller.toController.text =
+                                                    trip.destination ?? "";
+                                                controller.toggleTracking();
+                                              },
+                                            ),
+                                          )
+                                          .toList(),
                                 ),
                                 if (controller.tripHistory.length > 3)
                                   Positioned(
@@ -207,7 +279,8 @@ class HomeView extends GetView<HomeController> {
                                           begin: Alignment.topCenter,
                                           end: Alignment.bottomCenter,
                                           colors: [
-                                            customColors().background.withOpacity(0),
+                                            customColors().background
+                                                .withOpacity(0),
                                             customColors().background,
                                           ],
                                         ),
@@ -229,7 +302,8 @@ class HomeView extends GetView<HomeController> {
                                   Text(
                                     "No track history yet",
                                     style: TextStyle(
-                                      color: customColors().textPrimary.withOpacity(0.5),
+                                      color: customColors().textPrimary
+                                          .withOpacity(0.5),
                                       fontSize: 16,
                                     ),
                                   ),

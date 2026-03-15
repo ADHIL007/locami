@@ -18,143 +18,145 @@ class TripHistoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dateStr = DateFormat('MMM dd, yyyy • hh:mm a').format(trip.timestamp);
+    final isDark = ThemeProvider.instance.theme == AppThemeMode.dark;
+    final accentColor = ThemeProvider.instance.accentColor;
 
-    return GlassContainer(
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      opacity: 0.1,
-      blur: 20,
-      borderRadius: 16,
-      child: InkWell(
+      decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          if (onRestart != null) {
-            Get.to(() => TripDetailsView(trip: trip, onStartAgain: onRestart!));
-          }
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: SizedBox(
-                  width: 120,
-                  height: 100,
-                  child: _buildMapPreview(trip),
+        boxShadow: isDark
+            ? []
+            : [
+                BoxShadow(
+                  color: accentColor.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
                 ),
-              ),
-              const SizedBox(width: 16),
-
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    RichText(
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      text: TextSpan(
-                        style: TextStyle(
-                          color: customColors().textPrimary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'Inter',
-                        ),
-                        children: [
-                          TextSpan(
-                            text:
-                                (trip.street?.split(',').first ??
-                                        "Unknown Location")
-                                    .trim(),
+              ],
+      ),
+      child: GlassContainer(
+        opacity: isDark ? 0.1 : 0.6,
+        blur: 20,
+        borderRadius: 16,
+        color: isDark ? Colors.white : Colors.white.withOpacity(0.95),
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.1) : Colors.white,
+          width: 1.5,
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            if (onRestart != null) {
+              Get.to(() => TripDetailsView(trip: trip, onStartAgain: onRestart!));
+            }
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: SizedBox(
+                    width: 120,
+                    height: 100,
+                    child: _buildMapPreview(trip),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      RichText(
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        text: TextSpan(
+                          style: TextStyle(
+                            color: customColors().textPrimary,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'Inter',
                           ),
-                          TextSpan(
-                            text: " → ",
-                            style: TextStyle(
-                              color: customColors().textPrimary.withOpacity(
-                                0.6,
+                          children: [
+                            TextSpan(
+                              text: (trip.street?.split(',').first ?? "Unknown Location").trim(),
+                            ),
+                            TextSpan(
+                              text: " → ",
+                              style: TextStyle(
+                                color: customColors().textPrimary.withOpacity(0.6),
+                                fontWeight: FontWeight.w400,
                               ),
-                              fontWeight: FontWeight.w400,
+                            ),
+                            TextSpan(
+                              text: (trip.destination?.split(',').first ?? "Unknown Destination").trim(),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        dateStr,
+                        style: TextStyle(
+                          color: customColors().textSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          RichText(
+                            text: TextSpan(
+                              style: TextStyle(
+                                color: customColors().textPrimary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: "${(((trip.totalDistance ?? trip.distanceTraveled) ?? 0) / 1000).toStringAsFixed(1)} km",
+                                ),
+                                TextSpan(
+                                  text: " • ",
+                                  style: TextStyle(
+                                    color: customColors().textSecondary,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: "${((trip.speed < 0 ? 0.0 : trip.speed) * 3.6).toStringAsFixed(0)} km/h",
+                                ),
+                              ],
                             ),
                           ),
-                          TextSpan(
-                            text:
-                                (trip.destination?.split(',').first ??
-                                        "Unknown Destination")
-                                    .trim(),
-                          ),
+                          if (onRestart != null)
+                            Row(
+                              children: [
+                                Text(
+                                  "View Trip",
+                                  style: TextStyle(
+                                    color: customColors().textSecondary.withOpacity(0.8),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.chevron_right,
+                                  size: 14,
+                                  color: customColors().textSecondary.withOpacity(0.8),
+                                ),
+                              ],
+                            ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 6),
-
-                    Text(
-                      dateStr,
-                      style: TextStyle(
-                        color: customColors().textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        RichText(
-                          text: TextSpan(
-                            style: TextStyle(
-                              color: customColors().textPrimary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            children: [
-                              TextSpan(
-                                text:
-                                    "${(((trip.totalDistance ?? trip.distanceTraveled) ?? 0) / 1000).toStringAsFixed(1)} km",
-                              ),
-                              TextSpan(
-                                text: "  •  ",
-                                style: TextStyle(
-                                  color: customColors().textSecondary,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              TextSpan(
-                                text:
-                                    "${((trip.speed < 0 ? 0.0 : trip.speed) * 3.6).toStringAsFixed(0)} km/h",
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        if (onRestart != null)
-                          Row(
-                            children: [
-                              Text(
-                                "View Trip",
-                                style: TextStyle(
-                                  color: customColors().textSecondary
-                                      .withOpacity(0.8),
-                                  fontSize: 13,
-                                ),
-                              ),
-                              const SizedBox(width: 2),
-                              Icon(
-                                Icons.chevron_right,
-                                size: 16,
-                                color: customColors().textSecondary.withOpacity(
-                                  0.8,
-                                ),
-                              ),
-                            ],
-                          ),
-                      ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

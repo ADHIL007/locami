@@ -20,7 +20,7 @@ class AppStatusDbHelper {
     final path = join(await getDatabasesPath(), 'app_status.db');
     return openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -48,6 +48,17 @@ class AppStatusDbHelper {
         'ALTER TABLE $tableName ADD COLUMN custom_sound_path TEXT',
       );
     }
+    if (oldVersion < 5) {
+      await db.execute(
+        'ALTER TABLE $tableName ADD COLUMN loop_alarm INTEGER NOT NULL DEFAULT 1 CHECK (loop_alarm IN (0,1))',
+      );
+      await db.execute(
+        'ALTER TABLE $tableName ADD COLUMN show_waves INTEGER NOT NULL DEFAULT 1 CHECK (show_waves IN (0,1))',
+      );
+      await db.execute(
+        'ALTER TABLE $tableName ADD COLUMN enable_simulation INTEGER NOT NULL DEFAULT 0 CHECK (enable_simulation IN (0,1))',
+      );
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -65,7 +76,10 @@ class AppStatusDbHelper {
         alert_sound TEXT NOT NULL DEFAULT 'alarm',
         alert_sound_name TEXT NOT NULL DEFAULT 'Default Alarm',
         is_custom_sound INTEGER NOT NULL DEFAULT 0 CHECK (is_custom_sound IN (0,1)),
-        custom_sound_path TEXT
+        custom_sound_path TEXT,
+        loop_alarm INTEGER NOT NULL DEFAULT 1 CHECK (loop_alarm IN (0,1)),
+        show_waves INTEGER NOT NULL DEFAULT 1 CHECK (show_waves IN (0,1)),
+        enable_simulation INTEGER NOT NULL DEFAULT 0 CHECK (enable_simulation IN (0,1))
       )
     ''');
 
@@ -92,6 +106,9 @@ class AppStatusDbHelper {
       alertSoundName: row['alert_sound_name'] as String? ?? 'Default Alarm',
       isCustomSound: row['is_custom_sound'] == 1,
       customSoundPath: row['custom_sound_path'] as String?,
+      loopAlarm: row['loop_alarm'] == 1,
+      showWaves: row['show_waves'] == 1,
+      enableSimulation: row['enable_simulation'] == 1,
     );
   }
 
@@ -112,6 +129,9 @@ class AppStatusDbHelper {
       'alert_sound_name': status.alertSoundName,
       'is_custom_sound': status.isCustomSound ? 1 : 0,
       'custom_sound_path': status.customSoundPath,
+      'loop_alarm': status.loopAlarm ? 1 : 0,
+      'show_waves': status.showWaves ? 1 : 0,
+      'enable_simulation': status.enableSimulation ? 1 : 0,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 }

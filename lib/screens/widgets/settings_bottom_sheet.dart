@@ -9,6 +9,7 @@ import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:locami/navigation/main_nav.dart';
+import 'package:locami/core/utils/environment.dart';
 
 class SettingsBottomSheet extends StatelessWidget {
   const SettingsBottomSheet({super.key});
@@ -145,6 +146,33 @@ class SettingsBottomSheet extends StatelessWidget {
               onChanged: (val) => themeProvider.setLoopAlarm(val),
             ),
           ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.waves, color: accentColor),
+            title: Text(
+              "Background Waves",
+              style: TextStyle(color: customColors().textPrimary),
+            ),
+            trailing: Switch(
+              value: themeProvider.showWaves,
+              activeColor: accentColor,
+              onChanged: (val) => themeProvider.setShowWaves(val),
+            ),
+          ),
+          if (EnvironmentConfig.isDevelopment)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.bug_report_outlined, color: accentColor),
+              title: Text(
+                "Enable Simulation",
+                style: TextStyle(color: customColors().textPrimary),
+              ),
+              trailing: Switch(
+                value: themeProvider.enableSimulation,
+                activeColor: accentColor,
+                onChanged: (val) => themeProvider.setEnableSimulation(val),
+              ),
+            ),
           const SizedBox(height: 12),
           ListTile(
             contentPadding: EdgeInsets.zero,
