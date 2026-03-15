@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:solar_icons/solar_icons.dart';
 import 'package:get/get.dart';
 import 'package:locami/modules/alarm/controllers/alarm_controller.dart';
 import 'package:locami/theme/them_provider.dart';
@@ -36,7 +37,7 @@ class AlarmView extends GetView<AlarmController> {
                       ],
                     ),
                     child: Icon(
-                      Icons.location_on,
+                      SolarIconsBold.mapPoint,
                       size: 100,
                       color: accentColor,
                     ),

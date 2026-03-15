@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:solar_icons/solar_icons.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:locami/core/geo-location-Manager/street-Manager.dart';
 import 'package:locami/theme/them_provider.dart';
@@ -36,7 +37,9 @@ class _LocationSearchSheetState extends State<LocationSearchSheet> {
   void initState() {
     super.initState();
     _searchController = TextEditingController(text: widget.initialValue);
-    _loadNearby();
+    if (widget.isFrom && widget.initialValue.isEmpty) {
+      _loadNearby();
+    }
   }
 
   void _loadNearby() async {
@@ -88,15 +91,23 @@ class _LocationSearchSheetState extends State<LocationSearchSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final accentColor = context.read<ThemeProvider>().accentColor;
+    final themeProvider = context.watch<ThemeProvider>();
+    final accentColor = themeProvider.accentColor;
+    final isDark = themeProvider.theme == AppThemeMode.dark;
 
     return GlassContainer(
       height: MediaQuery.of(context).size.height * 0.8,
       padding: const EdgeInsets.all(20),
-      opacity: 0.8,
-      blur: 20,
-      color: customColors().background,
+      opacity: isDark ? 0.15 : 0.7,
+      blur: 25,
+      color: isDark ? Colors.white : Colors.white.withOpacity(0.9),
       borderRadius: 24,
+      border: Border.all(
+        color: isDark 
+            ? Colors.white.withOpacity(0.1) 
+            : Colors.white.withOpacity(0.5),
+        width: 1.5,
+      ),
       child: Column(
         children: [
           Container(
@@ -119,7 +130,7 @@ class _LocationSearchSheetState extends State<LocationSearchSheet> {
                 color: customColors().textPrimary.withOpacity(0.3),
               ),
               prefixIcon: Icon(
-                widget.isFrom ? Icons.home : Icons.flag,
+                widget.isFrom ? SolarIconsBold.home : SolarIconsBold.flag,
                 color: widget.isFrom ? Colors.grey : accentColor,
               ),
               filled: true,
@@ -142,13 +153,13 @@ class _LocationSearchSheetState extends State<LocationSearchSheet> {
                         ),
                       )
                       : IconButton(
-                        icon: const Icon(Icons.close, color: Colors.grey),
+                        icon: Icon(SolarIconsOutline.closeCircle, color: Colors.grey),
                         onPressed: () => _searchController.clear(),
                       ),
             ),
             onChanged: _onSearchChanged,
           ),
-          if (widget.isFrom) ...[
+          if (widget.isFrom && _suggestions.isNotEmpty) ...[
             const SizedBox(height: 16),
             ListTile(
               onTap: () async {
@@ -159,7 +170,7 @@ class _LocationSearchSheetState extends State<LocationSearchSheet> {
                   Navigator.pop(context);
                 }
               },
-              leading: Icon(Icons.my_location, color: accentColor),
+              leading: Icon(SolarIconsOutline.gps, color: accentColor),
               title: Text(
                 "Use Current Location",
                 style: TextStyle(color: customColors().textPrimary),
@@ -180,8 +191,8 @@ class _LocationSearchSheetState extends State<LocationSearchSheet> {
                     widget.onSelected(_suggestions[index]);
                     Navigator.pop(context);
                   },
-                  leading: const Icon(
-                    Icons.location_on_outlined,
+                  leading: Icon(
+                    SolarIconsOutline.mapPoint,
                     color: Colors.grey,
                   ),
                   title: Text(

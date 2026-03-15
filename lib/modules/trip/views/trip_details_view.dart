@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:solar_icons/solar_icons.dart';
 import 'package:get/get.dart';
 import 'package:locami/core/model/trip_details_model.dart';
 import 'package:locami/theme/them_provider.dart';
@@ -64,7 +65,7 @@ class TripDetailsView extends GetView<TripDetailsController> {
                   ),
                   const SizedBox(height: 24),
                   _buildLocationRow(
-                    icon: Icons.my_location,
+                    icon: SolarIconsOutline.gps,
                     title: "From",
                     subtitle: trip.street ?? "Unknown Location",
                     color: Colors.green,
@@ -78,7 +79,7 @@ class TripDetailsView extends GetView<TripDetailsController> {
                     ),
                   ),
                   _buildLocationRow(
-                    icon: Icons.location_on,
+                    icon: SolarIconsBold.mapPoint,
                     title: "To",
                     subtitle: trip.destination ?? "Unknown Destination",
                     color: Colors.red,
@@ -90,11 +91,11 @@ class TripDetailsView extends GetView<TripDetailsController> {
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       _buildStatBox(
-                        Icons.map_outlined,
+                        SolarIconsOutline.map,
                         "Distance",
                         "$distance km",
                       ),
-                      _buildStatBox(Icons.speed, "Avg Speed", "$speed km/h"),
+                      _buildStatBox(SolarIconsOutline.speedometerMiddle, "Avg Speed", "$speed km/h"),
                     ],
                   ),
                   const SizedBox(height: 48),
@@ -126,7 +127,7 @@ class TripDetailsView extends GetView<TripDetailsController> {
                           : const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.play_arrow, size: 24),
+                                Icon(SolarIconsBold.play, size: 24),
                                 SizedBox(width: 8),
                                 Text(
                                   "Start Trip Again",
@@ -155,7 +156,7 @@ class TripDetailsView extends GetView<TripDetailsController> {
         color: customColors().background.withOpacity(0.3),
         child: Center(
           child: Icon(
-            Icons.map_outlined,
+            SolarIconsOutline.map,
             color: customColors().textSecondary.withOpacity(0.5),
             size: 48,
           ),
@@ -196,7 +197,7 @@ class TripDetailsView extends GetView<TripDetailsController> {
         color: customColors().background.withOpacity(0.3),
         child: Center(
           child: Icon(
-            Icons.map_outlined,
+            SolarIconsOutline.map,
             color: customColors().textSecondary.withOpacity(0.5),
             size: 48,
           ),

@@ -10,6 +10,7 @@ import 'package:locami/theme/them_provider.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:locami/screens/widgets/arrival_alert.dart';
+import 'package:locami/core/utils/trip_simulator.dart';
 
 class HomeController extends GetxController {
   final fromController = TextEditingController();
@@ -29,6 +30,7 @@ class HomeController extends GetxController {
 
 
   Timer? _transmissionTimer;
+  Timer? _simulationTimer;
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
@@ -63,6 +65,7 @@ class HomeController extends GetxController {
     fromController.dispose();
     toController.dispose();
     _transmissionTimer?.cancel();
+    _simulationTimer?.cancel();
     _audioPlayer.dispose();
     TripDetailsManager.instance.isTrackingNotifier.removeListener(_onTrackingStatusChanged);
     TripDetailsManager.instance.alertTriggeredNotifier.removeListener(_onAlertTriggered);
@@ -127,8 +130,10 @@ class HomeController extends GetxController {
       isTracking.value = isTrackingNow;
       if (isTracking.value) {
         startTransmission();
+        startSimulation();
       } else {
         stopTransmission();
+        stopSimulation();
         loadTripHistory();
       }
     }
@@ -146,6 +151,7 @@ class HomeController extends GetxController {
     if (TripDetailsManager.instance.isTracking) {
       isTracking.value = true;
       startTransmission();
+      startSimulation();
     }
   }
 
@@ -163,6 +169,25 @@ class HomeController extends GetxController {
   void stopTransmission() {
     _transmissionTimer?.cancel();
     showLocami.value = true;
+  }
+
+  void startSimulation() {
+    _simulationTimer?.cancel();
+    final themeProvider = ThemeProvider.instance;
+    
+    if (themeProvider.enableTimerSimulation) {
+      _simulationTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+        if (isTracking.value && themeProvider.enableTimerSimulation) {
+          TripSimulator.simulateMoveTowards();
+        } else {
+          stopSimulation();
+        }
+      });
+    }
+  }
+
+  void stopSimulation() {
+    _simulationTimer?.cancel();
   }
 
   Future<void> loadNearbyStreets() async {

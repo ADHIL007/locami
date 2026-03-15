@@ -30,6 +30,7 @@ class ThemeProvider extends ChangeNotifier {
   bool loopAlarm = true;
   bool showWaves = true;
   bool enableSimulation = false;
+  bool enableTimerSimulation = false;
 
   void _applyTheme() {
     if (isMatchWithSystem) {
@@ -149,6 +150,16 @@ class ThemeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setEnableTimerSimulation(bool value) {
+    if (!EnvironmentConfig.isDevelopment) {
+      enableTimerSimulation = false;
+    } else {
+      enableTimerSimulation = value;
+    }
+    _saveStatus();
+    notifyListeners();
+  }
+
   Future<void> _saveStatus() async {
     final status = await AppStatusDbHelper.instance.getStatus();
     await AppStatusDbHelper.instance.saveStatus(
@@ -165,6 +176,7 @@ class ThemeProvider extends ChangeNotifier {
         loopAlarm: loopAlarm,
         showWaves: showWaves,
         enableSimulation: enableSimulation,
+        enableTimerSimulation: enableTimerSimulation,
       ),
     );
   }
@@ -185,6 +197,7 @@ class ThemeProvider extends ChangeNotifier {
     loopAlarm = status.loopAlarm;
     showWaves = status.showWaves;
     enableSimulation = EnvironmentConfig.isDevelopment && status.enableSimulation;
+    enableTimerSimulation = EnvironmentConfig.isDevelopment && status.enableTimerSimulation;
     notifyListeners();
   }
 }

@@ -14,6 +14,7 @@ class AppStatus {
   final bool loopAlarm;
   final bool showWaves;
   final bool enableSimulation;
+  final bool enableTimerSimulation;
 
   const AppStatus({
     this.isFirstTimeUser = true,
@@ -31,6 +32,7 @@ class AppStatus {
     this.loopAlarm = true,
     this.showWaves = true,
     this.enableSimulation = false,
+    this.enableTimerSimulation = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -49,6 +51,7 @@ class AppStatus {
     'loopAlarm': loopAlarm,
     'showWaves': showWaves,
     'enableSimulation': enableSimulation,
+    'enableTimerSimulation': enableTimerSimulation,
   };
 
   factory AppStatus.fromJson(Map<String, dynamic> json) => AppStatus(
@@ -67,6 +70,7 @@ class AppStatus {
     loopAlarm: json['loopAlarm'] ?? true,
     showWaves: json['showWaves'] ?? true,
     enableSimulation: json['enableSimulation'] ?? false,
+    enableTimerSimulation: json['enableTimerSimulation'] ?? false,
   );
 
   AppStatus copyWith({
@@ -85,6 +89,7 @@ class AppStatus {
     bool? loopAlarm,
     bool? showWaves,
     bool? enableSimulation,
+    bool? enableTimerSimulation,
   }) => AppStatus(
     isFirstTimeUser: isFirstTimeUser ?? this.isFirstTimeUser,
     isTripStarted: isTripStarted ?? this.isTripStarted,
@@ -101,5 +106,6 @@ class AppStatus {
     loopAlarm: loopAlarm ?? this.loopAlarm,
     showWaves: showWaves ?? this.showWaves,
     enableSimulation: enableSimulation ?? this.enableSimulation,
+    enableTimerSimulation: enableTimerSimulation ?? this.enableTimerSimulation,
   );
 }

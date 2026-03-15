@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:solar_icons/solar_icons.dart';
 import 'package:locami/theme/them_provider.dart';
 import 'package:provider/provider.dart';
 
@@ -54,7 +55,7 @@ class Speedometer extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     Icon(
-                      Icons.home,
+                      SolarIconsBold.home,
                       color: accentColor.withOpacity(0.8),
                       size: size * 0.15,
                     ),

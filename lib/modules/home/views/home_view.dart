@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:solar_icons/solar_icons.dart';
 import 'package:get/get.dart';
 import 'package:locami/core/widgets/reflector_bg.dart';
 import 'package:locami/modules/home/controllers/home_controller.dart';
@@ -135,7 +136,7 @@ class HomeView extends GetView<HomeController> {
                       controller: controller.fromController,
                       label: "From",
                       hint: "Select starting point",
-                      icon: Icons.home,
+                      icon: SolarIconsBold.home,
                       onTap:
                           controller.isTracking.value
                               ? null
@@ -148,7 +149,7 @@ class HomeView extends GetView<HomeController> {
                       controller: controller.toController,
                       label: "To",
                       hint: "Select destination",
-                      icon: Icons.flag,
+                      icon: SolarIconsBold.flag,
                       iconColor: accentColor,
                       onTap:
                           controller.isTracking.value
@@ -339,13 +340,22 @@ class _HistoryBottomSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final isDark = themeProvider.theme == AppThemeMode.dark;
+
     return GlassContainer(
       height: MediaQuery.of(context).size.height * 0.7,
       padding: const EdgeInsets.all(20),
-      color: Theme.of(context).scaffoldBackgroundColor,
-      opacity: 0.8,
-      blur: 20,
+      opacity: isDark ? 0.15 : 0.7,
+      blur: 25,
+      color: isDark ? Colors.white : Colors.white.withOpacity(0.9),
       borderRadius: 24,
+      border: Border.all(
+        color: isDark 
+            ? Colors.white.withOpacity(0.1) 
+            : Colors.white.withOpacity(0.5),
+        width: 1.5,
+      ),
       child: Column(
         children: [
           Container(

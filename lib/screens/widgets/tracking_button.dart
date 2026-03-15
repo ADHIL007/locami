@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 class TrackingButton extends StatelessWidget {
   final bool isTracking;
@@ -60,7 +61,7 @@ class TrackingButton extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          isTracking ? Icons.stop : Icons.play_arrow,
+                          isTracking ? SolarIconsBold.stop : SolarIconsBold.play,
                           size: 22,
                           color: Colors.white,
                         ),

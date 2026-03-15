@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:solar_icons/solar_icons.dart';
 import 'package:locami/core/model/trip_details_model.dart';
 import 'package:locami/dbManager/trip_details_manager.dart';
 import 'package:locami/screens/widgets/speedometer.dart';
@@ -68,7 +69,7 @@ class TripInfoDisplay extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons.gps_fixed,
+                      SolarIconsOutline.gps,
                       size: 12,
                       color: customColors().textPrimary.withOpacity(0.5),
                     ),
@@ -118,7 +119,7 @@ class TripInfoDisplay extends StatelessWidget {
                         ),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Icon(Icons.stop, size: 14, color: Colors.white),
+                      child: const Icon(SolarIconsBold.stop, size: 14, color: Colors.white),
                     ),
                     const SizedBox(width: 12),
                     const Text(
@@ -145,7 +146,7 @@ class TripInfoDisplay extends StatelessWidget {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () => TripSimulator.simulateMoveTowards(),
-                      icon: const Icon(Icons.fast_forward, size: 16),
+                      icon: const Icon(SolarIconsOutline.playbackSpeed, size: 16),
                       label: const Text("10% Closer"),
                     ),
                   ),
@@ -157,7 +158,7 @@ class TripInfoDisplay extends StatelessWidget {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () => TripSimulator.simulateArrival(),
-                      icon: const Icon(Icons.location_on, size: 16),
+                      icon: const Icon(SolarIconsBold.mapPoint, size: 16),
                       label: const Text("Simulate Arrival"),
                     ),
                   ),
@@ -204,7 +205,7 @@ class TripInfoDisplay extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                Icons.notifications_active_outlined,
+                SolarIconsBold.bellBing,
                 size: 20,
                 color: accentColor,
               ),

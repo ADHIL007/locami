@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:solar_icons/solar_icons.dart';
 import 'package:get/get.dart';
 import 'package:locami/core/model/trip_details_model.dart';
 import 'package:locami/modules/trip/views/trip_details_view.dart';
@@ -144,7 +145,7 @@ class TripHistoryCard extends StatelessWidget {
                                   ),
                                 ),
                                 Icon(
-                                  Icons.chevron_right,
+                                  SolarIconsOutline.altArrowRight,
                                   size: 14,
                                   color: customColors().textSecondary.withOpacity(0.8),
                                 ),
@@ -205,7 +206,7 @@ class TripHistoryCard extends StatelessWidget {
       color: customColors().background.withOpacity(0.3),
       child: Center(
         child: Icon(
-          Icons.map_outlined,
+          SolarIconsOutline.map,
           color: customColors().textSecondary.withOpacity(0.5),
           size: 32,
         ),

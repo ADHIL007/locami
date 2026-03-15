@@ -86,66 +86,10 @@ void onStart(ServiceInstance service) async {
     service.setAsForegroundService();
   }
 
-  double totalDistance = 150.0;
-  double remainingDistance = 150.0;
-  int elapsedMinutes = 0;
+  // The background service now simply waits for instructions or keeps the process alive.
+  // Actual tracking and notification updates are handled by TripDetailsManager in the main isolate.
+  // We can add background-specific location logic here if needed for better reliability when the app is killed.
 
-  Timer.periodic(const Duration(seconds: 10), (timer) async {
-    remainingDistance -= 150;
-    elapsedMinutes += 1;
-
-    if (remainingDistance < 0) remainingDistance = 0;
-
-    int progress =
-        (((totalDistance - remainingDistance) / totalDistance) * 100).toInt();
-
-    final androidDetails = AndroidNotificationDetails(
-      'locami_tracking_channel',
-      'Locami Tracking',
-      channelDescription: 'Navigation tracking notification',
-      importance: Importance.low,
-      priority: Priority.low,
-      ongoing: true,
-      autoCancel: false,
-      silent: true,
-      icon: '@mipmap/ic_launcher',
-      showProgress: true,
-      maxProgress: 100,
-      progress: progress,
-      category: AndroidNotificationCategory.navigation,
-      actions: [const AndroidNotificationAction('view_trip', 'View Trip')],
-    );
-
-    await notifications.show(
-      notificationId,
-      'Chembumukku → Kozhikode',
-      '${remainingDistance.toStringAsFixed(1)} km remaining • ${elapsedMinutes} min elapsed',
-      NotificationDetails(android: androidDetails),
-    );
-
-    if (remainingDistance == 0) {
-      service.invoke('locationReached');
-
-      final alarmAndroidDetails = AndroidNotificationDetails(
-        'locami_alarm_channel_v2',
-        'Locami Alarm',
-        channelDescription: 'Alarm notification when destination is reached',
-        importance: Importance.max,
-        priority: Priority.max,
-        fullScreenIntent: true,
-        category: AndroidNotificationCategory.alarm,
-      );
-
-      await notifications.show(
-        notificationId + 1,
-        'Destination Reached!',
-        'You have arrived at your destination.',
-        NotificationDetails(android: alarmAndroidDetails),
-      );
-
-      timer.cancel();
-    }
-  });
 
   service.on('stopService').listen((event) {
     service.stopSelf();

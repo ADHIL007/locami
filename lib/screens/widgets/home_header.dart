@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:solar_icons/solar_icons.dart';
 import 'package:locami/core/model/trip_details_model.dart';
 import 'package:locami/dbManager/trip_details_manager.dart';
 import 'package:locami/screens/widgets/settings_bottom_sheet.dart';
@@ -27,7 +28,7 @@ class HomeHeader extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.location_on, color: accentColor, size: 32),
+                  Icon(SolarIconsBold.mapPoint, color: accentColor, size: 32),
                   const SizedBox(width: 8),
                   Expanded(
                     child: ValueListenableBuilder<TripDetailsModel?>(
@@ -99,7 +100,7 @@ class HomeHeader extends StatelessWidget {
               builder: (context) => const SettingsBottomSheet(),
             );
           },
-          icon: Icon(Icons.settings, color: customColors().textPrimary),
+          icon: Icon(SolarIconsOutline.settings, color: customColors().textPrimary),
         ),
       ],
     );

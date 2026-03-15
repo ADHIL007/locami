@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:solar_icons/solar_icons.dart';
 import 'package:locami/dbManager/app-status_manager.dart';
 import 'package:locami/dbManager/trip_details_manager.dart';
 import 'package:locami/dbManager/userModel_manager.dart';
@@ -48,7 +49,7 @@ class SettingsBottomSheet extends StatelessWidget {
               ),
               IconButton(
                 onPressed: () => Navigator.pop(context),
-                icon: Icon(Icons.close, color: customColors().textSecondary),
+                icon: Icon(SolarIconsOutline.closeCircle, color: customColors().textSecondary),
               ),
             ],
           ),
@@ -60,7 +61,7 @@ class SettingsBottomSheet extends StatelessWidget {
               _buildThemeOption(
                 context,
                 "Light",
-                Icons.light_mode_outlined,
+                SolarIconsOutline.sun,
                 AppThemeMode.light,
                 !themeProvider.isMatchWithSystem &&
                     themeProvider.theme == AppThemeMode.light,
@@ -69,7 +70,7 @@ class SettingsBottomSheet extends StatelessWidget {
               _buildThemeOption(
                 context,
                 "Dark",
-                Icons.dark_mode_outlined,
+                SolarIconsOutline.moon,
                 AppThemeMode.dark,
                 !themeProvider.isMatchWithSystem &&
                     themeProvider.theme == AppThemeMode.dark,
@@ -78,7 +79,7 @@ class SettingsBottomSheet extends StatelessWidget {
               _buildThemeOption(
                 context,
                 "System",
-                Icons.settings_brightness_outlined,
+                SolarIconsOutline.sun2,
                 null,
                 themeProvider.isMatchWithSystem,
               ),
@@ -119,8 +120,8 @@ class SettingsBottomSheet extends StatelessWidget {
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: Icon(
-              Icons.notifications_none_outlined,
-              color: accentColor,
+               SolarIconsOutline.bell,
+               color: accentColor,
             ),
             title: Text(
               "Alert Sound",
@@ -134,14 +135,14 @@ class SettingsBottomSheet extends StatelessWidget {
               ),
             ),
             trailing: Icon(
-              Icons.chevron_right,
-              color: customColors().textSecondary,
+               SolarIconsOutline.altArrowRight,
+               color: customColors().textSecondary,
             ),
             onTap: () => _showSoundPicker(context),
           ),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.repeat, color: accentColor),
+            leading: Icon(SolarIconsOutline.repeat, color: accentColor),
             title: Text(
               "Loop Alarm",
               style: TextStyle(color: customColors().textPrimary),
@@ -154,7 +155,7 @@ class SettingsBottomSheet extends StatelessWidget {
           ),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.waves, color: accentColor),
+            leading: Icon(SolarIconsOutline.soundwave, color: accentColor),
             title: Text(
               "Background Waves",
               style: TextStyle(color: customColors().textPrimary),
@@ -165,12 +166,14 @@ class SettingsBottomSheet extends StatelessWidget {
               onChanged: (val) => themeProvider.setShowWaves(val),
             ),
           ),
-          if (EnvironmentConfig.isDevelopment)
+          if (EnvironmentConfig.isDevelopment) ...[
+            const SizedBox(height: 24),
+            _buildSectionTitle("Developer Debug"),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.bug_report_outlined, color: accentColor),
+              leading: Icon(SolarIconsOutline.mapPoint, color: accentColor),
               title: Text(
-                "Enable Simulation",
+                "Enable Location Simulation",
                 style: TextStyle(color: customColors().textPrimary),
               ),
               trailing: Switch(
@@ -179,11 +182,25 @@ class SettingsBottomSheet extends StatelessWidget {
                 onChanged: (val) => themeProvider.setEnableSimulation(val),
               ),
             ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(SolarIconsOutline.stopwatch, color: accentColor),
+              title: Text(
+                "Enable Timer Simulation",
+                style: TextStyle(color: customColors().textPrimary),
+              ),
+              trailing: Switch(
+                value: themeProvider.enableTimerSimulation,
+                activeColor: accentColor,
+                onChanged: (val) => themeProvider.setEnableTimerSimulation(val),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: const Icon(
-              Icons.delete_forever_outlined,
+            leading: Icon(
+               SolarIconsOutline.trashBinTrash,
               color: Colors.red,
             ),
             title: const Text(
@@ -257,7 +274,7 @@ class SettingsBottomSheet extends StatelessWidget {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(
-                    Icons.library_music_outlined,
+                     SolarIconsOutline.musicLibrary,
                     color: accentColor,
                   ),
                   title: Text(
@@ -273,7 +290,7 @@ class SettingsBottomSheet extends StatelessWidget {
                       fontSize: 12,
                     ),
                   ),
-                  trailing: const Icon(Icons.add, size: 20),
+                  trailing: Icon(SolarIconsOutline.addCircle, size: 20),
                   onTap: () => _pickCustomFile(context),
                 ),
                 const SizedBox(height: 16),
@@ -318,10 +335,10 @@ class SettingsBottomSheet extends StatelessWidget {
       ),
       trailing:
           isSelected
-              ? Icon(Icons.check_circle, color: accentColor)
+              ? Icon(SolarIconsBold.checkCircle, color: accentColor)
               : Icon(
-                Icons.circle_outlined,
-                color: customColors().textSecondary,
+                 SolarIconsOutline.closeCircle,
+                 color: customColors().textSecondary,
               ),
       onTap: () {
         provider.setAlertSound(key, name);

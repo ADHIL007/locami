@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:solar_icons/solar_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:get/get.dart';
 
@@ -54,7 +55,7 @@ class InitialHomeView extends GetView<InitialHomeController> {
                     // Header
                     Row(
                       children: [
-                        Icon(Icons.location_on, color: accentColor, size: 28),
+                        Icon(SolarIconsBold.mapPoint, color: accentColor, size: 28),
                         const SizedBox(width: 8),
                         Text(
                           "Locami",
@@ -139,7 +140,7 @@ class InitialHomeView extends GetView<InitialHomeController> {
                                 Positioned(
                                   right: 20,
                                   child: Icon(
-                                    Icons.chevron_right,
+                                    SolarIconsOutline.altArrowRight,
                                     color: customColors().buttonTextColor,
                                   ),
                                 ),
@@ -198,7 +199,7 @@ class InitialHomeView extends GetView<InitialHomeController> {
               hintText: "Name",
               hintStyle: TextStyle(color: customColors().textSecondary),
               prefixIcon: Icon(
-                Icons.person,
+                SolarIconsOutline.user,
                 color: customColors().textSecondary,
               ),
               border: InputBorder.none,
@@ -235,7 +236,7 @@ class InitialHomeView extends GetView<InitialHomeController> {
                     hintText: "Search country",
                     hintStyle: TextStyle(color: customColors().textSecondary),
                     prefixIcon: Icon(
-                      Icons.search,
+                      SolarIconsOutline.mapPointSearch,
                       color: customColors().textSecondary,
                     ),
                     border: InputBorder.none,
@@ -263,7 +264,7 @@ class InitialHomeView extends GetView<InitialHomeController> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                       )
-                    : Icon(Icons.my_location, color: accentColor),
+                    : Icon(SolarIconsOutline.gps, color: accentColor),
               ),
             )),
           ],
@@ -294,7 +295,7 @@ class InitialHomeView extends GetView<InitialHomeController> {
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
-                  trailing: isSelected ? Icon(Icons.check, color: accentColor) : null,
+                  trailing: isSelected ? Icon(SolarIconsBold.checkCircle, color: accentColor) : null,
                 );
               });
             },
@@ -312,21 +313,21 @@ class InitialHomeView extends GetView<InitialHomeController> {
 
         Obx(() => _buildThemeCard(
           "System Default",
-          Icons.brightness_auto_outlined,
+          SolarIconsOutline.sun2,
           'system',
           accentColor,
         )),
         const SizedBox(height: 16),
         Obx(() => _buildThemeCard(
           "Light",
-          Icons.wb_sunny_outlined,
+          SolarIconsOutline.sun,
           'light',
           accentColor,
         )),
         const SizedBox(height: 16),
         Obx(() => _buildThemeCard(
           "Dark",
-          Icons.dark_mode_outlined,
+          SolarIconsOutline.moon,
           'dark',
           accentColor,
         )),
@@ -379,7 +380,7 @@ class InitialHomeView extends GetView<InitialHomeController> {
               ),
             ),
             const Spacer(),
-            if (isSelected) Icon(Icons.check, color: accentColor, size: 24),
+            if (isSelected) Icon(SolarIconsBold.checkCircle, color: accentColor, size: 24),
           ],
         ),
       ),

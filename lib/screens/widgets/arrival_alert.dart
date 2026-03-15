@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:solar_icons/solar_icons.dart';
 import 'package:locami/dbManager/trip_details_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:locami/core/utils/map_utils.dart';
@@ -48,7 +49,7 @@ class ArrivalAlert extends StatelessWidget {
                 ]
               ),
               child: const Icon(
-                Icons.check,
+                SolarIconsBold.checkCircle,
                 color: Colors.white,
                 size: 40,
               ),
