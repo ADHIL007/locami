@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:locami/core/widgets/glass_container.dart';
 import 'package:get/get.dart';
 import 'package:locami/core/controllers/map_controller.dart';
+import 'package:locami/theme/theme_provider.dart';
 
 class ArrivalAlert extends StatelessWidget {
   final String destination;
@@ -22,16 +23,23 @@ class ArrivalAlert extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final trip = TripDetailsManager.instance.currentTripDetail.value;
+    final themeProvider = ThemeProvider.instance;
+    final isDark = themeProvider.theme == AppThemeMode.dark;
+    final accentColor = themeProvider.accentColor;
 
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24),
       child: GlassContainer(
         padding: const EdgeInsets.all(28),
-        opacity: 0.8,
-        blur: 25,
-        borderRadius: 36,
-        color: const Color(0xFF1A1A1A),
+        opacity: isDark ? 0.9 : 0.85,
+        blur: 30,
+        borderRadius: 32,
+        color: isDark ? const Color(0xFF121212) : Colors.white,
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.white,
+          width: 1.5,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -39,20 +47,17 @@ class ArrivalAlert extends StatelessWidget {
             Container(
               height: 72,
               width: 72,
-              decoration: const BoxDecoration(
-                color: Color(0xFF66BB6A),
+              decoration: BoxDecoration(
+                color: Color(0xFF4CAF50).withValues(alpha: 0.2),
                 shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Color(0x6666BB6A),
-                    blurRadius: 15,
-                    spreadRadius: 2,
-                  ),
-                ],
+                border: Border.all(
+                  color: const Color(0xFF4CAF50).withValues(alpha: 0.5),
+                  width: 2,
+                ),
               ),
               child: const Icon(
                 SolarIconsBold.checkCircle,
-                color: Colors.white,
+                color: Color(0xFF4CAF50),
                 size: 40,
               ),
             ),
@@ -62,9 +67,9 @@ class ArrivalAlert extends StatelessWidget {
             Text(
               "$destination Reached!",
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 26,
+              style: TextStyle(
+                color: customColors().textPrimary,
+                fontSize: 24,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -74,20 +79,28 @@ class ArrivalAlert extends StatelessWidget {
             Text(
               "You've arrived at your destination",
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 16,
+                color: customColors().textSecondary,
+                fontSize: 15,
               ),
             ),
             const SizedBox(height: 24),
 
             // Map Clip
             if (trip != null)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: SizedBox(
-                  height: 160,
-                  width: double.infinity,
-                  child: _buildMapSnippet(trip),
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: customColors().textPrimary.withValues(alpha: 0.1),
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: SizedBox(
+                    height: 150,
+                    width: double.infinity,
+                    child: _buildMapSnippet(trip),
+                  ),
                 ),
               ),
 
@@ -98,13 +111,12 @@ class ArrivalAlert extends StatelessWidget {
               children: [
                 Expanded(
                   child: SizedBox(
-                    height: 60,
-                    child: ElevatedButton(
+                    height: 56,
+                    child: TextButton(
                       onPressed: onThanks,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white.withValues(alpha: 0.1),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
+                      style: TextButton.styleFrom(
+                        backgroundColor: customColors().textPrimary.withValues(alpha: 0.05),
+                        foregroundColor: customColors().textPrimary,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
@@ -114,7 +126,7 @@ class ArrivalAlert extends StatelessWidget {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.1,
-                          fontSize: 16,
+                          fontSize: 14,
                         ),
                       ),
                     ),
@@ -123,13 +135,11 @@ class ArrivalAlert extends StatelessWidget {
                 const SizedBox(width: 16),
                 Expanded(
                   child: SizedBox(
-                    height: 60,
+                    height: 56,
                     child: ElevatedButton(
                       onPressed: onDone,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(
-                          0xFFB71C1C,
-                        ).withValues(alpha: 0.8),
+                        backgroundColor: accentColor,
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -141,7 +151,7 @@ class ArrivalAlert extends StatelessWidget {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.1,
-                          fontSize: 16,
+                          fontSize: 14,
                         ),
                       ),
                     ),
@@ -157,7 +167,7 @@ class ArrivalAlert extends StatelessWidget {
 
   Widget _buildMapSnippet(trip) {
     if (trip.destinationLatitude == null || trip.destinationLongitude == null) {
-      return Container(color: Colors.grey.withValues(alpha: 0.2));
+      return Container(color: Colors.grey.withValues(alpha: 0.05));
     }
 
     final mapController = Get.find<MapController>();
@@ -174,10 +184,11 @@ class ArrivalAlert extends StatelessWidget {
       fit: BoxFit.cover,
       placeholder:
           (context, url) =>
-              Container(color: Colors.grey.withValues(alpha: 0.1)),
+              Container(color: Colors.grey.withValues(alpha: 0.05)),
       errorWidget:
           (context, url, e) =>
-              Container(color: Colors.grey.withValues(alpha: 0.1)),
+              Container(color: Colors.grey.withValues(alpha: 0.05)),
     );
   }
 }
+

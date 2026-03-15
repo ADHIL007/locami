@@ -101,7 +101,7 @@ class _LocationSearchSheetState extends State<LocationSearchSheet> {
       opacity: isDark ? 0.15 : 0.7,
       blur: 25,
       color: isDark ? Colors.white : Colors.white.withValues(alpha: 0.9),
-      borderRadius: 24,
+      customBorderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       border: Border.all(
         color: isDark 
             ? Colors.white.withValues(alpha: 0.1) 

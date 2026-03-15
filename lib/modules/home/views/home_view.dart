@@ -82,7 +82,7 @@ class HomeView extends GetView<HomeController> {
             child:
                 themeProvider.showWaves
                     ? BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                       child: Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -118,7 +118,7 @@ class HomeView extends GetView<HomeController> {
           ),
           SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -267,30 +267,10 @@ class HomeView extends GetView<HomeController> {
                                           )
                                           .toList(),
                                 ),
-                                if (controller.tripHistory.length > 3)
-                                  Positioned(
-                                    bottom: 0,
-                                    left: 0,
-                                    right: 0,
-                                    height: 60,
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          begin: Alignment.topCenter,
-                                          end: Alignment.bottomCenter,
-                                          colors: [
-                                            customColors().background
-                                                .withValues(alpha: 0),
-                                            customColors().background,
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
+                                ],
+                              ),
                           ] else ...[
-                            const SizedBox(height: 40),
+                            const SizedBox(height: 20),
                             Center(
                               child: Column(
                                 children: [
@@ -319,6 +299,33 @@ class HomeView extends GetView<HomeController> {
               ),
             ),
           ),
+          Obx(() {
+            if (controller.tripHistory.length > 3 && !controller.isTracking.value) {
+              return Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: 60,
+                child: IgnorePointer(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0),
+                          Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.8),
+                          Theme.of(context).scaffoldBackgroundColor,
+                        ],
+                        stops: const [0.0, 0.4, 1.0],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }
+            return const SizedBox.shrink();
+          }),
         ],
       ),
     );
@@ -345,7 +352,7 @@ class _HistoryBottomSheet extends StatelessWidget {
       height: MediaQuery.of(context).size.height * 0.7,
       padding: const EdgeInsets.all(20),
       opacity: isDark ? 0.15 : 0.7,
-      blur: 25,
+      blur: 15,
       color: isDark ? Colors.white : Colors.white.withValues(alpha: 0.9),
       borderRadius: 24,
       border: Border.all(

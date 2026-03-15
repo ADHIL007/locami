@@ -4,9 +4,11 @@ import 'package:locami/core/model/trip_details_model.dart';
 import 'package:locami/db_manager/trip_details_manager.dart';
 import 'package:locami/screens/widgets/settings_bottom_sheet.dart';
 import 'package:locami/theme/theme_provider.dart';
+import 'package:locami/screens/widgets/shiny_location_icon.dart';
 
 class HomeHeader extends StatelessWidget {
   final bool isTracking;
+
   final bool showLocami;
   final Color accentColor;
 
@@ -28,8 +30,8 @@ class HomeHeader extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(SolarIconsBold.mapPoint, color: accentColor, size: 32),
-                  const SizedBox(width: 8),
+                  ShinyLocationIcon(color: accentColor),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: ValueListenableBuilder<TripDetailsModel?>(
                       valueListenable:
@@ -100,7 +102,10 @@ class HomeHeader extends StatelessWidget {
               builder: (context) => const SettingsBottomSheet(),
             );
           },
-          icon: Icon(SolarIconsOutline.settings, color: customColors().textPrimary),
+          icon: Icon(
+            SolarIconsOutline.settings,
+            color: customColors().textPrimary,
+          ),
         ),
       ],
     );

@@ -31,7 +31,8 @@ class _ReflectionBackgroundState extends State<ReflectionBackground>
 
     _stopwatch.start();
 
-    _circles = List.generate(8, (index) => Circle.random(index));
+    // Reduced from 8 to 4 for better performance
+    _circles = List.generate(4, (index) => Circle.random(index));
   }
 
   @override
@@ -43,18 +44,20 @@ class _ReflectionBackgroundState extends State<ReflectionBackground>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return CustomPaint(
-          painter: ReflectionPainter(
-            time: _stopwatch.elapsedMilliseconds / 1000.0 * widget.speed,
-            accentColor: widget.accentColor,
-            circles: _circles,
-          ),
-          size: Size.infinite,
-        );
-      },
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          return CustomPaint(
+            painter: ReflectionPainter(
+              time: _stopwatch.elapsedMilliseconds / 1000.0 * widget.speed,
+              accentColor: widget.accentColor,
+              circles: _circles,
+            ),
+            size: Size.infinite,
+          );
+        },
+      ),
     );
   }
 }
@@ -72,11 +75,11 @@ class Circle {
   Circle.random(this.id)
     : startX = math.Random(id * 10).nextDouble(),
       startY = math.Random(id * 10 + 1).nextDouble(),
-      size = math.Random(id * 10 + 2).nextDouble() * 0.3 + 0.2,
-      moveSpeedX = math.Random(id * 10 + 3).nextDouble() * 0.15 + 0.05,
-      moveSpeedY = math.Random(id * 10 + 4).nextDouble() * 0.15 + 0.05,
+      size = math.Random(id * 10 + 2).nextDouble() * 0.4 + 0.3, // Slightly larger
+      moveSpeedX = math.Random(id * 10 + 3).nextDouble() * 0.1 + 0.05,
+      moveSpeedY = math.Random(id * 10 + 4).nextDouble() * 0.1 + 0.05,
       phase = math.Random(id * 10 + 5).nextDouble() * 2 * math.pi,
-      pulseSpeed = math.Random(id * 10 + 6).nextDouble() * 0.4 + 0.2;
+      pulseSpeed = math.Random(id * 10 + 6).nextDouble() * 0.3 + 0.1;
 }
 
 class ReflectionPainter extends CustomPainter {
@@ -94,10 +97,7 @@ class ReflectionPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (size.width == 0 || size.height == 0) return;
 
-    final sortedCircles = List.from(circles)
-      ..sort((a, b) => b.size.compareTo(a.size));
-
-    for (final circle in sortedCircles) {
+    for (final circle in circles) {
       _drawSmoothBlob(canvas, size, circle);
     }
   }
@@ -107,28 +107,24 @@ class ReflectionPainter extends CustomPainter {
     double yOffset =
         math.cos(time * circle.moveSpeedY + circle.phase * 1.5) * 0.25;
 
-    xOffset += math.sin(time * 0.3 + circle.id) * 0.1;
-    yOffset += math.cos(time * 0.2 + circle.id * 0.5) * 0.1;
-
     double screenX = (circle.startX + xOffset).clamp(-0.5, 1.5) * size.width;
     double screenY = (circle.startY + yOffset).clamp(-0.5, 1.5) * size.height;
 
     double baseRadius =
         (size.width > size.height ? size.width : size.height) * circle.size;
 
-    double pulse = math.sin(time * circle.pulseSpeed + circle.id) * 0.1 + 1.0;
+    double pulse = math.sin(time * circle.pulseSpeed + circle.id) * 0.05 + 1.0;
     double pulsedRadius = baseRadius * pulse;
 
     final gradient = RadialGradient(
       center: Alignment.center,
       radius: 0.8,
       colors: [
-        accentColor.withValues(alpha: 0.12),
-        accentColor.withValues(alpha: 0.06),
-        accentColor.withValues(alpha: 0.02),
-        Colors.transparent,
+        accentColor.withValues(alpha: 0.1),
+        accentColor.withValues(alpha: 0.05),
+        accentColor.withValues(alpha: 0.0),
       ],
-      stops: const [0.0, 0.4, 0.8, 1.0],
+      stops: const [0.0, 0.5, 1.0],
     );
 
     final paint =
@@ -138,15 +134,14 @@ class ReflectionPainter extends CustomPainter {
               center: Offset(screenX, screenY),
               radius: pulsedRadius,
             ),
-          )
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, pulsedRadius * 0.4);
+          );
+    // Removed expensive MaskFilter.blur as we rely on the BackdropFilter in the parent
 
     canvas.drawCircle(Offset(screenX, screenY), pulsedRadius, paint);
 
+    // Simplified highlight
     final highlightPaint =
-        Paint()
-          ..color = Colors.white.withValues(alpha: 0.015)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 30);
+        Paint()..color = Colors.white.withValues(alpha: 0.012);
 
     canvas.drawCircle(
       Offset(screenX - pulsedRadius * 0.2, screenY - pulsedRadius * 0.2),
@@ -157,6 +152,6 @@ class ReflectionPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant ReflectionPainter oldDelegate) {
-    return true;
+    return oldDelegate.time != time;
   }
 }
