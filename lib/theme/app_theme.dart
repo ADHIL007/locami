@@ -34,7 +34,7 @@ const ColorTheme lightTheme = ColorTheme(
 const ColorTheme darkTheme = ColorTheme(
   background: Color(0xFF0E0E0E),
   textPrimary: Color(0xFFF5F5F5),
-  textSecondary: Color(0xFF9A9A9A),
+  textSecondary: Color(0xFFB0B0B0),
   borderColor: Color(0xFF2A2A2A),
   buttonColor: Color(0xFFF5F5F5),
   buttonTextColor: Color(0xFF0E0E0E),

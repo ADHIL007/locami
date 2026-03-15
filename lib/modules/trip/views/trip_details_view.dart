@@ -156,7 +156,7 @@ class TripDetailsView extends GetView<TripDetailsController> {
                                     Text(
                                       dateStr,
                                       style: TextStyle(
-                                        color: customColors().textSecondary,
+                                        color: customColors().textPrimary,
                                         fontSize: 15,
                                         fontWeight: FontWeight.w600,
                                       ),
