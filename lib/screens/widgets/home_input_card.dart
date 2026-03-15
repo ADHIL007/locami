@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:solar_icons/solar_icons.dart';
-import 'package:locami/theme/them_provider.dart';
+import 'package:locami/theme/theme_provider.dart';
 import 'package:locami/core/widgets/glass_container.dart';
 
 class HomeInputCard extends StatelessWidget {

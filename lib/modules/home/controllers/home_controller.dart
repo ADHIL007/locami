@@ -2,11 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:locami/core/geo-location-Manager/street_manager.dart';
-import 'package:locami/dbManager/user_model_manager.dart';
-import 'package:locami/dbManager/trip_details_manager.dart';
+import 'package:locami/core/geo_location_manager/street_manager.dart';
+import 'package:locami/db_manager/user_model_manager.dart';
+import 'package:locami/db_manager/trip_details_manager.dart';
 import 'package:locami/core/model/trip_details_model.dart';
-import 'package:locami/theme/them_provider.dart';
+import 'package:locami/theme/theme_provider.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:locami/screens/widgets/arrival_alert.dart';
@@ -36,7 +36,6 @@ class HomeController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    // Initialize addresses
     fromAddress.value = fromController.text;
     toAddress.value = toController.text;
 
@@ -48,7 +47,6 @@ class HomeController extends GetxController {
       toAddress.value = toController.text;
       update();
     });
-
 
     loadUserCountryFromProfile();
     loadNearbyStreets();
@@ -205,8 +203,6 @@ class HomeController extends GetxController {
     try {
       final history = await TripDetailsManager.instance.getLogs();
       tripHistory.assignAll(history);
-    } catch (e) {
-      // Error handling
     } finally {
       isLoadingHistory.value = false;
     }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:locami/theme/them_provider.dart';
+import 'package:locami/theme/theme_provider.dart';
 import 'package:provider/provider.dart';
 
 class HomeDistanceOption extends StatelessWidget {

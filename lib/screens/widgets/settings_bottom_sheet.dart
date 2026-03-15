@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:solar_icons/solar_icons.dart';
-import 'package:locami/dbManager/app_status_manager.dart';
-import 'package:locami/dbManager/trip_details_manager.dart';
-import 'package:locami/dbManager/user_model_manager.dart';
-import 'package:locami/theme/them_provider.dart';
+import 'package:locami/db_manager/app_status_manager.dart';
+import 'package:locami/db_manager/trip_details_manager.dart';
+import 'package:locami/db_manager/user_model_manager.dart';
+import 'package:locami/theme/theme_provider.dart';
 import 'package:locami/core/widgets/glass_container.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';

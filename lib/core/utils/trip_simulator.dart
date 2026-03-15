@@ -1,5 +1,5 @@
 import 'package:geolocator/geolocator.dart';
-import 'package:locami/dbManager/trip_details_manager.dart';
+import 'package:locami/db_manager/trip_details_manager.dart';
 import 'package:flutter/foundation.dart';
 
 class TripSimulator {

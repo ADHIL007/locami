@@ -5,12 +5,12 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 
 import 'package:locami/core/model/user_model.dart';
-import 'package:locami/dbManager/app_status_manager.dart';
+import 'package:locami/db_manager/app_status_manager.dart';
 import 'package:locami/core/dataset/country_list.dart';
 import 'package:locami/core/model/appstatus_model.dart';
-import 'package:locami/dbManager/user_model_manager.dart';
+import 'package:locami/db_manager/user_model_manager.dart';
 
-import 'package:locami/theme/them_provider.dart';
+import 'package:locami/theme/theme_provider.dart';
 import 'package:locami/modules/home/views/home_view.dart';
 import 'package:locami/modules/home/bindings/home_binding.dart';
 

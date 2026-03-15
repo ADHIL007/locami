@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
@@ -69,25 +68,9 @@ Future<bool> onIosBackground(ServiceInstance service) async {
 
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
-  DartPluginRegistrant.ensureInitialized();
-
-  final FlutterLocalNotificationsPlugin notifications =
-      FlutterLocalNotificationsPlugin();
-
-  await notifications.initialize(
-    const InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-    ),
-  );
-
   if (service is AndroidServiceInstance) {
     service.setAsForegroundService();
   }
-
-  // The background service now simply waits for instructions or keeps the process alive.
-  // Actual tracking and notification updates are handled by TripDetailsManager in the main isolate.
-  // We can add background-specific location logic here if needed for better reliability when the app is killed.
-
 
   service.on('stopService').listen((event) {
     service.stopSelf();

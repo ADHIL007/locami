@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:locami/core/dbHelper/app_status.dart';
+import 'package:locami/core/db_helper/app_status.dart';
 import 'package:locami/core/model/appstatus_model.dart';
 import 'package:locami/theme/app_theme.dart';
 import 'package:locami/core/utils/environment.dart';

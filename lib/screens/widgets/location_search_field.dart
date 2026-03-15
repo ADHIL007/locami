@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:locami/theme/them_provider.dart';
+import 'package:locami/theme/theme_provider.dart';
 
 class LocationSearchField extends StatelessWidget {
   final TextEditingController controller;

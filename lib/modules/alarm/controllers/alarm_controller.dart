@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:locami/theme/them_provider.dart';
+import 'package:locami/theme/theme_provider.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:audioplayers/audioplayers.dart';
 

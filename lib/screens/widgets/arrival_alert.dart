@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:solar_icons/solar_icons.dart';
-import 'package:locami/dbManager/trip_details_manager.dart';
+import 'package:locami/db_manager/trip_details_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:locami/core/utils/map_utils.dart';
+
 import 'package:locami/core/widgets/glass_container.dart';
+import 'package:get/get.dart';
+import 'package:locami/core/controllers/map_controller.dart';
 
 class ArrivalAlert extends StatelessWidget {
   final String destination;
@@ -20,7 +22,7 @@ class ArrivalAlert extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final trip = TripDetailsManager.instance.currentTripDetail.value;
-    
+
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24),
@@ -45,8 +47,8 @@ class ArrivalAlert extends StatelessWidget {
                     color: Color(0x6666BB6A),
                     blurRadius: 15,
                     spreadRadius: 2,
-                  )
-                ]
+                  ),
+                ],
               ),
               child: const Icon(
                 SolarIconsBold.checkCircle,
@@ -55,7 +57,7 @@ class ArrivalAlert extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            
+
             // Reached Text
             Text(
               "$destination Reached!",
@@ -67,7 +69,7 @@ class ArrivalAlert extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            
+
             // Subtitle
             Text(
               "You've arrived at your destination",
@@ -77,9 +79,9 @@ class ArrivalAlert extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            
+
             // Map Clip
-            if (trip != null) 
+            if (trip != null)
               ClipRRect(
                 borderRadius: BorderRadius.circular(24),
                 child: SizedBox(
@@ -88,9 +90,9 @@ class ArrivalAlert extends StatelessWidget {
                   child: _buildMapSnippet(trip),
                 ),
               ),
-            
+
             const SizedBox(height: 32),
-            
+
             // Buttons
             Row(
               children: [
@@ -125,7 +127,9 @@ class ArrivalAlert extends StatelessWidget {
                     child: ElevatedButton(
                       onPressed: onDone,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFB71C1C).withValues(alpha: 0.8),
+                        backgroundColor: const Color(
+                          0xFFB71C1C,
+                        ).withValues(alpha: 0.8),
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -156,33 +160,24 @@ class ArrivalAlert extends StatelessWidget {
       return Container(color: Colors.grey.withValues(alpha: 0.2));
     }
 
-    final double startLat = trip.latitude;
-    final double startLon = trip.longitude;
-    final double endLat = trip.destinationLatitude!;
-    final double endLon = trip.destinationLongitude!;
-
-    final double centerLat = (startLat + endLat) / 2;
-    final double centerLon = (startLon + endLon) / 2;
-
-    final double dist = MapUtils.distanceInKm(startLat, startLon, endLat, endLon);
-    final int zoom = MapUtils.calculateZoom(dist);
-
-    final String url =
-        "https://static-maps.yandex.ru/1.x/"
-        "?l=sat"
-        "&lang=en_US"
-        "&size=450,200"
-        "&scale=2"
-        "&z=$zoom"
-        "&ll=$centerLon,$centerLat"
-        "&pt=$startLon,$startLat,pm2blm~$endLon,$endLat,pm2rdm"
-        "&pl=c:1A73E8,w:5,$startLon,$startLat,$endLon,$endLat";
+    final mapController = Get.find<MapController>();
+    final String url = mapController.getUrlForTrip(
+      trip,
+      width: 450,
+      height: 200,
+      mapLayer: 'sat',
+      pathWidth: 5,
+    );
 
     return CachedNetworkImage(
       imageUrl: url,
       fit: BoxFit.cover,
-      placeholder: (context, url) => Container(color: Colors.grey.withValues(alpha: 0.1)),
-      errorWidget: (context, url, e) => Container(color: Colors.grey.withValues(alpha: 0.1)),
+      placeholder:
+          (context, url) =>
+              Container(color: Colors.grey.withValues(alpha: 0.1)),
+      errorWidget:
+          (context, url, e) =>
+              Container(color: Colors.grey.withValues(alpha: 0.1)),
     );
   }
 }

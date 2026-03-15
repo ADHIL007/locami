@@ -3,11 +3,12 @@ import 'package:solar_icons/solar_icons.dart';
 import 'package:get/get.dart';
 import 'package:locami/core/model/trip_details_model.dart';
 import 'package:locami/modules/trip/views/trip_details_view.dart';
-import 'package:locami/theme/them_provider.dart';
+import 'package:locami/theme/theme_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:locami/core/utils/map_utils.dart';
+
 import 'package:locami/core/widgets/glass_container.dart';
+import 'package:locami/core/controllers/map_controller.dart';
 
 class TripHistoryCard extends StatelessWidget {
   final TripDetailsModel trip;
@@ -169,26 +170,13 @@ class TripHistoryCard extends StatelessWidget {
       return _fallbackMapImage();
     }
 
-    final double startLat = trip.latitude;
-    final double startLon = trip.longitude;
-    final double endLat = trip.destinationLatitude!;
-    final double endLon = trip.destinationLongitude!;
-
-    final double centerLat = (startLat + endLat) / 2;
-    final double centerLon = (startLon + endLon) / 2;
-
-    double distance = MapUtils.distanceInKm(startLat, startLon, endLat, endLon);
-    int zoom = MapUtils.calculateZoom(distance);
-
-    final String url =
-        "https://static-maps.yandex.ru/1.x/"
-        "?l=map"
-        "&lang=en_US"
-        "&size=450,220"
-        "&z=$zoom"
-        "&ll=$centerLon,$centerLat"
-        "&pt=$startLon,$startLat,pm2blm~$endLon,$endLat,pm2rdm"
-        "&pl=c:1A73E8,w:4,$startLon,$startLat,$endLon,$endLat";
+    final mapController = Get.find<MapController>();
+    final String url = mapController.getUrlForTrip(
+      trip,
+      width: 450,
+      height: 220,
+      pathWidth: 4,
+    );
 
     return CachedNetworkImage(
       imageUrl: url,

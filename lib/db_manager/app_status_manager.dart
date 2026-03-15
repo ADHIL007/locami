@@ -1,4 +1,4 @@
-import 'package:locami/core/dbHelper/app_status.dart';
+import 'package:locami/core/db_helper/app_status.dart';
 import 'package:locami/core/model/appstatus_model.dart';
 
 class AppStatusManager {

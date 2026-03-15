@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:solar_icons/solar_icons.dart';
 import 'package:locami/core/model/trip_details_model.dart';
-import 'package:locami/dbManager/trip_details_manager.dart';
+import 'package:locami/db_manager/trip_details_manager.dart';
 import 'package:locami/screens/widgets/settings_bottom_sheet.dart';
-import 'package:locami/theme/them_provider.dart';
+import 'package:locami/theme/theme_provider.dart';
 
 class HomeHeader extends StatelessWidget {
   final bool isTracking;

@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:get/get.dart';
 
 import 'package:locami/modules/initial/controllers/initial_home_controller.dart';
-import 'package:locami/theme/them_provider.dart';
+import 'package:locami/theme/theme_provider.dart';
 import 'package:locami/core/widgets/glass_container.dart';
 import 'package:locami/core/widgets/reflector_bg.dart';
 import 'dart:ui';

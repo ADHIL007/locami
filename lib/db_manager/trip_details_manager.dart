@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:locami/core/dbHelper/trip_db.dart';
-import 'package:locami/core/geo-location-Manager/street_manager.dart';
+import 'package:locami/core/db_helper/trip_db.dart';
+import 'package:locami/core/geo_location_manager/street_manager.dart';
 import 'package:locami/core/model/trip_details_model.dart';
 import 'package:locami/core/model/user_model.dart';
-import 'package:locami/dbManager/user_model_manager.dart';
+import 'package:locami/db_manager/user_model_manager.dart';
 
 import 'dart:math';
 import 'package:sensors_plus/sensors_plus.dart';
@@ -50,13 +50,9 @@ class TripDetailsManager {
   Future<void> startTracking({double alertDistance = 500.0}) async {
     if (_isTracking) return;
 
-    // Check for Notification Permission (Android 13+) — MUST be granted
-    // before starting the foreground service, otherwise Android throws
-    // CannotPostForegroundServiceNotificationException.
     if (await Permission.notification.isDenied) {
       final status = await Permission.notification.request();
       if (!status.isGranted) {
-        debugPrint("Notification permission not granted, cannot start foreground service.");
         throw Exception('Notification permission is required to track your trip in the background.');
       }
     }
@@ -100,12 +96,8 @@ class TripDetailsManager {
       );
     }
 
-    // Start background service AFTER all permissions are confirmed.
-    // The foreground notification requires POST_NOTIFICATIONS (checked above)
-    // and location permissions to be granted.
     try {
       await FlutterBackgroundService().startService();
-      // Give Android time to post the foreground notification
       await Future.delayed(const Duration(milliseconds: 500));
     } catch (e) {
       debugPrint("Error starting background service: $e");

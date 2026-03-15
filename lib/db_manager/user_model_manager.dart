@@ -1,4 +1,4 @@
-import 'package:locami/core/dbHelper/user_db.dart';
+import 'package:locami/core/db_helper/user_db.dart';
 import 'package:locami/core/model/user_model.dart';
 
 class UserModelManager {
