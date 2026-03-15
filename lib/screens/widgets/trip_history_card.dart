@@ -13,8 +13,7 @@ class TripHistoryCard extends StatelessWidget {
   final TripDetailsModel trip;
   final VoidCallback? onRestart;
 
-  const TripHistoryCard({Key? key, required this.trip, this.onRestart})
-    : super(key: key);
+  const TripHistoryCard({super.key, required this.trip, this.onRestart});
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +29,7 @@ class TripHistoryCard extends StatelessWidget {
             ? []
             : [
                 BoxShadow(
-                  color: accentColor.withOpacity(0.04),
+                  color: accentColor.withValues(alpha: 0.04),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -40,9 +39,9 @@ class TripHistoryCard extends StatelessWidget {
         opacity: isDark ? 0.1 : 0.6,
         blur: 20,
         borderRadius: 16,
-        color: isDark ? Colors.white : Colors.white.withOpacity(0.95),
+        color: isDark ? Colors.white : Colors.white.withValues(alpha: 0.95),
         border: Border.all(
-          color: isDark ? Colors.white.withOpacity(0.1) : Colors.white,
+          color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.white,
           width: 1.5,
         ),
         child: InkWell(
@@ -88,7 +87,7 @@ class TripHistoryCard extends StatelessWidget {
                             TextSpan(
                               text: " → ",
                               style: TextStyle(
-                                color: customColors().textPrimary.withOpacity(0.6),
+                                color: customColors().textPrimary.withValues(alpha: 0.6),
                                 fontWeight: FontWeight.w400,
                               ),
                             ),
@@ -140,14 +139,14 @@ class TripHistoryCard extends StatelessWidget {
                                 Text(
                                   "View Trip",
                                   style: TextStyle(
-                                    color: customColors().textSecondary.withOpacity(0.8),
+                                    color: customColors().textSecondary.withValues(alpha: 0.8),
                                     fontSize: 12,
                                   ),
                                 ),
                                 Icon(
                                   SolarIconsOutline.altArrowRight,
                                   size: 14,
-                                  color: customColors().textSecondary.withOpacity(0.8),
+                                  color: customColors().textSecondary.withValues(alpha: 0.8),
                                 ),
                               ],
                             ),
@@ -203,11 +202,11 @@ class TripHistoryCard extends StatelessWidget {
 
   Widget _fallbackMapImage() {
     return Container(
-      color: customColors().background.withOpacity(0.3),
+      color: customColors().background.withValues(alpha: 0.3),
       child: Center(
         child: Icon(
           SolarIconsOutline.map,
-          color: customColors().textSecondary.withOpacity(0.5),
+          color: customColors().textSecondary.withValues(alpha: 0.5),
           size: 32,
         ),
       ),

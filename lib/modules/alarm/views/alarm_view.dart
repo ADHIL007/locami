@@ -6,7 +6,7 @@ import 'package:locami/theme/them_provider.dart';
 import 'package:locami/core/widgets/glass_container.dart';
 
 class AlarmView extends GetView<AlarmController> {
-  const AlarmView({Key? key}) : super(key: key);
+  const AlarmView({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +30,7 @@ class AlarmView extends GetView<AlarmController> {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: accentColor.withOpacity(0.5 * controller.animationController.value),
+                          color: accentColor.withValues(alpha: 0.5 * controller.animationController.value),
                           blurRadius: 50 * controller.animationController.value,
                           spreadRadius: 20 * controller.animationController.value,
                         ),

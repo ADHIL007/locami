@@ -8,8 +8,7 @@ class Speedometer extends StatelessWidget {
   final double speed;
   final double maxSpeed;
 
-  const Speedometer({Key? key, required this.speed, this.maxSpeed = 180})
-    : super(key: key);
+  const Speedometer({super.key, required this.speed, this.maxSpeed = 180});
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +27,7 @@ class Speedometer extends StatelessWidget {
                   speed: speed,
                   maxSpeed: maxSpeed,
                   primaryColor: accentColor,
-                  secondaryColor: customColors().textPrimary.withOpacity(0.05),
+                  secondaryColor: customColors().textPrimary.withValues(alpha: 0.05),
                   tickColor: customColors().textPrimary.withAlpha(50),
                 ),
               ),
@@ -49,14 +48,14 @@ class Speedometer extends StatelessWidget {
                       'km/h',
                       style: TextStyle(
                         fontSize: size * 0.08,
-                        color: customColors().textPrimary.withOpacity(0.5),
+                        color: customColors().textPrimary.withValues(alpha: 0.5),
                         fontWeight: FontWeight.w400,
                       ),
                     ),
                     const SizedBox(height: 10),
                     Icon(
                       SolarIconsBold.home,
-                      color: accentColor.withOpacity(0.8),
+                      color: accentColor.withValues(alpha: 0.8),
                       size: size * 0.15,
                     ),
                   ],
@@ -116,7 +115,7 @@ class _SpeedometerPainter extends CustomPainter {
 
     final progressPaint =
         Paint()
-          ..color = customColors().textPrimary.withOpacity(0.15)
+          ..color = customColors().textPrimary.withValues(alpha: 0.15)
           ..style = PaintingStyle.stroke
           ..strokeWidth = strokeWidth
           ..strokeCap = StrokeCap.round;
@@ -174,7 +173,7 @@ class _SpeedometerPainter extends CustomPainter {
     // Outer glow for thumb
     final glowPaint =
         Paint()
-          ..color = customColors().textPrimary.withOpacity(0.3)
+          ..color = customColors().textPrimary.withValues(alpha: 0.3)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
 
     canvas.drawCircle(thumbCenter, strokeWidth * 0.45, glowPaint);

@@ -14,10 +14,10 @@ class TripDetailsView extends GetView<TripDetailsController> {
   final VoidCallback onStartAgain;
 
   const TripDetailsView({
-    Key? key,
+    super.key,
     required this.trip,
     required this.onStartAgain,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +75,7 @@ class TripDetailsView extends GetView<TripDetailsController> {
                     child: Container(
                       width: 2,
                       height: 30,
-                      color: customColors().textPrimary.withOpacity(0.1),
+                      color: customColors().textPrimary.withValues(alpha: 0.1),
                     ),
                   ),
                   _buildLocationRow(
@@ -85,7 +85,7 @@ class TripDetailsView extends GetView<TripDetailsController> {
                     color: Colors.red,
                   ),
                   const SizedBox(height: 32),
-                  Divider(color: customColors().textPrimary.withOpacity(0.1)),
+                  Divider(color: customColors().textPrimary.withValues(alpha: 0.1)),
                   const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -153,11 +153,11 @@ class TripDetailsView extends GetView<TripDetailsController> {
   Widget _buildMapBanner(TripDetailsModel trip) {
     if (trip.destinationLatitude == null || trip.destinationLongitude == null) {
       return Container(
-        color: customColors().background.withOpacity(0.3),
+        color: customColors().background.withValues(alpha: 0.3),
         child: Center(
           child: Icon(
             SolarIconsOutline.map,
-            color: customColors().textSecondary.withOpacity(0.5),
+            color: customColors().textSecondary.withValues(alpha: 0.5),
             size: 48,
           ),
         ),
@@ -190,15 +190,15 @@ class TripDetailsView extends GetView<TripDetailsController> {
       imageUrl: url,
       fit: BoxFit.cover,
       placeholder: (context, url) => Container(
-        color: customColors().background.withOpacity(0.1),
+        color: customColors().background.withValues(alpha: 0.1),
         child: const Center(child: CircularProgressIndicator()),
       ),
       errorWidget: (context, url, error) => Container(
-        color: customColors().background.withOpacity(0.3),
+        color: customColors().background.withValues(alpha: 0.3),
         child: Center(
           child: Icon(
             SolarIconsOutline.map,
-            color: customColors().textSecondary.withOpacity(0.5),
+            color: customColors().textSecondary.withValues(alpha: 0.5),
             size: 48,
           ),
         ),

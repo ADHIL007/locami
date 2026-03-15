@@ -5,10 +5,10 @@ class ReflectionBackground extends StatefulWidget {
   final Color accentColor;
   final double speed;
   const ReflectionBackground({
-    Key? key,
+    super.key,
     required this.accentColor,
     this.speed = 1.0,
-  }) : super(key: key);
+  });
 
   @override
   State<ReflectionBackground> createState() => _ReflectionBackgroundState();
@@ -123,9 +123,9 @@ class ReflectionPainter extends CustomPainter {
       center: Alignment.center,
       radius: 0.8,
       colors: [
-        accentColor.withOpacity(0.12),
-        accentColor.withOpacity(0.06),
-        accentColor.withOpacity(0.02),
+        accentColor.withValues(alpha: 0.12),
+        accentColor.withValues(alpha: 0.06),
+        accentColor.withValues(alpha: 0.02),
         Colors.transparent,
       ],
       stops: const [0.0, 0.4, 0.8, 1.0],
@@ -145,7 +145,7 @@ class ReflectionPainter extends CustomPainter {
 
     final highlightPaint =
         Paint()
-          ..color = Colors.white.withOpacity(0.015)
+          ..color = Colors.white.withValues(alpha: 0.015)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 30);
 
     canvas.drawCircle(

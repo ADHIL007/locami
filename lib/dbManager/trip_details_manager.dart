@@ -2,12 +2,11 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geolocator_android/geolocator_android.dart';
 import 'package:locami/core/dbHelper/trip_db.dart';
-import 'package:locami/core/geo-location-Manager/street-Manager.dart';
+import 'package:locami/core/geo-location-Manager/street_manager.dart';
 import 'package:locami/core/model/trip_details_model.dart';
 import 'package:locami/core/model/user_model.dart';
-import 'package:locami/dbManager/userModel_manager.dart';
+import 'package:locami/dbManager/user_model_manager.dart';
 
 import 'dart:math';
 import 'package:sensors_plus/sensors_plus.dart';
@@ -65,6 +64,9 @@ class TripDetailsManager {
     _isTracking = true;
     isTrackingNotifier.value = true;
     _currentTripId = DateTime.now().millisecondsSinceEpoch.toString();
+
+    // Reset the current trip detail so the UI doesn't show stale data
+    currentTripDetail.value = null;
 
     _alertDistance = alertDistance;
     _alertTriggered = false;
@@ -232,7 +234,7 @@ class TripDetailsManager {
   Future<void> _handlePositionUpdate(Position position) async {
     double distance = 0.0;
 
-    final lastPoint = await TripDbHelper.instance.getLastPoint();
+    final lastPoint = await TripDbHelper.instance.getLastPointForTrip(_currentTripId);
     if (lastPoint != null) {
       distance = Geolocator.distanceBetween(
         lastPoint.latitude,
@@ -309,8 +311,16 @@ class TripDetailsManager {
     int progress = progressDouble.clamp(0, 100).toInt();
 
     final remainingKm = (remaining / 1000).toStringAsFixed(1);
-    final fromStr = details.street ?? "Current Location";
-    final toStr = details.destination ?? "Destination";
+    String formatPlaceName(String name) {
+      final beforeComma = name.split(',').first.trim();
+      if (beforeComma.length > 20) {
+        return '${beforeComma.substring(0, 17)}...';
+      }
+      return beforeComma;
+    }
+
+    final fromStr = formatPlaceName(details.street ?? "Current Location");
+    final toStr = formatPlaceName(details.destination ?? "Destination");
 
     final speedKmh = details.speed * 3.6;
     String timeStr = "";

@@ -10,13 +10,13 @@ class TrackingButton extends StatelessWidget {
   final bool isLoading;
 
   const TrackingButton({
-    Key? key,
+    super.key,
     required this.isTracking,
     this.canStart = true,
     this.isLoading = false,
     required this.accentColor,
     required this.onPressed,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +29,7 @@ class TrackingButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: accentColor.withOpacity(0.3),
+                color: accentColor.withValues(alpha: 0.3),
                 blurRadius: 15,
                 offset: const Offset(0, 5),
               ),

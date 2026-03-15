@@ -4,8 +4,7 @@ import 'dart:math' as math;
 class WaveBackground extends StatefulWidget {
   final Color accentColor;
   final double speed;
-  const WaveBackground({Key? key, required this.accentColor, this.speed = 1.0})
-    : super(key: key);
+  const WaveBackground({super.key, required this.accentColor, this.speed = 1.0});
 
   @override
   State<WaveBackground> createState() => _WaveBackgroundState();
@@ -61,9 +60,9 @@ class EnhancedWavePainter extends CustomPainter {
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        color.withOpacity(0.0),
-        color.withOpacity(0.2),
-        color.withOpacity(0.05),
+        color.withValues(alpha: 0.0),
+        color.withValues(alpha: 0.2),
+        color.withValues(alpha: 0.05),
       ],
     );
 
@@ -74,7 +73,7 @@ class EnhancedWavePainter extends CustomPainter {
       frequency: 1.8,
       phase: animationValue * 2 * math.pi,
       verticalOffset: size.height * 0.85,
-      color: color.withOpacity(0.15),
+      color: color.withValues(alpha: 0.15),
       gradient: gradient,
       isInverted: false,
     );
@@ -86,7 +85,7 @@ class EnhancedWavePainter extends CustomPainter {
       frequency: 2.2,
       phase: -animationValue * 2.2 * math.pi,
       verticalOffset: size.height * 0.7,
-      color: color.withOpacity(0.12),
+      color: color.withValues(alpha: 0.12),
       gradient: gradient,
       isInverted: false,
     );
@@ -98,7 +97,7 @@ class EnhancedWavePainter extends CustomPainter {
       frequency: 3.0,
       phase: animationValue * 3 * math.pi,
       verticalOffset: size.height * 0.5,
-      color: color.withOpacity(0.1),
+      color: color.withValues(alpha: 0.1),
       gradient: gradient,
       isInverted: false,
     );
@@ -110,7 +109,7 @@ class EnhancedWavePainter extends CustomPainter {
       frequency: 2.5,
       phase: animationValue * 2.5 * math.pi + 1.5,
       verticalOffset: size.height * 0.3,
-      color: color.withOpacity(0.08),
+      color: color.withValues(alpha: 0.08),
       gradient: gradient,
       isInverted: true,
     );
@@ -176,7 +175,7 @@ class EnhancedWavePainter extends CustomPainter {
   void _drawParticles(Canvas canvas, Size size) {
     final particlePaint =
         Paint()
-          ..color = color.withOpacity(0.02)
+          ..color = color.withValues(alpha: 0.02)
           ..style = PaintingStyle.fill;
 
     final random = math.Random(42);

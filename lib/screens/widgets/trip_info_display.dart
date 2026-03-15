@@ -6,12 +6,11 @@ import 'package:locami/screens/widgets/speedometer.dart';
 import 'package:locami/core/utils/trip_simulator.dart';
 import 'package:locami/theme/them_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter/foundation.dart';
 import 'package:locami/core/utils/environment.dart';
 
 class TripInfoDisplay extends StatelessWidget {
 
-  const TripInfoDisplay({Key? key}) : super(key: key);
+  const TripInfoDisplay({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +58,7 @@ class TripInfoDisplay extends StatelessWidget {
                       "km to go",
                       style: TextStyle(
                         fontSize: 14,
-                        color: customColors().textPrimary.withOpacity(0.7),
+                        color: customColors().textPrimary.withValues(alpha: 0.7),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -71,14 +70,14 @@ class TripInfoDisplay extends StatelessWidget {
                     Icon(
                       SolarIconsOutline.gps,
                       size: 12,
-                      color: customColors().textPrimary.withOpacity(0.5),
+                      color: customColors().textPrimary.withValues(alpha: 0.5),
                     ),
                     const SizedBox(width: 6),
                     Text(
                       "$activityLabel, GPS Active",
                       style: TextStyle(
                         fontSize: 12,
-                        color: customColors().textPrimary.withOpacity(0.5),
+                        color: customColors().textPrimary.withValues(alpha: 0.5),
                       ),
                     ),
                   ],
@@ -201,7 +200,7 @@ class TripInfoDisplay extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: accentColor.withOpacity(0.1),
+                color: accentColor.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -215,7 +214,7 @@ class TripInfoDisplay extends StatelessWidget {
               "Alerting in",
               style: TextStyle(
                 fontSize: 18,
-                color: customColors().textPrimary.withOpacity(0.8),
+                color: customColors().textPrimary.withValues(alpha: 0.8),
               ),
             ),
             const Spacer(),
@@ -234,7 +233,7 @@ class TripInfoDisplay extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           child: LinearProgressIndicator(
             value: progress,
-            backgroundColor: customColors().textPrimary.withOpacity(0.05),
+            backgroundColor: customColors().textPrimary.withValues(alpha: 0.05),
             valueColor: AlwaysStoppedAnimation<Color>(accentColor),
             minHeight: 10,
           ),
@@ -247,7 +246,7 @@ class TripInfoDisplay extends StatelessWidget {
               "${((details.distanceTraveled ?? 0) / 1000).toStringAsFixed(1)} km traveled",
               style: TextStyle(
                 fontSize: 12,
-                color: customColors().textPrimary.withOpacity(0.5),
+                color: customColors().textPrimary.withValues(alpha: 0.5),
               ),
             ),
             Text(

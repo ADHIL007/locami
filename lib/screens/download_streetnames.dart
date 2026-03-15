@@ -4,10 +4,10 @@ import 'package:locami/theme/them_provider.dart';
 import 'package:provider/provider.dart';
 
 class DownloadStreetnames extends StatefulWidget {
-  const DownloadStreetnames({Key? key}) : super(key: key);
+  const DownloadStreetnames({super.key});
 
   @override
-  _DownloadStreetnamesState createState() => _DownloadStreetnamesState();
+  State<DownloadStreetnames> createState() => _DownloadStreetnamesState();
 }
 
 class _DownloadStreetnamesState extends State<DownloadStreetnames> {
@@ -40,7 +40,7 @@ class _DownloadStreetnamesState extends State<DownloadStreetnames> {
             padding: const EdgeInsets.all(16),
             child: LinearProgressIndicator(
               valueColor: AlwaysStoppedAnimation<Color>(accentColor),
-              backgroundColor: customColors().textPrimary.withOpacity(0.1),
+              backgroundColor: customColors().textPrimary.withValues(alpha: 0.1),
             ),
           ),
         ],

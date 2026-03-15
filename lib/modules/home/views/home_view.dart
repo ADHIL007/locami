@@ -15,12 +15,11 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:locami/core/model/trip_details_model.dart';
 import 'package:locami/dbManager/trip_details_manager.dart';
 import 'package:locami/core/widgets/glass_container.dart';
-import 'package:locami/core/widgets/wave_background.dart';
 import 'dart:ui';
 import 'package:provider/provider.dart';
 
 class HomeView extends GetView<HomeController> {
-  const HomeView({Key? key}) : super(key: key);
+  const HomeView({super.key});
 
   void _showLocationSearch(bool isFrom) {
     Get.bottomSheet(
@@ -92,11 +91,11 @@ class HomeView extends GetView<HomeController> {
                             colors: [
                               Theme.of(
                                 context,
-                              ).scaffoldBackgroundColor.withOpacity(0.5),
-                              accentColor.withOpacity(0.04),
+                              ).scaffoldBackgroundColor.withValues(alpha: 0.5),
+                              accentColor.withValues(alpha: 0.04),
                               Theme.of(
                                 context,
-                              ).scaffoldBackgroundColor.withOpacity(0.6),
+                              ).scaffoldBackgroundColor.withValues(alpha: 0.6),
                             ],
                           ),
                         ),
@@ -111,7 +110,7 @@ class HomeView extends GetView<HomeController> {
                             Colors.transparent,
                             Theme.of(
                               context,
-                            ).scaffoldBackgroundColor.withOpacity(0.2),
+                            ).scaffoldBackgroundColor.withValues(alpha: 0.2),
                           ],
                         ),
                       ),
@@ -281,7 +280,7 @@ class HomeView extends GetView<HomeController> {
                                           end: Alignment.bottomCenter,
                                           colors: [
                                             customColors().background
-                                                .withOpacity(0),
+                                                .withValues(alpha: 0),
                                             customColors().background,
                                           ],
                                         ),
@@ -304,7 +303,7 @@ class HomeView extends GetView<HomeController> {
                                     "No track history yet",
                                     style: TextStyle(
                                       color: customColors().textPrimary
-                                          .withOpacity(0.5),
+                                          .withValues(alpha: 0.5),
                                       fontSize: 16,
                                     ),
                                   ),
@@ -332,11 +331,10 @@ class _HistoryBottomSheet extends StatelessWidget {
   final Function(TripDetailsModel) onRestart;
 
   const _HistoryBottomSheet({
-    Key? key,
     required this.history,
     required this.onClear,
     required this.onRestart,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -348,12 +346,12 @@ class _HistoryBottomSheet extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       opacity: isDark ? 0.15 : 0.7,
       blur: 25,
-      color: isDark ? Colors.white : Colors.white.withOpacity(0.9),
+      color: isDark ? Colors.white : Colors.white.withValues(alpha: 0.9),
       borderRadius: 24,
       border: Border.all(
         color: isDark 
-            ? Colors.white.withOpacity(0.1) 
-            : Colors.white.withOpacity(0.5),
+            ? Colors.white.withValues(alpha: 0.1) 
+            : Colors.white.withValues(alpha: 0.5),
         width: 1.5,
       ),
       child: Column(
@@ -362,7 +360,7 @@ class _HistoryBottomSheet extends StatelessWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: customColors().textPrimary.withOpacity(0.1),
+              color: customColors().textPrimary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(2),
             ),
           ),

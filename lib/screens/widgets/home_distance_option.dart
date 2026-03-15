@@ -8,11 +8,11 @@ class HomeDistanceOption extends StatelessWidget {
   final VoidCallback? onTap;
 
   const HomeDistanceOption({
-    Key? key,
+    super.key,
     required this.distance,
     required this.isSelected,
     this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

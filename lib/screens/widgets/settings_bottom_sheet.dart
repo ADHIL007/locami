@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:solar_icons/solar_icons.dart';
-import 'package:locami/dbManager/app-status_manager.dart';
+import 'package:locami/dbManager/app_status_manager.dart';
 import 'package:locami/dbManager/trip_details_manager.dart';
-import 'package:locami/dbManager/userModel_manager.dart';
+import 'package:locami/dbManager/user_model_manager.dart';
 import 'package:locami/theme/them_provider.dart';
 import 'package:locami/core/widgets/glass_container.dart';
 import 'package:provider/provider.dart';
@@ -24,12 +24,12 @@ class SettingsBottomSheet extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       opacity: themeProvider.theme == AppThemeMode.dark ? 0.15 : 0.7,
       blur: 25,
-      color: themeProvider.theme == AppThemeMode.dark ? Colors.white : Colors.white.withOpacity(0.9),
+      color: themeProvider.theme == AppThemeMode.dark ? Colors.white : Colors.white.withValues(alpha: 0.9),
       borderRadius: 24,
       border: Border.all(
         color: themeProvider.theme == AppThemeMode.dark 
-            ? Colors.white.withOpacity(0.1) 
-            : Colors.white.withOpacity(0.5),
+            ? Colors.white.withValues(alpha: 0.1) 
+            : Colors.white.withValues(alpha: 0.5),
         width: 1.5,
       ),
       child: Column(
@@ -99,7 +99,7 @@ class SettingsBottomSheet extends StatelessWidget {
                   const Color(0xFF00897B),
                   const Color(0xFFFFB300),
                 ].map((color) {
-                  final isSelected = accentColor.value == color.value;
+                  final isSelected = accentColor.toARGB32() == color.toARGB32();
                   return GestureDetector(
                     onTap: () => themeProvider.setAccentColor(color),
                     child: Container(
@@ -229,12 +229,12 @@ class SettingsBottomSheet extends StatelessWidget {
             padding: const EdgeInsets.all(24),
             opacity: themeProvider.theme == AppThemeMode.dark ? 0.15 : 0.7,
             blur: 25,
-            color: themeProvider.theme == AppThemeMode.dark ? Colors.white : Colors.white.withOpacity(0.9),
+            color: themeProvider.theme == AppThemeMode.dark ? Colors.white : Colors.white.withValues(alpha: 0.9),
             borderRadius: 24,
             border: Border.all(
               color: themeProvider.theme == AppThemeMode.dark 
-                  ? Colors.white.withOpacity(0.1) 
-                  : Colors.white.withOpacity(0.5),
+                  ? Colors.white.withValues(alpha: 0.1) 
+                  : Colors.white.withValues(alpha: 0.5),
               width: 1.5,
             ),
             child: Column(

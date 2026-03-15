@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:locami/dbManager/app-status_manager.dart';
+import 'package:locami/dbManager/app_status_manager.dart';
 import 'package:locami/bindings/main_bindings.dart';
 import 'package:locami/navigation/main_nav.dart';
 import 'package:locami/theme/them_provider.dart';

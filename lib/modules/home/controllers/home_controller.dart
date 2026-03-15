@@ -2,8 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:locami/core/geo-location-Manager/street-Manager.dart';
-import 'package:locami/dbManager/userModel_manager.dart';
+import 'package:locami/core/geo-location-Manager/street_manager.dart';
+import 'package:locami/dbManager/user_model_manager.dart';
 import 'package:locami/dbManager/trip_details_manager.dart';
 import 'package:locami/core/model/trip_details_model.dart';
 import 'package:locami/theme/them_provider.dart';
@@ -142,7 +142,7 @@ class HomeController extends GetxController {
   Future<void> getInitialLocation() async {
     try {
       currentPosition.value = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.low,
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.low),
       );
     } catch (_) {}
   }
@@ -240,6 +240,7 @@ class HomeController extends GetxController {
         );
         isTracking.value = true;
         startTransmission();
+        startSimulation();
       } catch (e) {
         Get.snackbar('Error', 'Error starting tracking: $e');
       } finally {

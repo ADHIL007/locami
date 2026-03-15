@@ -12,14 +12,14 @@ class HomeInputCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   const HomeInputCard({
-    Key? key,
+    super.key,
     required this.controller,
     required this.label,
     required this.hint,
     required this.icon,
     this.iconColor = Colors.grey,
     this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +34,7 @@ class HomeInputCard extends StatelessWidget {
               ? []
               : [
                   BoxShadow(
-                    color: themeProvider.accentColor.withOpacity(0.05),
+                    color: themeProvider.accentColor.withValues(alpha: 0.05),
                     blurRadius: 20,
                     offset: const Offset(0, 10),
                   ),
@@ -45,9 +45,9 @@ class HomeInputCard extends StatelessWidget {
           opacity: isDark ? 0.1 : 0.6,
           blur: 20,
           borderRadius: 16,
-          color: isDark ? Colors.white : Colors.white.withOpacity(0.9),
+          color: isDark ? Colors.white : Colors.white.withValues(alpha: 0.9),
           border: Border.all(
-            color: isDark ? Colors.white.withOpacity(0.1) : Colors.white,
+            color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.white,
             width: 1.5,
           ),
           child: Row(

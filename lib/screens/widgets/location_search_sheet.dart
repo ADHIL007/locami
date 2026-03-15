@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:solar_icons/solar_icons.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:locami/core/geo-location-Manager/street-Manager.dart';
+import 'package:locami/core/geo-location-Manager/street_manager.dart';
 import 'package:locami/theme/them_provider.dart';
 import 'package:locami/core/widgets/glass_container.dart';
 import 'package:provider/provider.dart';
@@ -15,13 +15,13 @@ class LocationSearchSheet extends StatefulWidget {
   final Function(String) onSelected;
 
   const LocationSearchSheet({
-    Key? key,
+    super.key,
     required this.isFrom,
     required this.initialValue,
     required this.userCountry,
     this.currentPosition,
     required this.onSelected,
-  }) : super(key: key);
+  });
 
   @override
   State<LocationSearchSheet> createState() => _LocationSearchSheetState();
@@ -100,12 +100,12 @@ class _LocationSearchSheetState extends State<LocationSearchSheet> {
       padding: const EdgeInsets.all(20),
       opacity: isDark ? 0.15 : 0.7,
       blur: 25,
-      color: isDark ? Colors.white : Colors.white.withOpacity(0.9),
+      color: isDark ? Colors.white : Colors.white.withValues(alpha: 0.9),
       borderRadius: 24,
       border: Border.all(
         color: isDark 
-            ? Colors.white.withOpacity(0.1) 
-            : Colors.white.withOpacity(0.5),
+            ? Colors.white.withValues(alpha: 0.1) 
+            : Colors.white.withValues(alpha: 0.5),
         width: 1.5,
       ),
       child: Column(
@@ -114,7 +114,7 @@ class _LocationSearchSheetState extends State<LocationSearchSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: customColors().textPrimary.withOpacity(0.1),
+              color: customColors().textPrimary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -127,14 +127,14 @@ class _LocationSearchSheetState extends State<LocationSearchSheet> {
               hintText:
                   widget.isFrom ? "Search location" : "Search destination",
               hintStyle: TextStyle(
-                color: customColors().textPrimary.withOpacity(0.3),
+                color: customColors().textPrimary.withValues(alpha: 0.3),
               ),
               prefixIcon: Icon(
                 widget.isFrom ? SolarIconsBold.home : SolarIconsBold.flag,
                 color: widget.isFrom ? Colors.grey : accentColor,
               ),
               filled: true,
-              fillColor: customColors().textPrimary.withOpacity(0.05),
+              fillColor: customColors().textPrimary.withValues(alpha: 0.05),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
@@ -165,6 +165,7 @@ class _LocationSearchSheetState extends State<LocationSearchSheet> {
               onTap: () async {
                 final details =
                     await StreetManager.instance.getCurrentLocationDetails();
+                if (!context.mounted) return;
                 if (details != null && mounted) {
                   widget.onSelected(details['address']!);
                   Navigator.pop(context);
@@ -183,7 +184,7 @@ class _LocationSearchSheetState extends State<LocationSearchSheet> {
               itemCount: _suggestions.length,
               separatorBuilder:
                   (_, __) => Divider(
-                    color: customColors().textPrimary.withOpacity(0.05),
+                    color: customColors().textPrimary.withValues(alpha: 0.05),
                   ),
               itemBuilder: (context, index) {
                 return ListTile(

@@ -11,11 +11,11 @@ class HomeHeader extends StatelessWidget {
   final Color accentColor;
 
   const HomeHeader({
-    Key? key,
+    super.key,
     required this.isTracking,
     required this.showLocami,
     required this.accentColor,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

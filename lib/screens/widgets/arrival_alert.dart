@@ -72,7 +72,7 @@ class ArrivalAlert extends StatelessWidget {
             Text(
               "You've arrived at your destination",
               style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withValues(alpha: 0.5),
                 fontSize: 16,
               ),
             ),
@@ -100,7 +100,7 @@ class ArrivalAlert extends StatelessWidget {
                     child: ElevatedButton(
                       onPressed: onThanks,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.1),
+                        backgroundColor: Colors.white.withValues(alpha: 0.1),
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -125,7 +125,7 @@ class ArrivalAlert extends StatelessWidget {
                     child: ElevatedButton(
                       onPressed: onDone,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFB71C1C).withOpacity(0.8),
+                        backgroundColor: const Color(0xFFB71C1C).withValues(alpha: 0.8),
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -153,7 +153,7 @@ class ArrivalAlert extends StatelessWidget {
 
   Widget _buildMapSnippet(trip) {
     if (trip.destinationLatitude == null || trip.destinationLongitude == null) {
-      return Container(color: Colors.grey.withOpacity(0.2));
+      return Container(color: Colors.grey.withValues(alpha: 0.2));
     }
 
     final double startLat = trip.latitude;
@@ -181,8 +181,8 @@ class ArrivalAlert extends StatelessWidget {
     return CachedNetworkImage(
       imageUrl: url,
       fit: BoxFit.cover,
-      placeholder: (context, url) => Container(color: Colors.grey.withOpacity(0.1)),
-      errorWidget: (context, url, e) => Container(color: Colors.grey.withOpacity(0.1)),
+      placeholder: (context, url) => Container(color: Colors.grey.withValues(alpha: 0.1)),
+      errorWidget: (context, url, e) => Container(color: Colors.grey.withValues(alpha: 0.1)),
     );
   }
 }

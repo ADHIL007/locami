@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:locami/dbManager/app-status_manager.dart';
+import 'package:locami/dbManager/app_status_manager.dart';
 import 'package:locami/modules/home/bindings/home_binding.dart';
 import 'package:locami/modules/home/views/home_view.dart';
 import 'package:locami/modules/initial/bindings/initial_home_binding.dart';
 import 'package:locami/modules/initial/views/initial_home_view.dart';
 
 class MainNav extends StatefulWidget {
-  const MainNav({Key? key}) : super(key: key);
+  const MainNav({super.key});
 
   @override
-  _MainNavState createState() => _MainNavState();
+  State<MainNav> createState() => _MainNavState();
 }
 
 class _MainNavState extends State<MainNav> {

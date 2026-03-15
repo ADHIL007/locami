@@ -10,7 +10,7 @@ import 'package:locami/core/widgets/reflector_bg.dart';
 import 'dart:ui';
 
 class InitialHomeView extends GetView<InitialHomeController> {
-  const InitialHomeView({Key? key}) : super(key: key);
+  const InitialHomeView({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -34,9 +34,9 @@ class InitialHomeView extends GetView<InitialHomeController> {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      themeProvider.themeData.scaffoldBackgroundColor.withOpacity(0.4),
-                      accentColor.withOpacity(0.04),
-                      themeProvider.themeData.scaffoldBackgroundColor.withOpacity(0.7),
+                      themeProvider.themeData.scaffoldBackgroundColor.withValues(alpha: 0.4),
+                      accentColor.withValues(alpha: 0.04),
+                      themeProvider.themeData.scaffoldBackgroundColor.withValues(alpha: 0.7),
                     ],
                   ),
                 ),
@@ -99,7 +99,7 @@ class InitialHomeView extends GetView<InitialHomeController> {
                                 shape: BoxShape.circle,
                                 color: i == controller.index.value
                                     ? accentColor
-                                    : customColors().textSecondary.withOpacity(0.3),
+                                    : customColors().textSecondary.withValues(alpha: 0.3),
                               ),
                             );
                           }),
@@ -122,7 +122,7 @@ class InitialHomeView extends GetView<InitialHomeController> {
                             width: double.infinity,
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
-                                colors: [accentColor, accentColor.withOpacity(0.8)],
+                                colors: [accentColor, accentColor.withValues(alpha: 0.8)],
                               ),
                               borderRadius: BorderRadius.circular(16),
                             ),
@@ -252,9 +252,9 @@ class InitialHomeView extends GetView<InitialHomeController> {
                 height: 52,
                 width: 52,
                 decoration: BoxDecoration(
-                  color: accentColor.withOpacity(0.1),
+                  color: accentColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: accentColor.withOpacity(0.3)),
+                  border: Border.all(color: accentColor.withValues(alpha: 0.3)),
                 ),
                 child: controller.isLocating.value
                     ? const Center(
@@ -361,7 +361,7 @@ class InitialHomeView extends GetView<InitialHomeController> {
         blur: 15,
         borderRadius: 16,
         border: Border.all(
-          color: isSelected ? accentColor : customColors().borderColor.withOpacity(0.2),
+          color: isSelected ? accentColor : customColors().borderColor.withValues(alpha: 0.2),
           width: 2,
         ),
         child: Row(

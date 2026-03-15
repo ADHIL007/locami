@@ -62,13 +62,12 @@ class ThemeProvider extends ChangeNotifier {
         primary: accentColor,
         secondary: accentColor,
         surface: Colors.white,
-        background: const Color(0xFFF8FAFC),
         onPrimary: Colors.white,
       ),
       cardTheme: CardTheme(
         color: Colors.white,
         elevation: 2,
-        shadowColor: accentColor.withOpacity(0.1),
+        shadowColor: accentColor.withValues(alpha: 0.1),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       appBarTheme: const AppBarTheme(
@@ -168,7 +167,7 @@ class ThemeProvider extends ChangeNotifier {
             isMatchWithSystem
                 ? 'system'
                 : (theme == AppThemeMode.dark ? 'dark' : 'light'),
-        accentColor: accentColor.value,
+        accentColor: accentColor.toARGB32(),
         alertSound: alertSound,
         alertSoundName: alertSoundName,
         isCustomSound: isCustomSound,
