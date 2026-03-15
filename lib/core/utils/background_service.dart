@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:locami/db_manager/trip_details_manager.dart';
 
 const int notificationId = 888;
 
@@ -69,10 +71,43 @@ Future<bool> onIosBackground(ServiceInstance service) async {
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
   if (service is AndroidServiceInstance) {
-    service.setAsForegroundService();
+    service.on('setAsForeground').listen((event) {
+      service.setAsForegroundService();
+    });
+
+    service.on('setAsBackground').listen((event) {
+      service.setAsBackgroundService();
+    });
   }
 
   service.on('stopService').listen((event) {
     service.stopSelf();
   });
+
+  service.on('simulate_location').listen((event) {
+    if (event != null) {
+      // We'll pass this to the manager
+      TripDetailsManager.instance.handleSimulatedPosition(event);
+    }
+  });
+
+  _startTracking(service);
+}
+
+void _startTracking(ServiceInstance service) async {
+  try {
+    Timer.periodic(const Duration(seconds: 1), (timer) async {
+      if (service is AndroidServiceInstance) {
+        if (!(await service.isForegroundService())) {
+          return;
+        }
+      }
+    });
+
+    await TripDetailsManager.instance.startBackgroundTracking(service);
+  } catch (e) {
+    if (kDebugMode) {
+      print("Background tracking error: $e");
+    }
+  }
 }

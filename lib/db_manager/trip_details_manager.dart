@@ -13,10 +13,17 @@ import 'package:sensors_plus/sensors_plus.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 
 class TripDetailsManager {
   TripDetailsManager._internal();
   static final TripDetailsManager instance = TripDetailsManager._internal();
+
+  void init() {
+    if (_isInitialized) return;
+    _isInitialized = true;
+    _listenToBackgroundService();
+  }
 
   StreamSubscription<Position>? _positionStreamSubscription;
   StreamSubscription<UserAccelerometerEvent>? _accelStreamSubscription;
@@ -40,6 +47,8 @@ class TripDetailsManager {
   double? _sourceLon;
   double? _totalTripDistance;
   String? _currentTripId;
+  ServiceInstance? _backgroundService;
+  bool _isInitialized = false;
 
   double? get alertDistance => _alertDistance;
   double? get totalTripDistance => _totalTripDistance;
@@ -53,7 +62,9 @@ class TripDetailsManager {
     if (await Permission.notification.isDenied) {
       final status = await Permission.notification.request();
       if (!status.isGranted) {
-        throw Exception('Notification permission is required to track your trip in the background.');
+        throw Exception(
+          'Notification permission is required to track your trip in the background.',
+        );
       }
     }
 
@@ -61,7 +72,6 @@ class TripDetailsManager {
     isTrackingNotifier.value = true;
     _currentTripId = DateTime.now().millisecondsSinceEpoch.toString();
 
-    // Reset the current trip detail so the UI doesn't show stale data
     currentTripDetail.value = null;
 
     _alertDistance = alertDistance;
@@ -94,13 +104,6 @@ class TripDetailsManager {
       throw Exception(
         'Location permissions are permanently denied, we cannot request permissions.',
       );
-    }
-
-    try {
-      await FlutterBackgroundService().startService();
-      await Future.delayed(const Duration(milliseconds: 500));
-    } catch (e) {
-      debugPrint("Error starting background service: $e");
     }
 
     UserModel user = await UserModelManager.instance.user;
@@ -168,11 +171,20 @@ class TripDetailsManager {
 
     await _updateAddressCache();
 
-    const LocationSettings locationSettings = LocationSettings(
-      accuracy: LocationAccuracy.best,
-      distanceFilter: 0,
-    );
+    if (!(await FlutterBackgroundService().isRunning())) {
+      try {
+        await FlutterBackgroundService().startService();
+        await Future.delayed(const Duration(milliseconds: 500));
+      } catch (e) {
+        debugPrint("Error starting background service: $e");
+      }
+    }
 
+    /* 
+    The main isolate should NOT start its own position stream if the background service is used.
+    The UI will receive updates via the on('on_position_update') listener in _listenToBackgroundService().
+    */
+    /*
     _positionStreamSubscription = Geolocator.getPositionStream(
       locationSettings: locationSettings,
     ).listen((Position position) {
@@ -186,12 +198,35 @@ class TripDetailsManager {
         event.x * event.x + event.y * event.y + event.z * event.z,
       );
     });
+    */
 
     await UserModelManager.instance.patchUser(
       isTravelStarted: true,
       isTravelEnded: false,
       startTime: DateTime.now(),
+      alertDistance: _alertDistance,
+      currentTripId: _currentTripId,
     );
+
+    _listenToBackgroundService();
+  }
+
+  void _listenToBackgroundService() {
+    FlutterBackgroundService().on('on_position_update').listen((data) {
+      if (data != null) {
+        final detail = TripDetailsModel.fromJson(data);
+        currentTripDetail.value = detail;
+        _isTracking = true;
+        isTrackingNotifier.value = true;
+      }
+    });
+
+    FlutterBackgroundService().on('on_alert_triggered').listen((data) {
+      if (data != null) {
+        final double? distance = (data['distance'] as num?)?.toDouble();
+        alertTriggeredNotifier.value = distance;
+      }
+    });
   }
 
   Future<void> stopTracking() async {
@@ -201,7 +236,6 @@ class TripDetailsManager {
     await _accelStreamSubscription?.cancel();
     _accelStreamSubscription = null;
 
-    // Stop background service
     FlutterBackgroundService().invoke("stopService");
 
     _isTracking = false;
@@ -215,18 +249,51 @@ class TripDetailsManager {
       isTravelStarted: false,
       isTravelEnded: true,
       endTime: DateTime.now(),
+      currentTripId: null,
     );
   }
 
   Future<void> simulateLocationUpdate(Position position) async {
     if (!_isTracking) return;
+
+    if (_backgroundService == null &&
+        await FlutterBackgroundService().isRunning()) {
+      FlutterBackgroundService().invoke('simulate_location', {
+        'latitude': position.latitude,
+        'longitude': position.longitude,
+        'speed': position.speed,
+        'heading': position.heading,
+        'altitude': position.altitude,
+        'accuracy': position.accuracy,
+      });
+      return;
+    }
+
     await _handlePositionUpdate(position);
+  }
+
+  void handleSimulatedPosition(Map<String, dynamic> data) {
+    final position = Position(
+      latitude: (data['latitude'] as num).toDouble(),
+      longitude: (data['longitude'] as num).toDouble(),
+      timestamp: DateTime.now(),
+      accuracy: (data['accuracy'] as num? ?? 0.0).toDouble(),
+      altitude: (data['altitude'] as num? ?? 0.0).toDouble(),
+      heading: (data['heading'] as num? ?? 0.0).toDouble(),
+      speed: (data['speed'] as num? ?? 0.0).toDouble(),
+      speedAccuracy: 0.0,
+      altitudeAccuracy: 0.0,
+      headingAccuracy: 0.0,
+    );
+    _handlePositionUpdate(position);
   }
 
   Future<void> _handlePositionUpdate(Position position) async {
     double distance = 0.0;
 
-    final lastPoint = await TripDbHelper.instance.getLastPointForTrip(_currentTripId);
+    final lastPoint = await TripDbHelper.instance.getLastPointForTrip(
+      _currentTripId,
+    );
     if (lastPoint != null) {
       distance = Geolocator.distanceBetween(
         lastPoint.latitude,
@@ -250,9 +317,6 @@ class TripDetailsManager {
         position.longitude,
         _destinationLat!,
         _destinationLon!,
-      );
-      debugPrint(
-        'QWERTYUIOP: Position update - pos: ${position.latitude}, ${position.longitude}, dest: $_destinationLat, $_destinationLon, remainingDist: $remainingDist meters',
       );
 
       if (!_alertTriggered &&
@@ -291,14 +355,20 @@ class TripDetailsManager {
     await TripDbHelper.instance.insertTripDetail(newDetail);
     currentTripDetail.value = newDetail;
 
-    _updateForegroundNotification(newDetail);
+    if (_backgroundService != null) {
+      _backgroundService!.invoke('on_position_update', newDetail.toJson());
+    }
+
+    if (_backgroundService != null) {
+      _updateForegroundNotification(newDetail);
+    }
   }
 
   void _updateForegroundNotification(TripDetailsModel details) async {
     final remaining = details.remainingDistance ?? 0.0;
     final traveled = details.distanceTraveled ?? 0.0;
     final totalDist = _totalTripDistance ?? (traveled + remaining);
-    
+
     double progressDouble = totalDist > 0 ? (traveled / totalDist) * 100 : 0.0;
     int progress = progressDouble.clamp(0, 100).toInt();
 
@@ -317,10 +387,10 @@ class TripDetailsManager {
     final speedKmh = details.speed * 3.6;
     String timeStr = "";
     if (speedKmh > 1.0 && remainingKm != "0.0") {
-       final hoursRaw = (remaining / 1000) / speedKmh;
-       int h = hoursRaw.floor();
-       int m = ((hoursRaw - h) * 60).round();
-       timeStr = h > 0 ? " • ${h}h ${m}m elapsed" : " • ${m}m elapsed";
+      final hoursRaw = (remaining / 1000) / speedKmh;
+      int h = hoursRaw.floor();
+      int m = ((hoursRaw - h) * 60).round();
+      timeStr = h > 0 ? " • ${h}h ${m}m elapsed" : " • ${m}m elapsed";
     }
 
     final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -340,23 +410,24 @@ class TripDetailsManager {
       progress: progress,
       icon: '@mipmap/ic_launcher',
       category: AndroidNotificationCategory.service,
-      // Notification visual styling matching dark theme requests
-      color: const Color(0xFF16171B), // Dark aesthetic
-      colorized: true, // Forces background if Android supports it for this channel
-      // Adds a native button to reopen the app directly from notification
+
+      color: const Color(0xFF16171B),
+      colorized: true,
+
       actions: <AndroidNotificationAction>[
         const AndroidNotificationAction(
           'view_trip_action',
           'VIEW TRIP',
-          showsUserInterface: true, // Bringing app to foreground
+          showsUserInterface: true,
         ),
       ],
-      // showWhen sets the timestamp in notification
+
       showWhen: false,
     );
 
-    NotificationDetails notificationDetails =
-        NotificationDetails(android: androidDetails);
+    NotificationDetails notificationDetails = NotificationDetails(
+      android: androidDetails,
+    );
 
     await flutterLocalNotificationsPlugin.show(
       888,
@@ -371,6 +442,15 @@ class TripDetailsManager {
       'QWERTYUIOP: ALERT TRIGGERED! Distance remaining: $distance meters',
     );
     alertTriggeredNotifier.value = distance;
+    if (_backgroundService != null) {
+      _backgroundService!.invoke('on_alert_triggered', {'distance': distance});
+
+      try {
+        FlutterRingtonePlayer().playAlarm(looping: true);
+      } catch (e) {
+        debugPrint("Error playing alarm in background: $e");
+      }
+    }
   }
 
   Future<void> _updateAddressCache() async {
@@ -389,7 +469,6 @@ class TripDetailsManager {
     final allLogs = await TripDbHelper.instance.getAllTripDetails();
     if (allLogs.isEmpty) return [];
 
-    // Group logs by trip_id
     Map<String, List<TripDetailsModel>> groups = {};
     List<TripDetailsModel> untrackedLogs = [];
 
@@ -403,38 +482,40 @@ class TripDetailsManager {
 
     List<TripDetailsModel> distinctTrips = [];
 
-    // Process grouped trips
     groups.forEach((tripId, points) {
       if (points.isNotEmpty) {
-        // Sort by timestamp just in case
         points.sort((a, b) => a.timestamp.compareTo(b.timestamp));
         final latest = points.last;
         final earliest = points.first;
-        
+
         distinctTrips.add(
           latest.copyWith(
             street: earliest.street ?? "Unknown Location",
-            timestamp: earliest.timestamp, // Use start time for history
+            timestamp: earliest.timestamp,
           ),
         );
       }
     });
 
-    // Handle logs without tripId using the old heuristic (if any exist from old version)
     if (untrackedLogs.isNotEmpty) {
-      untrackedLogs.sort((a, b) => b.timestamp.compareTo(a.timestamp)); // Reversed
+      untrackedLogs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
       TripDetailsModel currentTripLatest = untrackedLogs.first;
       TripDetailsModel currentTripEarliest = untrackedLogs.first;
       String? firstKnownStreet = untrackedLogs.first.street;
 
       for (int i = 1; i < untrackedLogs.length; i++) {
         final log = untrackedLogs[i];
-        final timeGap = currentTripEarliest.timestamp.difference(log.timestamp).abs();
+        final timeGap =
+            currentTripEarliest.timestamp.difference(log.timestamp).abs();
 
-        if (log.destination != currentTripLatest.destination || timeGap.inMinutes > 30) {
+        if (log.destination != currentTripLatest.destination ||
+            timeGap.inMinutes > 30) {
           distinctTrips.add(
             currentTripLatest.copyWith(
-              street: firstKnownStreet ?? currentTripEarliest.street ?? "Unknown Location",
+              street:
+                  firstKnownStreet ??
+                  currentTripEarliest.street ??
+                  "Unknown Location",
               timestamp: currentTripEarliest.timestamp,
             ),
           );
@@ -448,13 +529,15 @@ class TripDetailsManager {
       }
       distinctTrips.add(
         currentTripLatest.copyWith(
-          street: firstKnownStreet ?? currentTripEarliest.street ?? "Unknown Location",
+          street:
+              firstKnownStreet ??
+              currentTripEarliest.street ??
+              "Unknown Location",
           timestamp: currentTripEarliest.timestamp,
         ),
       );
     }
 
-    // Sort all summarized trips by timestamp descending
     distinctTrips.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
     return distinctTrips;
@@ -463,5 +546,45 @@ class TripDetailsManager {
   Future<void> clearLogs() async {
     await TripDbHelper.instance.clearAll();
     currentTripDetail.value = null;
+  }
+
+  Future<void> startBackgroundTracking(ServiceInstance service) async {
+    _backgroundService = service;
+    _isTracking = true;
+    isTrackingNotifier.value = true;
+
+    UserModel user = await UserModelManager.instance.user;
+    if (user.isTravelStarted) {
+      _destinationLat = user.destinationLatitude;
+      _destinationLon = user.destinationLongitude;
+      _alertDistance = user.alertDistance ?? 500.0;
+      _currentTripId = user.currentTripId;
+
+      if (_currentTripId == null) {
+        final lastLogs = await TripDbHelper.instance.getAllTripDetails();
+        if (lastLogs.isNotEmpty) {
+          _currentTripId = lastLogs.last.tripId;
+        }
+      }
+
+      const LocationSettings locationSettings = LocationSettings(
+        accuracy: LocationAccuracy.best,
+        distanceFilter: 5,
+      );
+
+      _positionStreamSubscription = Geolocator.getPositionStream(
+        locationSettings: locationSettings,
+      ).listen((Position position) {
+        _handlePositionUpdate(position);
+      });
+
+      _accelStreamSubscription = userAccelerometerEventStream(
+        samplingPeriod: SensorInterval.gameInterval,
+      ).listen((event) {
+        _currentAcceleration = sqrt(
+          event.x * event.x + event.y * event.y + event.z * event.z,
+        );
+      });
+    }
   }
 }

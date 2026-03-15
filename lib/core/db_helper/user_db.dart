@@ -20,7 +20,7 @@ class UserDbHelper {
     final path = join(await getDatabasesPath(), 'user_model.db');
     return openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -41,7 +41,9 @@ class UserDbHelper {
         destination_street TEXT,
         destination_latitude REAL,
         destination_longitude REAL,
-        travel_mode TEXT
+        travel_mode TEXT,
+        alert_distance REAL,
+        current_trip_id TEXT
       )
     ''');
 
@@ -55,6 +57,14 @@ class UserDbHelper {
       );
       await db.execute(
         'ALTER TABLE $tableName ADD COLUMN destination_longitude REAL',
+      );
+    }
+    if (oldVersion < 3) {
+      await db.execute(
+        'ALTER TABLE $tableName ADD COLUMN alert_distance REAL',
+      );
+      await db.execute(
+        'ALTER TABLE $tableName ADD COLUMN current_trip_id TEXT',
       );
     }
   }
@@ -88,6 +98,8 @@ class UserDbHelper {
       destinationLatitude: row['destination_latitude'] as double?,
       destinationLongitude: row['destination_longitude'] as double?,
       travelMode: row['travel_mode'] as String?,
+      alertDistance: row['alert_distance'] as double?,
+      currentTripId: row['current_trip_id'] as String?,
     );
   }
 
@@ -108,6 +120,8 @@ class UserDbHelper {
       'destination_latitude': user.destinationLatitude,
       'destination_longitude': user.destinationLongitude,
       'travel_mode': user.travelMode,
+      'alert_distance': user.alertDistance,
+      'current_trip_id': user.currentTripId,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 

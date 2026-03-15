@@ -31,6 +31,8 @@ class UserModelManager {
     double? destinationLatitude,
     double? destinationLongitude,
     String? travelMode,
+    double? alertDistance,
+    String? currentTripId,
   }) async {
     final current = await user;
     final bool streetChanged = destinationStreet != null && destinationStreet != current.destinationStreet;
@@ -48,6 +50,8 @@ class UserModelManager {
       destinationLatitude: destinationLatitude ?? (streetChanged ? null : current.destinationLatitude),
       destinationLongitude: destinationLongitude ?? (streetChanged ? null : current.destinationLongitude),
       travelMode: travelMode ?? current.travelMode,
+      alertDistance: alertDistance ?? current.alertDistance,
+      currentTripId: currentTripId ?? current.currentTripId,
     );
 
     await updateUser(updated);

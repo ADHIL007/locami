@@ -19,12 +19,16 @@ class TripDbHelper {
 
   Future<Database> _openDb() async {
     final path = join(await getDatabasesPath(), 'trip_details.db');
-    return openDatabase(
+    final db = await openDatabase(
       path,
       version: 6,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
+    // Enable WAL mode for better concurrency
+    // Using rawQuery as PRAGMA journal_mode returns a result, which can cause issues with execute()
+    await db.rawQuery('PRAGMA journal_mode=WAL');
+    return db;
   }
 
   Future<void> _onCreate(Database db, int version) async {

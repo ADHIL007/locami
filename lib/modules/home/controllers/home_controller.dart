@@ -38,6 +38,7 @@ class HomeController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    TripDetailsManager.instance.init();
     fromAddress.value = fromController.text;
     toAddress.value = toController.text;
 
