@@ -21,10 +21,16 @@ class SettingsBottomSheet extends StatelessWidget {
 
     return GlassContainer(
       padding: const EdgeInsets.all(24),
-      opacity: 0.8,
-      blur: 20,
-      color: Theme.of(context).cardColor,
+      opacity: themeProvider.theme == AppThemeMode.dark ? 0.15 : 0.7,
+      blur: 25,
+      color: themeProvider.theme == AppThemeMode.dark ? Colors.white : Colors.white.withOpacity(0.9),
       borderRadius: 24,
+      border: Border.all(
+        color: themeProvider.theme == AppThemeMode.dark 
+            ? Colors.white.withOpacity(0.1) 
+            : Colors.white.withOpacity(0.5),
+        width: 1.5,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,10 +210,16 @@ class SettingsBottomSheet extends StatelessWidget {
       builder:
           (context) => GlassContainer(
             padding: const EdgeInsets.all(24),
-            opacity: 0.8,
-            blur: 20,
-            color: Theme.of(context).cardColor,
+            opacity: themeProvider.theme == AppThemeMode.dark ? 0.15 : 0.7,
+            blur: 25,
+            color: themeProvider.theme == AppThemeMode.dark ? Colors.white : Colors.white.withOpacity(0.9),
             borderRadius: 24,
+            border: Border.all(
+              color: themeProvider.theme == AppThemeMode.dark 
+                  ? Colors.white.withOpacity(0.1) 
+                  : Colors.white.withOpacity(0.5),
+              width: 1.5,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -421,18 +433,14 @@ class SettingsBottomSheet extends StatelessWidget {
             themeProvider.setTheme(mode);
           }
         },
-        child: Container(
+        child: GlassContainer(
           padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color:
-                isSelected
-                    ? accentColor.withOpacity(0.1)
-                    : customColors().textPrimary.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected ? accentColor : Colors.transparent,
-              width: 1,
-            ),
+          opacity: isSelected ? 0.2 : 0.05,
+          blur: 10,
+          borderRadius: 12,
+          border: Border.all(
+            color: isSelected ? accentColor : Colors.transparent,
+            width: 1.5,
           ),
           child: Column(
             children: [
