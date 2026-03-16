@@ -66,7 +66,7 @@ class ThemeProvider extends ChangeNotifier {
         surface: Colors.white,
         onPrimary: Colors.white,
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: Colors.white,
         elevation: 2,
         shadowColor: accentColor.withValues(alpha: 0.1),
@@ -197,8 +197,10 @@ class ThemeProvider extends ChangeNotifier {
     customSoundPath = status.customSoundPath;
     loopAlarm = status.loopAlarm;
     showWaves = status.showWaves;
-    enableSimulation = EnvironmentConfig.isDevelopment && status.enableSimulation;
-    enableTimerSimulation = EnvironmentConfig.isDevelopment && status.enableTimerSimulation;
+    enableSimulation =
+        EnvironmentConfig.isDevelopment && status.enableSimulation;
+    enableTimerSimulation =
+        EnvironmentConfig.isDevelopment && status.enableTimerSimulation;
     notifyListeners();
   }
 }
