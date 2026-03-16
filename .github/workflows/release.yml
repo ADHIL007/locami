@@ -1,6 +1,9 @@
 name: Build and Release Locami
 
 on:
+  pull_request:
+    branches:
+      - release
   push:
     branches:
       - release
@@ -21,17 +24,27 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.x"
+          flutter-version: 3.22.3
 
-      - name: Install dependencies
+      - name: Flutter pub get
         run: flutter pub get
 
-      - name: Build APK
-        run: flutter build apk --release
+      - name: Flutter analyze
+        run: flutter analyze
 
-      - name: Create Release
+      - name: Flutter test
+        run: flutter test
+
+      - name: Build Release APK
+        if: github.ref == 'refs/heads/release'
+        run: flutter build apk --release --split-per-abi
+
+      - name: Create GitHub Release
+        if: github.ref == 'refs/heads/release'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: auto-release-${{ github.run_number }}
+          tag_name: locami-${{ github.run_number }}
           generate_release_notes: true
-          files: build/app/outputs/flutter-apk/app-release.apk
+          files: |
+            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+            build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
