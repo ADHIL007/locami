@@ -5,6 +5,7 @@ import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:locami/navigation/main_nav.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:locami/db_manager/trip_details_manager.dart';
 
 class AlarmController extends GetxController with GetSingleTickerProviderStateMixin {
   late AnimationController animationController;
@@ -44,6 +45,7 @@ class AlarmController extends GetxController with GetSingleTickerProviderStateMi
   void stopAlarm() {
     FlutterRingtonePlayer().stop();
     _audioPlayer.stop();
+    TripDetailsManager.instance.stopAlertSound();
     FlutterBackgroundService().invoke('stop_alarm');
   }
 

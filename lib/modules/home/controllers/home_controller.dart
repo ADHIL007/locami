@@ -57,14 +57,21 @@ class HomeController extends GetxController {
       update();
     });
 
+    TripDetailsManager.instance.isTrackingNotifier.addListener(_onTrackingStatusChanged);
+    TripDetailsManager.instance.alertTriggeredNotifier.addListener(_onAlertTriggered);
+
+    // Defer heavy async work until after the first frame renders
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initAsync();
+    });
+  }
+
+  Future<void> _initAsync() async {
+    await checkTrackingStatus();
     loadUserCountryFromProfile();
     loadNearbyStreets();
     loadTripHistory();
-    checkTrackingStatus();
     getInitialLocation();
-
-    TripDetailsManager.instance.isTrackingNotifier.addListener(_onTrackingStatusChanged);
-    TripDetailsManager.instance.alertTriggeredNotifier.addListener(_onAlertTriggered);
   }
 
   @override
@@ -139,6 +146,7 @@ class HomeController extends GetxController {
   void stopAllSounds() {
     FlutterRingtonePlayer().stop();
     _audioPlayer.stop();
+    TripDetailsManager.instance.stopAlertSound();
     FlutterBackgroundService().invoke('stop_alarm');
   }
 
@@ -166,8 +174,27 @@ class HomeController extends GetxController {
   }
 
   Future<void> checkTrackingStatus() async {
-    if (TripDetailsManager.instance.isTracking) {
+    // Read directly from DB to avoid race condition with TripDetailsManager async init
+    final user = await UserModelManager.instance.user;
+    
+    if (user.isTravelStarted) {
       isTracking.value = true;
+      
+      // Restore saved trip data into UI fields
+      if (user.fromStreet != null && user.fromStreet!.isNotEmpty) {
+        fromController.text = user.fromStreet!;
+        fromAddress.value = user.fromStreet!;
+      }
+      if (user.destinationStreet != null && user.destinationStreet!.isNotEmpty) {
+        toController.text = user.destinationStreet!;
+        toAddress.value = user.destinationStreet!;
+      }
+      destinationLatitude.value = user.destinationLatitude;
+      destinationLongitude.value = user.destinationLongitude;
+      if (user.alertDistance != null) {
+        alertDistance.value = user.alertDistance!.toInt();
+      }
+      
       startTransmission();
       startSimulation();
     }
@@ -194,7 +221,10 @@ class HomeController extends GetxController {
     final themeProvider = ThemeProvider.instance;
     
     if (themeProvider.enableTimerSimulation) {
-      _simulationTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      // Tell the background service to ignore real GPS
+      FlutterBackgroundService().invoke('set_simulation_mode', {'enabled': true});
+      
+      _simulationTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (isTracking.value && themeProvider.enableTimerSimulation) {
           TripSimulator.simulateMoveTowards();
         } else {
@@ -206,6 +236,8 @@ class HomeController extends GetxController {
 
   void stopSimulation() {
     _simulationTimer?.cancel();
+    // Tell the background service to resume real GPS
+    FlutterBackgroundService().invoke('set_simulation_mode', {'enabled': false});
   }
 
   Future<void> loadNearbyStreets() async {

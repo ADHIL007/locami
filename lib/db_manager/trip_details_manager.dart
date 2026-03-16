@@ -14,6 +14,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
+import 'package:flutter/services.dart';
 
 class TripDetailsManager {
   TripDetailsManager._internal();
@@ -70,6 +71,12 @@ class TripDetailsManager {
 
   double? _alertDistance;
   bool _alertTriggered = false;
+  bool _isSimulationMode = false;
+
+  void setSimulationMode(bool value) {
+    _isSimulationMode = value;
+    debugPrint("QWERTYUIOP: Simulation mode set to $value");
+  }
 
   Future<void> startTracking({double alertDistance = 500.0}) async {
     if (_isTracking) return;
@@ -184,7 +191,14 @@ class TripDetailsManager {
       );
     }
 
-    await _updateAddressCache();
+    // Initial address cache using current device position
+    try {
+      final details = await StreetManager.instance.getCurrentLocationDetails();
+      if (details != null) {
+        _lastKnownCountry = details['countryCode'];
+        _lastKnownStreet = details['address'];
+      }
+    } catch (_) {}
 
     if (!(await FlutterBackgroundService().isRunning())) {
       try {
@@ -322,8 +336,10 @@ class TripDetailsManager {
       );
     }
 
-    if (_lastKnownCountry == null || (lastPoint != null && distance > 500)) {
-      await _updateAddressCache();
+    // Update street name using the tracked position (not device GPS)
+    // Update every 100m or on first position
+    if (_lastKnownStreet == null || (lastPoint != null && distance > 100)) {
+      await _updateAddressCacheAt(position.latitude, position.longitude);
     }
 
     final user = await UserModelManager.instance.user;
@@ -461,6 +477,10 @@ class TripDetailsManager {
       'QWERTYUIOP: ALERT TRIGGERED! Distance remaining: $distance meters',
     );
     alertTriggeredNotifier.value = distance;
+    
+    // Persist alarm state
+    UserModelManager.instance.patchUser(isAlarmActive: true);
+
     if (_backgroundService != null) {
       _backgroundService!.invoke('on_alert_triggered', {'distance': distance});
 
@@ -479,6 +499,13 @@ class TripDetailsManager {
     final FlutterLocalNotificationsPlugin notifications =
         FlutterLocalNotificationsPlugin();
     notifications.cancel(999);
+    
+    // Clear persisted alarm state
+    UserModelManager.instance.patchUser(isAlarmActive: false);
+
+    if (_backgroundService != null) {
+      _backgroundService!.invoke('stop_alarm');
+    }
   }
 
   void _showFullScreenAlert(double distance) async {
@@ -511,9 +538,9 @@ class TripDetailsManager {
     );
   }
 
-  Future<void> _updateAddressCache() async {
+  Future<void> _updateAddressCacheAt(double lat, double lon) async {
     try {
-      final details = await StreetManager.instance.getCurrentLocationDetails();
+      final details = await StreetManager.instance.getLocationDetailsAt(lat, lon);
       if (details != null) {
         _lastKnownCountry = details['countryCode'];
         _lastKnownStreet = details['address'];
@@ -636,6 +663,7 @@ class TripDetailsManager {
       _positionStreamSubscription = Geolocator.getPositionStream(
         locationSettings: locationSettings,
       ).listen((Position position) {
+        if (_isSimulationMode) return;
         debugPrint('QWERTYUIOP: Background Position: ${position.latitude}, ${position.longitude}');
         _handlePositionUpdate(position);
       });

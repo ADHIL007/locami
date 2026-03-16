@@ -32,6 +32,7 @@ class UserModelManager {
     String? travelMode,
     double? alertDistance,
     String? currentTripId,
+    bool? isAlarmActive,
   }) async {
     final current = await user;
     final bool streetChanged = destinationStreet != null && destinationStreet != current.destinationStreet;
@@ -51,6 +52,7 @@ class UserModelManager {
       travelMode: travelMode ?? current.travelMode,
       alertDistance: alertDistance ?? current.alertDistance,
       currentTripId: currentTripId ?? current.currentTripId,
+      isAlarmActive: isAlarmActive ?? current.isAlarmActive,
     );
 
     await updateUser(updated);

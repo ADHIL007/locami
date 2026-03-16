@@ -12,10 +12,11 @@ class AlarmView extends GetView<AlarmController> {
   @override
   Widget build(BuildContext context) {
     // Ensure the controller is available but we might want to put it if not already
-    final controller = Get.isRegistered<AlarmController>() 
-        ? Get.find<AlarmController>() 
-        : Get.put(AlarmController());
-        
+    final controller =
+        Get.isRegistered<AlarmController>()
+            ? Get.find<AlarmController>()
+            : Get.put(AlarmController());
+
     final colors = customColors();
     final accentColor = ThemeProvider.instance.accentColor;
 
@@ -49,7 +50,11 @@ class AlarmView extends GetView<AlarmController> {
                         center: Alignment.center,
                         radius: 1.5,
                         colors: [
-                          accentColor.withValues(alpha: 0.15 + (0.1 * controller.animationController.value)),
+                          accentColor.withValues(
+                            alpha:
+                                0.15 +
+                                (0.1 * controller.animationController.value),
+                          ),
                           colors.background,
                         ],
                       ),
@@ -57,7 +62,7 @@ class AlarmView extends GetView<AlarmController> {
                   );
                 },
               ),
-              
+
               // Floating Particles/Effects (Optional but adds to the "Separate" feel)
               Positioned.fill(
                 child: Center(
@@ -80,17 +85,29 @@ class AlarmView extends GetView<AlarmController> {
                             ),
                             child: Center(
                               child: Container(
-                                height: 230 + (20 * controller.animationController.value),
-                                width: 230 + (20 * controller.animationController.value),
+                                height:
+                                    230 +
+                                    (20 * controller.animationController.value),
+                                width:
+                                    230 +
+                                    (20 * controller.animationController.value),
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   boxShadow: [
                                     BoxShadow(
                                       color: accentColor.withValues(
-                                        alpha: 0.4 * controller.animationController.value,
+                                        alpha:
+                                            0.4 *
+                                            controller
+                                                .animationController
+                                                .value,
                                       ),
-                                      blurRadius: 60 * controller.animationController.value,
-                                      spreadRadius: 10 * controller.animationController.value,
+                                      blurRadius:
+                                          60 *
+                                          controller.animationController.value,
+                                      spreadRadius:
+                                          10 *
+                                          controller.animationController.value,
                                     ),
                                   ],
                                 ),
@@ -106,9 +123,9 @@ class AlarmView extends GetView<AlarmController> {
                           );
                         },
                       ),
-                      
+
                       const SizedBox(height: 60),
-                      
+
                       // Text info
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -131,15 +148,17 @@ class AlarmView extends GetView<AlarmController> {
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,
-                                color: colors.textSecondary.withValues(alpha: 0.8),
+                                color: colors.textSecondary.withValues(
+                                  alpha: 0.8,
+                                ),
                               ),
                             ),
                           ],
                         ),
                       ),
-                      
+
                       const SizedBox(height: 100),
-                      
+
                       // Large, Easy to Click Dismiss Button
                       GestureDetector(
                         onTap: controller.dismissAndGoHome,

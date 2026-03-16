@@ -86,8 +86,14 @@ void onStart(ServiceInstance service) async {
 
   service.on('simulate_location').listen((event) {
     if (event != null) {
-      // We'll pass this to the manager
       TripDetailsManager.instance.handleSimulatedPosition(event);
+    }
+  });
+
+  service.on('set_simulation_mode').listen((event) {
+    if (event != null) {
+      final enabled = event['enabled'] == true;
+      TripDetailsManager.instance.setSimulationMode(enabled);
     }
   });
 
