@@ -29,36 +29,44 @@ class ArrivalAlert extends StatelessWidget {
 
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
       child: GlassContainer(
-        padding: const EdgeInsets.all(28),
-        opacity: isDark ? 0.9 : 0.85,
-        blur: 30,
-        borderRadius: 32,
-        color: isDark ? const Color(0xFF121212) : Colors.white,
+        padding: const EdgeInsets.all(24),
+        opacity: isDark ? 0.8 : 0.9,
+        blur: 25,
+        borderRadius: 36,
+        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
         border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.white,
+          color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.6),
           width: 1.5,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Success Icon
+            // Success Icon with Glow
             Container(
-              height: 72,
-              width: 72,
+              height: 80,
+              width: 80,
               decoration: BoxDecoration(
-                color: Color(0xFF4CAF50).withValues(alpha: 0.2),
+                color: const Color(0xFF4CAF50).withValues(alpha: 0.15),
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+                ],
                 border: Border.all(
-                  color: const Color(0xFF4CAF50).withValues(alpha: 0.5),
+                  color: const Color(0xFF4CAF50).withValues(alpha: 0.4),
                   width: 2,
                 ),
               ),
               child: const Icon(
                 SolarIconsBold.checkCircle,
                 color: Color(0xFF4CAF50),
-                size: 40,
+                size: 44,
               ),
             ),
             const SizedBox(height: 24),
@@ -69,89 +77,92 @@ class ArrivalAlert extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: customColors().textPrimary,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
 
             // Subtitle
             Text(
               "You've arrived at your destination",
               style: TextStyle(
-                color: customColors().textSecondary,
-                fontSize: 15,
+                color: customColors().textSecondary.withValues(alpha: 0.8),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 24),
 
-            // Map Clip
+            // Map Clip with subtle glass border
             if (trip != null)
               Container(
+                height: 160,
+                width: double.infinity,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: customColors().textPrimary.withValues(alpha: 0.1),
+                    color: customColors().textPrimary.withValues(alpha: 0.08),
                   ),
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: SizedBox(
-                    height: 150,
-                    width: double.infinity,
-                    child: _buildMapSnippet(trip),
-                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  child: _buildMapSnippet(trip),
                 ),
               ),
 
             const SizedBox(height: 32),
 
-            // Buttons
+            // Premium Glass-style Buttons
             Row(
               children: [
                 Expanded(
                   child: SizedBox(
-                    height: 56,
+                    height: 54,
                     child: TextButton(
                       onPressed: onThanks,
                       style: TextButton.styleFrom(
-                        backgroundColor: customColors().textPrimary.withValues(alpha: 0.05),
+                        backgroundColor: customColors().textPrimary.withValues(alpha: 0.03),
                         foregroundColor: customColors().textPrimary,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(color: customColors().textPrimary.withValues(alpha: 0.05)),
+                          borderRadius: BorderRadius.circular(18),
                         ),
                       ),
-                      child: const Text(
-                        "THANKS!",
+                      child: Text(
+                        "THANKS",
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          letterSpacing: 1.1,
-                          fontSize: 14,
+                          letterSpacing: 1.2,
+                          fontSize: 13,
+                          color: customColors().textPrimary.withValues(alpha: 0.7),
                         ),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 Expanded(
                   child: SizedBox(
-                    height: 56,
+                    height: 54,
                     child: ElevatedButton(
                       onPressed: onDone,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: accentColor,
                         foregroundColor: Colors.white,
-                        elevation: 0,
+                        elevation: 4,
+                        shadowColor: accentColor.withValues(alpha: 0.4),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(18),
                         ),
                       ),
                       child: const Text(
                         "DONE",
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          letterSpacing: 1.1,
-                          fontSize: 14,
+                          letterSpacing: 1.2,
+                          fontSize: 13,
                         ),
                       ),
                     ),

@@ -20,6 +20,8 @@ class ThemeProvider extends ChangeNotifier {
   ThemeData _themeData = materialLightTheme;
   ThemeData get themeData => _themeData;
 
+  bool get isDarkMode => theme == AppThemeMode.dark;
+
   AppThemeMode theme = AppThemeMode.light;
   bool isMatchWithSystem = true;
   Color accentColor = const Color(0xFFE53935);

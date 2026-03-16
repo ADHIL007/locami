@@ -10,7 +10,9 @@ import 'package:locami/theme/theme_provider.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:locami/screens/widgets/arrival_alert.dart';
+import 'package:locami/modules/alarm/views/alarm_view.dart';
 import 'package:locami/core/utils/trip_simulator.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 
 class HomeController extends GetxController {
   final fromController = TextEditingController();
@@ -55,14 +57,21 @@ class HomeController extends GetxController {
       update();
     });
 
+    TripDetailsManager.instance.isTrackingNotifier.addListener(_onTrackingStatusChanged);
+    TripDetailsManager.instance.alertTriggeredNotifier.addListener(_onAlertTriggered);
+
+    // Defer heavy async work until after the first frame renders
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initAsync();
+    });
+  }
+
+  Future<void> _initAsync() async {
+    await checkTrackingStatus();
     loadUserCountryFromProfile();
     loadNearbyStreets();
     loadTripHistory();
-    checkTrackingStatus();
     getInitialLocation();
-
-    TripDetailsManager.instance.isTrackingNotifier.addListener(_onTrackingStatusChanged);
-    TripDetailsManager.instance.alertTriggeredNotifier.addListener(_onAlertTriggered);
   }
 
   @override
@@ -85,23 +94,30 @@ class HomeController extends GetxController {
   }
 
   void showArrivalAlert(double distance) {
+    if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      // Just in case, if not resumed, we already have AppController listener,
+      // but let's be safe.
+      return;
+    }
+
     final themeProvider = ThemeProvider.instance;
     final soundKey = themeProvider.alertSound;
     final isCustom = themeProvider.isCustomSound;
     final customPath = themeProvider.customSoundPath;
+    final loop = themeProvider.loopAlarm;
 
     stopAllSounds();
 
     if (isCustom && customPath != null) {
       _audioPlayer.play(DeviceFileSource(customPath));
-      _audioPlayer.setReleaseMode(ReleaseMode.loop);
+      if (loop) _audioPlayer.setReleaseMode(ReleaseMode.loop);
     } else {
       if (soundKey == 'alarm') {
-        FlutterRingtonePlayer().playAlarm(looping: true);
+        FlutterRingtonePlayer().playAlarm(looping: loop);
       } else if (soundKey == 'ringtone') {
-        FlutterRingtonePlayer().playRingtone(looping: true);
+        FlutterRingtonePlayer().playRingtone(looping: loop);
       } else {
-        FlutterRingtonePlayer().playNotification(looping: true);
+        FlutterRingtonePlayer().playNotification(looping: loop);
       }
     }
 
@@ -121,12 +137,17 @@ class HomeController extends GetxController {
         },
       ),
       barrierDismissible: false,
-    );
+    ).then((_) {
+      // If dialog is dismissed somehow (though barrierDismissible is false), stop sound
+      stopAllSounds();
+    });
   }
 
   void stopAllSounds() {
     FlutterRingtonePlayer().stop();
     _audioPlayer.stop();
+    TripDetailsManager.instance.stopAlertSound();
+    FlutterBackgroundService().invoke('stop_alarm');
   }
 
   void _onTrackingStatusChanged() {
@@ -153,8 +174,27 @@ class HomeController extends GetxController {
   }
 
   Future<void> checkTrackingStatus() async {
-    if (TripDetailsManager.instance.isTracking) {
+    // Read directly from DB to avoid race condition with TripDetailsManager async init
+    final user = await UserModelManager.instance.user;
+    
+    if (user.isTravelStarted) {
       isTracking.value = true;
+      
+      // Restore saved trip data into UI fields
+      if (user.fromStreet != null && user.fromStreet!.isNotEmpty) {
+        fromController.text = user.fromStreet!;
+        fromAddress.value = user.fromStreet!;
+      }
+      if (user.destinationStreet != null && user.destinationStreet!.isNotEmpty) {
+        toController.text = user.destinationStreet!;
+        toAddress.value = user.destinationStreet!;
+      }
+      destinationLatitude.value = user.destinationLatitude;
+      destinationLongitude.value = user.destinationLongitude;
+      if (user.alertDistance != null) {
+        alertDistance.value = user.alertDistance!.toInt();
+      }
+      
       startTransmission();
       startSimulation();
     }
@@ -181,7 +221,10 @@ class HomeController extends GetxController {
     final themeProvider = ThemeProvider.instance;
     
     if (themeProvider.enableTimerSimulation) {
-      _simulationTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      // Tell the background service to ignore real GPS
+      FlutterBackgroundService().invoke('set_simulation_mode', {'enabled': true});
+      
+      _simulationTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (isTracking.value && themeProvider.enableTimerSimulation) {
           TripSimulator.simulateMoveTowards();
         } else {
@@ -193,6 +236,8 @@ class HomeController extends GetxController {
 
   void stopSimulation() {
     _simulationTimer?.cancel();
+    // Tell the background service to resume real GPS
+    FlutterBackgroundService().invoke('set_simulation_mode', {'enabled': false});
   }
 
   Future<void> loadNearbyStreets() async {
