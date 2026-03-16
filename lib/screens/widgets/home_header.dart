@@ -39,7 +39,6 @@ class HomeHeader extends StatelessWidget {
                       builder: (context, details, _) {
                         String displayText = "Locami";
                         if (isTracking &&
-                            !showLocami &&
                             details != null &&
                             details.street != null) {
                           displayText = details.street!.split(',').first;

@@ -34,9 +34,15 @@ class StreetManager {
   Future<Map<String, String>?> getCurrentLocationDetails() async {
     try {
       final position = await _getCurrentLocation();
+      return getLocationDetailsAt(position.latitude, position.longitude);
+    } catch (_) {}
+    return null;
+  }
 
+  Future<Map<String, String>?> getLocationDetailsAt(double lat, double lon) async {
+    try {
       final url = Uri.parse(
-        '$_baseUrl/reverse?lat=${position.latitude}&lon=${position.longitude}&format=json',
+        '$_baseUrl/reverse?lat=$lat&lon=$lon&format=json',
       );
 
       final response = await http.get(
@@ -57,6 +63,7 @@ class StreetManager {
 
     return null;
   }
+
 
   Future<List<String>> getNearbyStreets() async {
     final details = await getCurrentLocationDetails();

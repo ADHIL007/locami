@@ -79,7 +79,6 @@ class CountryData {
     {'name': 'Iran'},
     {'name': 'Iraq'},
     {'name': 'Ireland'},
-    {'name': 'Israel'},
     {'name': 'Italy'},
     {'name': 'Jamaica'},
     {'name': 'Japan'},
@@ -138,7 +137,6 @@ class CountryData {
     {'name': 'Poland'},
     {'name': 'Portugal'},
     {'name': 'Palestine'},
-
     {'name': 'Qatar'},
     {'name': 'Romania'},
     {'name': 'Russia'},

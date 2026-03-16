@@ -23,6 +23,7 @@ class _MainNavState extends State<MainNav> {
 
   Future<void> _loadStatus() async {
     final status = await AppStatusManager.instance.status;
+    
     if (status.isFirstTimeUser) {
       InitialHomeBinding().dependencies();
     } else {

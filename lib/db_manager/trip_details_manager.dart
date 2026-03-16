@@ -14,6 +14,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
+import 'package:flutter/services.dart';
 
 class TripDetailsManager {
   TripDetailsManager._internal();
@@ -23,6 +24,20 @@ class TripDetailsManager {
     if (_isInitialized) return;
     _isInitialized = true;
     _listenToBackgroundService();
+    _checkAndResumeTracking();
+  }
+
+  Future<void> _checkAndResumeTracking() async {
+    final user = await UserModelManager.instance.user;
+    if (user.isTravelStarted) {
+      debugPrint('QWERTYUIOP: Resuming tracking state in main isolate');
+      _isTracking = true;
+      isTrackingNotifier.value = true;
+      _destinationLat = user.destinationLatitude;
+      _destinationLon = user.destinationLongitude;
+      _alertDistance = user.alertDistance;
+      _currentTripId = user.currentTripId;
+    }
   }
 
   StreamSubscription<Position>? _positionStreamSubscription;
@@ -49,12 +64,19 @@ class TripDetailsManager {
   String? _currentTripId;
   ServiceInstance? _backgroundService;
   bool _isInitialized = false;
+  bool _isListeningToBackground = false;
 
   double? get alertDistance => _alertDistance;
   double? get totalTripDistance => _totalTripDistance;
 
   double? _alertDistance;
   bool _alertTriggered = false;
+  bool _isSimulationMode = false;
+
+  void setSimulationMode(bool value) {
+    _isSimulationMode = value;
+    debugPrint("QWERTYUIOP: Simulation mode set to $value");
+  }
 
   Future<void> startTracking({double alertDistance = 500.0}) async {
     if (_isTracking) return;
@@ -169,7 +191,14 @@ class TripDetailsManager {
       );
     }
 
-    await _updateAddressCache();
+    // Initial address cache using current device position
+    try {
+      final details = await StreetManager.instance.getCurrentLocationDetails();
+      if (details != null) {
+        _lastKnownCountry = details['countryCode'];
+        _lastKnownStreet = details['address'];
+      }
+    } catch (_) {}
 
     if (!(await FlutterBackgroundService().isRunning())) {
       try {
@@ -209,9 +238,13 @@ class TripDetailsManager {
     );
 
     _listenToBackgroundService();
+    FlutterBackgroundService().invoke('start_tracking');
   }
 
   void _listenToBackgroundService() {
+    if (_isListeningToBackground) return;
+    _isListeningToBackground = true;
+
     FlutterBackgroundService().on('on_position_update').listen((data) {
       if (data != null) {
         final detail = TripDetailsModel.fromJson(data);
@@ -303,8 +336,10 @@ class TripDetailsManager {
       );
     }
 
-    if (_lastKnownCountry == null || (lastPoint != null && distance > 500)) {
-      await _updateAddressCache();
+    // Update street name using the tracked position (not device GPS)
+    // Update every 100m or on first position
+    if (_lastKnownStreet == null || (lastPoint != null && distance > 100)) {
+      await _updateAddressCacheAt(position.latitude, position.longitude);
     }
 
     final user = await UserModelManager.instance.user;
@@ -442,6 +477,10 @@ class TripDetailsManager {
       'QWERTYUIOP: ALERT TRIGGERED! Distance remaining: $distance meters',
     );
     alertTriggeredNotifier.value = distance;
+    
+    // Persist alarm state
+    UserModelManager.instance.patchUser(isAlarmActive: true);
+
     if (_backgroundService != null) {
       _backgroundService!.invoke('on_alert_triggered', {'distance': distance});
 
@@ -450,12 +489,58 @@ class TripDetailsManager {
       } catch (e) {
         debugPrint("Error playing alarm in background: $e");
       }
+
+      _showFullScreenAlert(distance);
     }
   }
 
-  Future<void> _updateAddressCache() async {
+  void stopAlertSound() {
+    FlutterRingtonePlayer().stop();
+    final FlutterLocalNotificationsPlugin notifications =
+        FlutterLocalNotificationsPlugin();
+    notifications.cancel(999);
+    
+    // Clear persisted alarm state
+    UserModelManager.instance.patchUser(isAlarmActive: false);
+
+    if (_backgroundService != null) {
+      _backgroundService!.invoke('stop_alarm');
+    }
+  }
+
+  void _showFullScreenAlert(double distance) async {
+    final FlutterLocalNotificationsPlugin notifications =
+        FlutterLocalNotificationsPlugin();
+
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'locami_alarm_channel_v2',
+      'Locami Alarm',
+      channelDescription: 'Alarm notification when destination is reached',
+      importance: Importance.max,
+      priority: Priority.max,
+      fullScreenIntent: true,
+      category: AndroidNotificationCategory.alarm,
+      visibility: NotificationVisibility.public,
+      ongoing: true,
+      autoCancel: false,
+      audioAttributesUsage: AudioAttributesUsage.alarm,
+    );
+
+    const NotificationDetails notificationDetails = NotificationDetails(
+      android: androidDetails,
+    );
+
+    await notifications.show(
+      999,
+      'Destination Reached!',
+      "You've arrived at your destination.",
+      notificationDetails,
+    );
+  }
+
+  Future<void> _updateAddressCacheAt(double lat, double lon) async {
     try {
-      final details = await StreetManager.instance.getCurrentLocationDetails();
+      final details = await StreetManager.instance.getLocationDetailsAt(lat, lon);
       if (details != null) {
         _lastKnownCountry = details['countryCode'];
         _lastKnownStreet = details['address'];
@@ -555,6 +640,9 @@ class TripDetailsManager {
 
     UserModel user = await UserModelManager.instance.user;
     if (user.isTravelStarted) {
+      await _positionStreamSubscription?.cancel();
+      await _accelStreamSubscription?.cancel();
+
       _destinationLat = user.destinationLatitude;
       _destinationLon = user.destinationLongitude;
       _alertDistance = user.alertDistance ?? 500.0;
@@ -575,6 +663,8 @@ class TripDetailsManager {
       _positionStreamSubscription = Geolocator.getPositionStream(
         locationSettings: locationSettings,
       ).listen((Position position) {
+        if (_isSimulationMode) return;
+        debugPrint('QWERTYUIOP: Background Position: ${position.latitude}, ${position.longitude}');
         _handlePositionUpdate(position);
       });
 

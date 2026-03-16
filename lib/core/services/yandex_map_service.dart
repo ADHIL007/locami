@@ -15,10 +15,9 @@ class YandexMapService extends IMapService {
   }) {
     return "${AppConstants.yandexMapsBaseUrl}"
         "?l=$mapLayer"
-        "&lang=${AppConstants.defaultMapLang}"
         "&size=$width,$height"
         "&scale=${AppConstants.defaultMapScale}"
         "&pt=$startLon,$startLat,pm2blm~$endLon,$endLat,pm2rdm"
-        "&pl=c:${AppConstants.polylineColor},w:$pathWidth,$startLon,$startLat,$endLon,$endLat";
+        "&pl=c:${AppConstants.polylineColor}CC,w:$pathWidth,$startLon,$startLat,$endLon,$endLat";
   }
 }

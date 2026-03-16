@@ -20,7 +20,7 @@ class UserDbHelper {
     final path = join(await getDatabasesPath(), 'user_model.db');
     return openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -43,7 +43,8 @@ class UserDbHelper {
         destination_longitude REAL,
         travel_mode TEXT,
         alert_distance REAL,
-        current_trip_id TEXT
+        current_trip_id TEXT,
+        is_alarm_active INTEGER NOT NULL DEFAULT 0 CHECK (is_alarm_active IN (0,1))
       )
     ''');
 
@@ -65,6 +66,11 @@ class UserDbHelper {
       );
       await db.execute(
         'ALTER TABLE $tableName ADD COLUMN current_trip_id TEXT',
+      );
+    }
+    if (oldVersion < 4) {
+      await db.execute(
+        'ALTER TABLE $tableName ADD COLUMN is_alarm_active INTEGER NOT NULL DEFAULT 0 CHECK (is_alarm_active IN (0,1))',
       );
     }
   }
@@ -100,6 +106,7 @@ class UserDbHelper {
       travelMode: row['travel_mode'] as String?,
       alertDistance: row['alert_distance'] as double?,
       currentTripId: row['current_trip_id'] as String?,
+      isAlarmActive: (row['is_alarm_active'] as int? ?? 0) == 1,
     );
   }
 
@@ -122,6 +129,7 @@ class UserDbHelper {
       'travel_mode': user.travelMode,
       'alert_distance': user.alertDistance,
       'current_trip_id': user.currentTripId,
+      'is_alarm_active': user.isAlarmActive ? 1 : 0,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
