@@ -17,6 +17,7 @@ class TripDetailsModel {
   final double? totalDuration;
   final double? destinationLatitude;
   final double? destinationLongitude;
+  final String? tripId;
 
   const TripDetailsModel({
     this.id,
@@ -37,6 +38,7 @@ class TripDetailsModel {
     this.totalDuration,
     this.destinationLatitude,
     this.destinationLongitude,
+    this.tripId,
   });
 
   Map<String, dynamic> toJson() => {
@@ -58,28 +60,30 @@ class TripDetailsModel {
     'total_duration': totalDuration,
     'destination_latitude': destinationLatitude,
     'destination_longitude': destinationLongitude,
+    'trip_id': tripId,
   };
 
   factory TripDetailsModel.fromJson(Map<String, dynamic> json) =>
       TripDetailsModel(
         id: json['id'],
-        latitude: json['latitude'],
-        longitude: json['longitude'],
+        latitude: (json['latitude'] as num).toDouble(),
+        longitude: (json['longitude'] as num).toDouble(),
         timestamp: DateTime.parse(json['timestamp']),
-        speed: json['speed'] ?? 0.0,
-        heading: json['heading'] ?? 0.0,
-        accuracy: json['accuracy'] ?? 0.0,
-        altitude: json['altitude'] ?? 0.0,
-        distanceTraveled: json['distance_traveled'] ?? 0.0,
+        speed: (json['speed'] as num? ?? 0.0).toDouble(),
+        heading: (json['heading'] as num? ?? 0.0).toDouble(),
+        accuracy: (json['accuracy'] as num? ?? 0.0).toDouble(),
+        altitude: (json['altitude'] as num? ?? 0.0).toDouble(),
+        distanceTraveled: (json['distance_traveled'] as num? ?? 0.0).toDouble(),
         country: json['country'],
         street: json['street'],
-        acceleration: json['acceleration'] ?? 0.0,
+        acceleration: (json['acceleration'] as num? ?? 0.0).toDouble(),
         destination: json['destination'],
-        remainingDistance: json['remaining_distance'],
-        totalDistance: json['total_distance'],
-        totalDuration: json['total_duration'],
-        destinationLatitude: json['destination_latitude'],
-        destinationLongitude: json['destination_longitude'],
+        remainingDistance: (json['remaining_distance'] as num?)?.toDouble(),
+        totalDistance: (json['total_distance'] as num?)?.toDouble(),
+        totalDuration: (json['total_duration'] as num?)?.toDouble(),
+        destinationLatitude: (json['destination_latitude'] as num?)?.toDouble(),
+        destinationLongitude: (json['destination_longitude'] as num?)?.toDouble(),
+        tripId: json['trip_id'],
       );
 
   TripDetailsModel copyWith({
@@ -101,6 +105,7 @@ class TripDetailsModel {
     double? totalDuration,
     double? destinationLatitude,
     double? destinationLongitude,
+    String? tripId,
   }) {
     return TripDetailsModel(
       id: id ?? this.id,
@@ -121,6 +126,7 @@ class TripDetailsModel {
       totalDuration: totalDuration ?? this.totalDuration,
       destinationLatitude: destinationLatitude ?? this.destinationLatitude,
       destinationLongitude: destinationLongitude ?? this.destinationLongitude,
+      tripId: tripId ?? this.tripId,
     );
   }
 }

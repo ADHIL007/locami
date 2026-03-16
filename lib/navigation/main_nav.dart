@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:locami/dbManager/app-status_manager.dart';
-import 'package:locami/screens/home.dart';
-import 'package:locami/screens/initial_home.dart';
+import 'package:locami/db_manager/app_status_manager.dart';
+import 'package:locami/modules/home/bindings/home_binding.dart';
+import 'package:locami/modules/home/views/home_view.dart';
+import 'package:locami/modules/initial/bindings/initial_home_binding.dart';
+import 'package:locami/modules/initial/views/initial_home_view.dart';
 
 class MainNav extends StatefulWidget {
-  const MainNav({Key? key}) : super(key: key);
+  const MainNav({super.key});
 
   @override
-  _MainNavState createState() => _MainNavState();
+  State<MainNav> createState() => _MainNavState();
 }
 
 class _MainNavState extends State<MainNav> {
@@ -21,6 +23,11 @@ class _MainNavState extends State<MainNav> {
 
   Future<void> _loadStatus() async {
     final status = await AppStatusManager.instance.status;
+    if (status.isFirstTimeUser) {
+      InitialHomeBinding().dependencies();
+    } else {
+      HomeBinding().dependencies();
+    }
     setState(() {
       isFirstTimeUser = status.isFirstTimeUser;
     });
@@ -32,6 +39,10 @@ class _MainNavState extends State<MainNav> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return isFirstTimeUser! ? const InitialHome() : const Home();
+    if (isFirstTimeUser!) {
+      return const InitialHomeView();
+    } else {
+      return const HomeView();
+    }
   }
 }

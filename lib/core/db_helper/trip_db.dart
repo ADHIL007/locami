@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:locami/core/model/trip_details_model.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
@@ -18,12 +19,16 @@ class TripDbHelper {
 
   Future<Database> _openDb() async {
     final path = join(await getDatabasesPath(), 'trip_details.db');
-    return openDatabase(
+    final db = await openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
+    // Enable WAL mode for better concurrency
+    // Using rawQuery as PRAGMA journal_mode returns a result, which can cause issues with execute()
+    await db.rawQuery('PRAGMA journal_mode=WAL');
+    return db;
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -46,7 +51,8 @@ class TripDbHelper {
         total_distance REAL,
         total_duration REAL,
         destination_latitude REAL,
-        destination_longitude REAL
+        destination_longitude REAL,
+        trip_id TEXT
       )
     ''');
   }
@@ -58,14 +64,14 @@ class TripDbHelper {
           'ALTER TABLE $tableName ADD COLUMN acceleration REAL DEFAULT 0.0',
         );
       } catch (e) {
-        print('Error adding column acceleration: $e');
+        debugPrint('Error adding column acceleration: $e');
       }
     }
     if (oldVersion < 3) {
       try {
         await db.execute('ALTER TABLE $tableName ADD COLUMN destination TEXT');
       } catch (e) {
-        print('Error adding column destination: $e');
+        debugPrint('Error adding column destination: $e');
       }
     }
     if (oldVersion < 4) {
@@ -74,25 +80,14 @@ class TripDbHelper {
           'ALTER TABLE $tableName ADD COLUMN remaining_distance REAL',
         );
       } catch (e) {
-        print('Error adding column remaining_distance: $e');
+        debugPrint('Error adding column remaining_distance: $e');
       }
     }
-    if (oldVersion < 5) {
+    if (oldVersion < 6) {
       try {
-        await db.execute(
-          'ALTER TABLE $tableName ADD COLUMN total_distance REAL',
-        );
-        await db.execute(
-          'ALTER TABLE $tableName ADD COLUMN total_duration REAL',
-        );
-        await db.execute(
-          'ALTER TABLE $tableName ADD COLUMN destination_latitude REAL',
-        );
-        await db.execute(
-          'ALTER TABLE $tableName ADD COLUMN destination_longitude REAL',
-        );
+        await db.execute('ALTER TABLE $tableName ADD COLUMN trip_id TEXT');
       } catch (e) {
-        print('Error upgrading to version 5: $e');
+        debugPrint('Error upgrading to version 6: $e');
       }
     }
   }
@@ -161,6 +156,13 @@ class TripDbHelper {
         } catch (_) {}
       }
 
+      if (error.contains('trip_id')) {
+        try {
+          await db.execute('ALTER TABLE $tableName ADD COLUMN trip_id TEXT');
+          fixed = true;
+        } catch (_) {}
+      }
+
       if (fixed) {
         return await db.insert(tableName, detail.toJson());
       }
@@ -180,6 +182,23 @@ class TripDbHelper {
     final db = await database;
     final result = await db.query(
       tableName,
+      orderBy: 'timestamp DESC',
+      limit: 1,
+    );
+    if (result.isNotEmpty) {
+      return TripDetailsModel.fromJson(result.first);
+    }
+    return null;
+  }
+
+  // Get latest point for a specific trip
+  Future<TripDetailsModel?> getLastPointForTrip(String? tripId) async {
+    if (tripId == null) return getLastPoint();
+    final db = await database;
+    final result = await db.query(
+      tableName,
+      where: 'trip_id = ?',
+      whereArgs: [tripId],
       orderBy: 'timestamp DESC',
       limit: 1,
     );

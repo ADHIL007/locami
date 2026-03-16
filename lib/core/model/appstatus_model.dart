@@ -6,6 +6,15 @@ class AppStatus {
   final bool isTripEnded;
   final bool isLoggedIn;
   final String theme;
+  final int accentColor;
+  final String alertSound;
+  final String alertSoundName;
+  final bool isCustomSound;
+  final String? customSoundPath;
+  final bool loopAlarm;
+  final bool showWaves;
+  final bool enableSimulation;
+  final bool enableTimerSimulation;
 
   const AppStatus({
     this.isFirstTimeUser = true,
@@ -15,6 +24,15 @@ class AppStatus {
     this.isTripEnded = false,
     this.isLoggedIn = false,
     this.theme = 'system',
+    this.accentColor = 0xFFE53935,
+    this.alertSound = 'alarm',
+    this.alertSoundName = 'Default Alarm',
+    this.isCustomSound = false,
+    this.customSoundPath,
+    this.loopAlarm = true,
+    this.showWaves = true,
+    this.enableSimulation = false,
+    this.enableTimerSimulation = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -25,6 +43,15 @@ class AppStatus {
     'isTripEnded': isTripEnded,
     'isLoggedIn': isLoggedIn,
     'theme': theme,
+    'accentColor': accentColor,
+    'alertSound': alertSound,
+    'alertSoundName': alertSoundName,
+    'isCustomSound': isCustomSound,
+    'customSoundPath': customSoundPath,
+    'loopAlarm': loopAlarm,
+    'showWaves': showWaves,
+    'enableSimulation': enableSimulation,
+    'enableTimerSimulation': enableTimerSimulation,
   };
 
   factory AppStatus.fromJson(Map<String, dynamic> json) => AppStatus(
@@ -35,6 +62,15 @@ class AppStatus {
     isTripEnded: json['isTripEnded'] ?? false,
     isLoggedIn: json['isLoggedIn'] ?? false,
     theme: json['theme'] ?? 'system',
+    accentColor: json['accentColor'] ?? 0xFFE53935,
+    alertSound: json['alertSound'] ?? 'alarm',
+    alertSoundName: json['alertSoundName'] ?? 'Default Alarm',
+    isCustomSound: json['isCustomSound'] ?? false,
+    customSoundPath: json['customSoundPath'],
+    loopAlarm: json['loopAlarm'] ?? true,
+    showWaves: json['showWaves'] ?? true,
+    enableSimulation: json['enableSimulation'] ?? false,
+    enableTimerSimulation: json['enableTimerSimulation'] ?? false,
   );
 
   AppStatus copyWith({
@@ -45,6 +81,15 @@ class AppStatus {
     bool? isTripEnded,
     bool? isLoggedIn,
     String? theme,
+    int? accentColor,
+    String? alertSound,
+    String? alertSoundName,
+    bool? isCustomSound,
+    String? customSoundPath,
+    bool? loopAlarm,
+    bool? showWaves,
+    bool? enableSimulation,
+    bool? enableTimerSimulation,
   }) => AppStatus(
     isFirstTimeUser: isFirstTimeUser ?? this.isFirstTimeUser,
     isTripStarted: isTripStarted ?? this.isTripStarted,
@@ -53,5 +98,14 @@ class AppStatus {
     isTripEnded: isTripEnded ?? this.isTripEnded,
     isLoggedIn: isLoggedIn ?? this.isLoggedIn,
     theme: theme ?? this.theme,
+    accentColor: accentColor ?? this.accentColor,
+    alertSound: alertSound ?? this.alertSound,
+    alertSoundName: alertSoundName ?? this.alertSoundName,
+    isCustomSound: isCustomSound ?? this.isCustomSound,
+    customSoundPath: customSoundPath ?? this.customSoundPath,
+    loopAlarm: loopAlarm ?? this.loopAlarm,
+    showWaves: showWaves ?? this.showWaves,
+    enableSimulation: enableSimulation ?? this.enableSimulation,
+    enableTimerSimulation: enableTimerSimulation ?? this.enableTimerSimulation,
   );
 }

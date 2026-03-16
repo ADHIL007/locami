@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:locami/theme/them_provider.dart';
+import 'package:locami/theme/theme_provider.dart';
 
 class LocationSearchField extends StatelessWidget {
   final TextEditingController controller;
@@ -10,14 +10,14 @@ class LocationSearchField extends StatelessWidget {
   final Function(String) onSearchChanged;
 
   const LocationSearchField({
-    Key? key,
+    super.key,
     required this.controller,
     required this.label,
     this.prefixIcon,
     this.isLoading = false,
     required this.suggestions,
     required this.onSearchChanged,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -118,7 +118,7 @@ class LocationSearchField extends StatelessWidget {
                 width: 200,
                 height: 16,
                 decoration: BoxDecoration(
-                  color: customColors().textSecondary.withOpacity(0.1),
+                  color: customColors().textSecondary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),

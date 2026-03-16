@@ -1,4 +1,4 @@
-import 'package:locami/core/dbHelper/app_status.dart';
+import 'package:locami/core/db_helper/app_status.dart';
 import 'package:locami/core/model/appstatus_model.dart';
 
 class AppStatusManager {
@@ -26,6 +26,9 @@ class AppStatusManager {
     bool? isTripEnded,
     bool? isLoggedIn,
     String? theme,
+    bool? loopAlarm,
+    bool? showWaves,
+    bool? enableSimulation,
   }) async {
     final current = await status;
     final updated = current.copyWith(
@@ -36,7 +39,26 @@ class AppStatusManager {
       isTripEnded: isTripEnded,
       isLoggedIn: isLoggedIn,
       theme: theme,
+      loopAlarm: loopAlarm,
+      showWaves: showWaves,
+      enableSimulation: enableSimulation,
     );
     await updateStatus(updated);
+  }
+
+  Future<void> reset() async {
+    await updateStatus(
+      const AppStatus(
+        isFirstTimeUser: true,
+        isLoggedIn: false,
+        isTripStarted: false,
+        isTripEnded: false,
+        isInternetOn: false,
+        isGpsOn: false,
+        theme: 'system',
+        accentColor: 4293212469,
+        showWaves: true,
+      ),
+    );
   }
 }
