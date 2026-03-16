@@ -10,7 +10,9 @@ import 'package:locami/theme/theme_provider.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:locami/screens/widgets/arrival_alert.dart';
+import 'package:locami/modules/alarm/views/alarm_view.dart';
 import 'package:locami/core/utils/trip_simulator.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 
 class HomeController extends GetxController {
   final fromController = TextEditingController();
@@ -85,23 +87,30 @@ class HomeController extends GetxController {
   }
 
   void showArrivalAlert(double distance) {
+    if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      // Just in case, if not resumed, we already have AppController listener,
+      // but let's be safe.
+      return;
+    }
+
     final themeProvider = ThemeProvider.instance;
     final soundKey = themeProvider.alertSound;
     final isCustom = themeProvider.isCustomSound;
     final customPath = themeProvider.customSoundPath;
+    final loop = themeProvider.loopAlarm;
 
     stopAllSounds();
 
     if (isCustom && customPath != null) {
       _audioPlayer.play(DeviceFileSource(customPath));
-      _audioPlayer.setReleaseMode(ReleaseMode.loop);
+      if (loop) _audioPlayer.setReleaseMode(ReleaseMode.loop);
     } else {
       if (soundKey == 'alarm') {
-        FlutterRingtonePlayer().playAlarm(looping: true);
+        FlutterRingtonePlayer().playAlarm(looping: loop);
       } else if (soundKey == 'ringtone') {
-        FlutterRingtonePlayer().playRingtone(looping: true);
+        FlutterRingtonePlayer().playRingtone(looping: loop);
       } else {
-        FlutterRingtonePlayer().playNotification(looping: true);
+        FlutterRingtonePlayer().playNotification(looping: loop);
       }
     }
 
@@ -121,12 +130,16 @@ class HomeController extends GetxController {
         },
       ),
       barrierDismissible: false,
-    );
+    ).then((_) {
+      // If dialog is dismissed somehow (though barrierDismissible is false), stop sound
+      stopAllSounds();
+    });
   }
 
   void stopAllSounds() {
     FlutterRingtonePlayer().stop();
     _audioPlayer.stop();
+    FlutterBackgroundService().invoke('stop_alarm');
   }
 
   void _onTrackingStatusChanged() {

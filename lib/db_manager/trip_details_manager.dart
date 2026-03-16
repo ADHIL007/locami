@@ -23,6 +23,20 @@ class TripDetailsManager {
     if (_isInitialized) return;
     _isInitialized = true;
     _listenToBackgroundService();
+    _checkAndResumeTracking();
+  }
+
+  Future<void> _checkAndResumeTracking() async {
+    final user = await UserModelManager.instance.user;
+    if (user.isTravelStarted) {
+      debugPrint('QWERTYUIOP: Resuming tracking state in main isolate');
+      _isTracking = true;
+      isTrackingNotifier.value = true;
+      _destinationLat = user.destinationLatitude;
+      _destinationLon = user.destinationLongitude;
+      _alertDistance = user.alertDistance;
+      _currentTripId = user.currentTripId;
+    }
   }
 
   StreamSubscription<Position>? _positionStreamSubscription;
@@ -49,6 +63,7 @@ class TripDetailsManager {
   String? _currentTripId;
   ServiceInstance? _backgroundService;
   bool _isInitialized = false;
+  bool _isListeningToBackground = false;
 
   double? get alertDistance => _alertDistance;
   double? get totalTripDistance => _totalTripDistance;
@@ -209,9 +224,13 @@ class TripDetailsManager {
     );
 
     _listenToBackgroundService();
+    FlutterBackgroundService().invoke('start_tracking');
   }
 
   void _listenToBackgroundService() {
+    if (_isListeningToBackground) return;
+    _isListeningToBackground = true;
+
     FlutterBackgroundService().on('on_position_update').listen((data) {
       if (data != null) {
         final detail = TripDetailsModel.fromJson(data);
@@ -450,7 +469,46 @@ class TripDetailsManager {
       } catch (e) {
         debugPrint("Error playing alarm in background: $e");
       }
+
+      _showFullScreenAlert(distance);
     }
+  }
+
+  void stopAlertSound() {
+    FlutterRingtonePlayer().stop();
+    final FlutterLocalNotificationsPlugin notifications =
+        FlutterLocalNotificationsPlugin();
+    notifications.cancel(999);
+  }
+
+  void _showFullScreenAlert(double distance) async {
+    final FlutterLocalNotificationsPlugin notifications =
+        FlutterLocalNotificationsPlugin();
+
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'locami_alarm_channel_v2',
+      'Locami Alarm',
+      channelDescription: 'Alarm notification when destination is reached',
+      importance: Importance.max,
+      priority: Priority.max,
+      fullScreenIntent: true,
+      category: AndroidNotificationCategory.alarm,
+      visibility: NotificationVisibility.public,
+      ongoing: true,
+      autoCancel: false,
+      audioAttributesUsage: AudioAttributesUsage.alarm,
+    );
+
+    const NotificationDetails notificationDetails = NotificationDetails(
+      android: androidDetails,
+    );
+
+    await notifications.show(
+      999,
+      'Destination Reached!',
+      "You've arrived at your destination.",
+      notificationDetails,
+    );
   }
 
   Future<void> _updateAddressCache() async {
@@ -555,6 +613,9 @@ class TripDetailsManager {
 
     UserModel user = await UserModelManager.instance.user;
     if (user.isTravelStarted) {
+      await _positionStreamSubscription?.cancel();
+      await _accelStreamSubscription?.cancel();
+
       _destinationLat = user.destinationLatitude;
       _destinationLon = user.destinationLongitude;
       _alertDistance = user.alertDistance ?? 500.0;
@@ -575,6 +636,7 @@ class TripDetailsManager {
       _positionStreamSubscription = Geolocator.getPositionStream(
         locationSettings: locationSettings,
       ).listen((Position position) {
+        debugPrint('QWERTYUIOP: Background Position: ${position.latitude}, ${position.longitude}');
         _handlePositionUpdate(position);
       });
 

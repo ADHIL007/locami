@@ -74,4 +74,40 @@ class TripSimulator {
 
     await manager.simulateLocationUpdate(simulatedPosition);
   }
+
+  static Future<void> simulateNearAlert() async {
+    if (!TripDetailsManager.instance.isTracking) {
+      debugPrint('Simulator: Tracking is not active.');
+      return;
+    }
+
+    final manager = TripDetailsManager.instance;
+    final lastDetail = manager.currentTripDetail.value;
+
+    if (lastDetail == null ||
+        lastDetail.destinationLatitude == null ||
+        lastDetail.destinationLongitude == null) {
+      debugPrint('Simulator: Destination coordinates not available.');
+      return;
+    }
+
+    // 505 meters is roughly 0.00454 degrees
+    const double offset = 505 / 111111.0;
+
+    final simulatedPosition = Position(
+      latitude: lastDetail.destinationLatitude! + offset,
+      longitude: lastDetail.destinationLongitude!,
+      timestamp: DateTime.now(),
+      accuracy: 5.0,
+      altitude: 0.0,
+      heading: 0.0,
+      speed: 10.0,
+      speedAccuracy: 0.0,
+      altitudeAccuracy: 0.0,
+      headingAccuracy: 0.0,
+    );
+
+    debugPrint('Simulator: Injecting position 505m away.');
+    await manager.simulateLocationUpdate(simulatedPosition);
+  }
 }

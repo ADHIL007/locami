@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 import 'package:locami/theme/theme_provider.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:locami/navigation/main_nav.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 
 class AlarmController extends GetxController with GetSingleTickerProviderStateMixin {
   late AnimationController animationController;
@@ -42,6 +44,7 @@ class AlarmController extends GetxController with GetSingleTickerProviderStateMi
   void stopAlarm() {
     FlutterRingtonePlayer().stop();
     _audioPlayer.stop();
+    FlutterBackgroundService().invoke('stop_alarm');
   }
 
   @override
@@ -55,5 +58,11 @@ class AlarmController extends GetxController with GetSingleTickerProviderStateMi
   void dismiss() {
     stopAlarm();
     Get.back();
+  }
+
+  void dismissAndGoHome() {
+    stopAlarm();
+    // Navigate back to the main navigation entry point
+    Get.offAll(() => const MainNav());
   }
 }

@@ -91,6 +91,14 @@ void onStart(ServiceInstance service) async {
     }
   });
 
+  service.on('stop_alarm').listen((event) {
+    TripDetailsManager.instance.stopAlertSound();
+  });
+
+  service.on('start_tracking').listen((event) {
+    _startTracking(service);
+  });
+
   _startTracking(service);
 }
 
