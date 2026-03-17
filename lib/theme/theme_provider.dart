@@ -33,6 +33,7 @@ class ThemeProvider extends ChangeNotifier {
   bool showWaves = true;
   bool enableSimulation = false;
   bool enableTimerSimulation = false;
+  String uiMode = 'high'; // 'low', 'mid', 'high'
 
   void _applyTheme() {
     if (isMatchWithSystem) {
@@ -161,6 +162,12 @@ class ThemeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setUiMode(String mode) {
+    uiMode = mode;
+    _saveStatus();
+    notifyListeners();
+  }
+
   Future<void> _saveStatus() async {
     final status = await AppStatusDbHelper.instance.getStatus();
     await AppStatusDbHelper.instance.saveStatus(
@@ -178,6 +185,7 @@ class ThemeProvider extends ChangeNotifier {
         showWaves: showWaves,
         enableSimulation: enableSimulation,
         enableTimerSimulation: enableTimerSimulation,
+        uiMode: uiMode,
       ),
     );
   }
@@ -201,6 +209,7 @@ class ThemeProvider extends ChangeNotifier {
         EnvironmentConfig.isDevelopment && status.enableSimulation;
     enableTimerSimulation =
         EnvironmentConfig.isDevelopment && status.enableTimerSimulation;
+    uiMode = status.uiMode;
     notifyListeners();
   }
 }

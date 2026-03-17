@@ -21,7 +21,7 @@ class TripDbHelper {
     final path = join(await getDatabasesPath(), 'trip_details.db');
     final db = await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -52,7 +52,8 @@ class TripDbHelper {
         total_duration REAL,
         destination_latitude REAL,
         destination_longitude REAL,
-        trip_id TEXT
+        trip_id TEXT,
+        alert_distance REAL
       )
     ''');
   }
@@ -88,6 +89,13 @@ class TripDbHelper {
         await db.execute('ALTER TABLE $tableName ADD COLUMN trip_id TEXT');
       } catch (e) {
         debugPrint('Error upgrading to version 6: $e');
+      }
+    }
+    if (oldVersion < 7) {
+      try {
+        await db.execute('ALTER TABLE $tableName ADD COLUMN alert_distance REAL');
+      } catch (e) {
+        debugPrint('Error upgrading to version 7: $e');
       }
     }
   }
@@ -159,6 +167,13 @@ class TripDbHelper {
       if (error.contains('trip_id')) {
         try {
           await db.execute('ALTER TABLE $tableName ADD COLUMN trip_id TEXT');
+          fixed = true;
+        } catch (_) {}
+      }
+
+      if (error.contains('alert_distance')) {
+        try {
+          await db.execute('ALTER TABLE $tableName ADD COLUMN alert_distance REAL');
           fixed = true;
         } catch (_) {}
       }

@@ -33,14 +33,10 @@ class ArrivalAlert extends StatelessWidget {
       insetPadding: const EdgeInsets.symmetric(horizontal: 20),
       child: GlassContainer(
         padding: const EdgeInsets.all(24),
-        opacity: isDark ? 0.8 : 0.9,
-        blur: 25,
+        opacity: isDark ? 0.25 : 0.65,
+        blur: 40,
         borderRadius: 36,
-        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-        border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.6),
-          width: 1.5,
-        ),
+        color: isDark ? Colors.black : Colors.white,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -131,7 +127,7 @@ class ArrivalAlert extends StatelessWidget {
                         ),
                       ),
                       child: Text(
-                        "THANKS",
+                        "Snooze",
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.2,
@@ -158,7 +154,7 @@ class ArrivalAlert extends StatelessWidget {
                         ),
                       ),
                       child: const Text(
-                        "DONE",
+                        "Dismiss Alarm",
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.2,

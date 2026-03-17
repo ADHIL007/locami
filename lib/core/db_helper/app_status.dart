@@ -20,7 +20,7 @@ class AppStatusDbHelper {
     final path = join(await getDatabasesPath(), 'app_status.db');
     return openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -59,6 +59,14 @@ class AppStatusDbHelper {
         'ALTER TABLE $tableName ADD COLUMN enable_simulation INTEGER NOT NULL DEFAULT 0 CHECK (enable_simulation IN (0,1))',
       );
     }
+    if (oldVersion < 6) {
+      await db.execute(
+        'ALTER TABLE $tableName ADD COLUMN enable_timer_simulation INTEGER NOT NULL DEFAULT 0 CHECK (enable_timer_simulation IN (0,1))',
+      );
+      await db.execute(
+        'ALTER TABLE $tableName ADD COLUMN ui_mode TEXT NOT NULL DEFAULT "high"',
+      );
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -79,7 +87,9 @@ class AppStatusDbHelper {
         custom_sound_path TEXT,
         loop_alarm INTEGER NOT NULL DEFAULT 1 CHECK (loop_alarm IN (0,1)),
         show_waves INTEGER NOT NULL DEFAULT 1 CHECK (show_waves IN (0,1)),
-        enable_simulation INTEGER NOT NULL DEFAULT 0 CHECK (enable_simulation IN (0,1))
+        enable_simulation INTEGER NOT NULL DEFAULT 0 CHECK (enable_simulation IN (0,1)),
+        enable_timer_simulation INTEGER NOT NULL DEFAULT 0 CHECK (enable_timer_simulation IN (0,1)),
+        ui_mode TEXT NOT NULL DEFAULT 'high'
       )
     ''');
 
@@ -109,6 +119,8 @@ class AppStatusDbHelper {
       loopAlarm: row['loop_alarm'] == 1,
       showWaves: row['show_waves'] == 1,
       enableSimulation: row['enable_simulation'] == 1,
+      enableTimerSimulation: row['enable_timer_simulation'] == 1,
+      uiMode: row['ui_mode'] as String? ?? 'high',
     );
   }
 
@@ -132,6 +144,8 @@ class AppStatusDbHelper {
       'loop_alarm': status.loopAlarm ? 1 : 0,
       'show_waves': status.showWaves ? 1 : 0,
       'enable_simulation': status.enableSimulation ? 1 : 0,
+      'enable_timer_simulation': status.enableTimerSimulation ? 1 : 0,
+      'ui_mode': status.uiMode,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 }

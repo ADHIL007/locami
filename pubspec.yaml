@@ -7,18 +7,14 @@ environment:
   sdk: ^3.7.2
 
 dependencies:
-  country_picker: ^2.0.27
   flutter:
     sdk: flutter
-  flutter_typeahead: ^5.2.0
   geolocator: ^14.0.2
   get: ^4.7.3
   http: ^1.6.0
   path: ^1.9.1
   provider: ^6.1.5+1
-  sensors_plus: ^6.1.2
   sqflite: ^2.4.2
-  flutter_svg: ^2.0.10+1
   intl: ^0.19.0
   cached_network_image: ^3.4.1
   flutter_ringtone_player: ^4.0.0+4
@@ -29,6 +25,12 @@ dependencies:
   flutter_local_notifications: ^19.5.0
   geocoding: ^4.0.0
   solar_icons: ^0.0.5
+  flutter_map: ^8.2.2
+  latlong2: ^0.9.1
+  flutter_map_cache: ^1.5.2
+  dio_cache_interceptor: ^3.5.1
+  dio_cache_interceptor_file_store: ^1.2.3
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:

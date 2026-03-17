@@ -1,17 +1,18 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart' as fm;
+import 'package:latlong2/latlong.dart';
 import 'package:get/get.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:locami/core/geo_location_manager/street_manager.dart';
 import 'package:locami/db_manager/user_model_manager.dart';
 import 'package:locami/db_manager/trip_details_manager.dart';
-import 'package:locami/core/model/trip_details_model.dart';
 import 'package:locami/theme/theme_provider.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:locami/screens/widgets/arrival_alert.dart';
-import 'package:locami/modules/alarm/views/alarm_view.dart';
 import 'package:locami/core/utils/trip_simulator.dart';
+import 'package:locami/core/utils/routing_service.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 
 class HomeController extends GetxController {
@@ -24,18 +25,21 @@ class HomeController extends GetxController {
   final currentPosition = Rx<Position?>(null);
   final showLocami = true.obs;
   final alertDistance = 500.obs;
-  final tripHistory = <TripDetailsModel>[].obs;
-  final isLoadingHistory = false.obs;
   final locations = <String>[].obs;
   final fromAddress = "".obs;
   final toAddress = "".obs;
   final destinationLatitude = Rx<double?>(null);
   final destinationLongitude = Rx<double?>(null);
+  final currentRoute = <LatLng>[].obs;
+  final useSatelliteMap = false.obs;
+  final isMapDark = true.obs;
+  final currentLocationName = "Locating...".obs;
 
-
+  StreamSubscription<Position>? _positionSubscription;
   Timer? _transmissionTimer;
   Timer? _simulationTimer;
   final AudioPlayer _audioPlayer = AudioPlayer();
+  final mapController = fm.MapController();
 
   @override
   void onInit() {
@@ -49,10 +53,6 @@ class HomeController extends GetxController {
       update();
     });
     toController.addListener(() {
-      if (toAddress.value != toController.text) {
-        destinationLatitude.value = null;
-        destinationLongitude.value = null;
-      }
       toAddress.value = toController.text;
       update();
     });
@@ -60,18 +60,59 @@ class HomeController extends GetxController {
     TripDetailsManager.instance.isTrackingNotifier.addListener(_onTrackingStatusChanged);
     TripDetailsManager.instance.alertTriggeredNotifier.addListener(_onAlertTriggered);
 
-    // Defer heavy async work until after the first frame renders
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initAsync();
     });
   }
 
+  void _startLocationStream() {
+    _positionSubscription?.cancel();
+    _positionSubscription = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.best, distanceFilter: 2),
+    ).listen((position) async {
+      currentPosition.value = position;
+      mapController.move(LatLng(position.latitude, position.longitude), 15.0);
+      
+      final details = await StreetManager.instance.getLocationDetailsAt(position.latitude, position.longitude);
+      if (details != null && details['address'] != null) {
+        currentLocationName.value = _formatAddressToTwoCommas(details['address']!);
+      }
+
+      if (destinationLatitude.value != null && destinationLongitude.value != null) {
+        _updateRouteIfNeeded(position);
+      }
+    });
+  }
+
+  String _formatAddressToTwoCommas(String address) {
+    final parts = address.split(',');
+    if (parts.length <= 2) return address.trim();
+    return "${parts[0].trim()}, ${parts[1].trim()}";
+  }
+
+  Future<void> _updateRouteIfNeeded(Position current) async {
+    if (destinationLatitude.value == null || destinationLongitude.value == null) return;
+    
+    final dest = LatLng(destinationLatitude.value!, destinationLongitude.value!);
+    final start = LatLng(current.latitude, current.longitude);
+    
+    if (currentRoute.isEmpty) {
+      currentRoute.assignAll(await RoutingService.instance.getRoute(start, dest));
+    } else {
+      final firstPoint = currentRoute.first;
+      final dist = Geolocator.distanceBetween(current.latitude, current.longitude, firstPoint.latitude, firstPoint.longitude);
+      if (dist > 50) {
+        currentRoute.assignAll(await RoutingService.instance.getRoute(start, dest));
+      }
+    }
+  }
+
   Future<void> _initAsync() async {
-    await checkTrackingStatus();
+    await getInitialLocation();
+    _startLocationStream();
+    checkTrackingStatus();
     loadUserCountryFromProfile();
     loadNearbyStreets();
-    loadTripHistory();
-    getInitialLocation();
   }
 
   @override
@@ -80,6 +121,7 @@ class HomeController extends GetxController {
     toController.dispose();
     _transmissionTimer?.cancel();
     _simulationTimer?.cancel();
+    _positionSubscription?.cancel();
     _audioPlayer.dispose();
     TripDetailsManager.instance.isTrackingNotifier.removeListener(_onTrackingStatusChanged);
     TripDetailsManager.instance.alertTriggeredNotifier.removeListener(_onAlertTriggered);
@@ -95,8 +137,6 @@ class HomeController extends GetxController {
 
   void showArrivalAlert(double distance) {
     if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
-      // Just in case, if not resumed, we already have AppController listener,
-      // but let's be safe.
       return;
     }
 
@@ -138,7 +178,6 @@ class HomeController extends GetxController {
       ),
       barrierDismissible: false,
     ).then((_) {
-      // If dialog is dismissed somehow (though barrierDismissible is false), stop sound
       stopAllSounds();
     });
   }
@@ -160,27 +199,41 @@ class HomeController extends GetxController {
       } else {
         stopTransmission();
         stopSimulation();
-        loadTripHistory();
       }
     }
   }
 
   Future<void> getInitialLocation() async {
     try {
-      currentPosition.value = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.low),
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null && currentPosition.value == null) {
+        currentPosition.value = lastKnown;
+        centerMap(lastKnown.latitude, lastKnown.longitude, 15.0);
+      }
+      final accurate = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.low,
+          timeLimit: Duration(seconds: 5),
+        ),
       );
+      currentPosition.value = accurate;
+      centerMap(accurate.latitude, accurate.longitude, 15.0);
+      
+      final details = await StreetManager.instance.getLocationDetailsAt(accurate.latitude, accurate.longitude);
+      if (details != null && details['address'] != null) {
+        currentLocationName.value = _formatAddressToTwoCommas(details['address']!);
+      }
     } catch (_) {}
   }
 
+  void toggleMapStyle() {
+    useSatelliteMap.value = !useSatelliteMap.value;
+  }
+
   Future<void> checkTrackingStatus() async {
-    // Read directly from DB to avoid race condition with TripDetailsManager async init
     final user = await UserModelManager.instance.user;
-    
     if (user.isTravelStarted) {
       isTracking.value = true;
-      
-      // Restore saved trip data into UI fields
       if (user.fromStreet != null && user.fromStreet!.isNotEmpty) {
         fromController.text = user.fromStreet!;
         fromAddress.value = user.fromStreet!;
@@ -194,9 +247,12 @@ class HomeController extends GetxController {
       if (user.alertDistance != null) {
         alertDistance.value = user.alertDistance!.toInt();
       }
-      
       startTransmission();
       startSimulation();
+
+      if (user.isAlarmActive) {
+        showArrivalAlert(user.alertDistance ?? 0.0);
+      }
     }
   }
 
@@ -219,11 +275,8 @@ class HomeController extends GetxController {
   void startSimulation() {
     _simulationTimer?.cancel();
     final themeProvider = ThemeProvider.instance;
-    
     if (themeProvider.enableTimerSimulation) {
-      // Tell the background service to ignore real GPS
       FlutterBackgroundService().invoke('set_simulation_mode', {'enabled': true});
-      
       _simulationTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (isTracking.value && themeProvider.enableTimerSimulation) {
           TripSimulator.simulateMoveTowards();
@@ -236,7 +289,6 @@ class HomeController extends GetxController {
 
   void stopSimulation() {
     _simulationTimer?.cancel();
-    // Tell the background service to resume real GPS
     FlutterBackgroundService().invoke('set_simulation_mode', {'enabled': false});
   }
 
@@ -248,16 +300,6 @@ class HomeController extends GetxController {
   void loadUserCountryFromProfile() async {
     final user = await UserModelManager.instance.user;
     userCountry.value = user.country.isNotEmpty ? user.country : 'in';
-  }
-
-  Future<void> loadTripHistory() async {
-    isLoadingHistory.value = true;
-    try {
-      final history = await TripDetailsManager.instance.getLogs();
-      tripHistory.assignAll(history);
-    } finally {
-      isLoadingHistory.value = false;
-    }
   }
 
   Future<void> toggleTracking() async {
@@ -298,9 +340,8 @@ class HomeController extends GetxController {
   }
 
   bool validateIsTracking() {
-    return fromAddress.value.isNotEmpty && toAddress.value.isNotEmpty;
+    return toAddress.value.isNotEmpty && destinationLatitude.value != null;
   }
-
 
   void setAlertDistance(int distance) {
     if (!isTracking.value) {
@@ -312,8 +353,6 @@ class HomeController extends GetxController {
     final position = currentPosition.value ?? await Geolocator.getCurrentPosition();
     currentPosition.value = position;
     
-    // Calculate a point that is (alertDistance + 2) meters away
-    // 1 degree latitude is approximately 111,111 meters
     final double distanceInMeters = alertDistance.value.toDouble() + 2.0;
     final double deltaLat = distanceInMeters / 111111.0;
     
@@ -321,6 +360,45 @@ class HomeController extends GetxController {
     destinationLongitude.value = position.longitude;
     toAddress.value = "Test Destination (Nearby)";
     toController.text = "Test Destination (Nearby)";
+    centerMap(destinationLatitude.value!, destinationLongitude.value!);
+    update();
+  }
+
+  void centerMap(double lat, double lon, [double zoom = 14.0]) {
+    try {
+      mapController.move(LatLng(lat, lon), zoom);
+    } catch (e) {
+      debugPrint("Error moving map: $e");
+    }
+  }
+
+  Future<void> selectDestination(String address) async {
+    toController.text = address;
+    toAddress.value = address;
+    currentRoute.clear();
+    final coords = await StreetManager.instance.getCoordinates(address);
+    if (coords != null) {
+      destinationLatitude.value = coords['lat'];
+      destinationLongitude.value = coords['lon'];
+      centerMap(destinationLatitude.value!, destinationLongitude.value!);
+      if (currentPosition.value != null) {
+        _updateRouteIfNeeded(currentPosition.value!);
+      }
+    }
+    update();
+  }
+
+  void focusCurrentLocation() {
+    final pos = currentPosition.value;
+    if (pos != null) {
+      centerMap(pos.latitude, pos.longitude, 15.0);
+    } else {
+      getInitialLocation();
+    }
+  }
+
+  void toggleMapTheme() {
+    isMapDark.value = !isMapDark.value;
     update();
   }
 }

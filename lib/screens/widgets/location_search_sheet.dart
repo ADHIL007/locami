@@ -101,16 +101,10 @@ class _LocationSearchSheetState extends State<LocationSearchSheet> {
     return GlassContainer(
       height: MediaQuery.of(context).size.height * 0.8,
       padding: const EdgeInsets.all(20),
-      opacity: isDark ? 0.15 : 0.7,
-      blur: 25,
-      color: isDark ? Colors.white : Colors.white.withValues(alpha: 0.9),
+      opacity: isDark ? 0.25 : 0.65,
+      blur: 40,
+      color: isDark ? Colors.black : Colors.white,
       customBorderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      border: Border.all(
-        color: isDark 
-            ? Colors.white.withValues(alpha: 0.1) 
-            : Colors.white.withValues(alpha: 0.5),
-        width: 1.5,
-      ),
       child: Column(
         children: [
           Container(

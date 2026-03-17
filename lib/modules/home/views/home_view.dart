@@ -1,66 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart' as fm;
+import 'package:latlong2/latlong.dart';
 import 'package:solar_icons/solar_icons.dart';
 import 'package:get/get.dart';
-import 'package:locami/core/widgets/reflector_bg.dart';
 import 'package:locami/modules/home/controllers/home_controller.dart';
 import 'package:locami/screens/widgets/trip_info_display.dart';
-import 'package:locami/screens/widgets/home_header.dart';
-import 'package:locami/screens/widgets/home_input_card.dart';
-import 'package:locami/screens/widgets/home_distance_option.dart';
-import 'package:locami/screens/widgets/tracking_button.dart';
 import 'package:locami/screens/widgets/location_search_sheet.dart';
-import 'package:locami/screens/widgets/trip_history_card.dart';
+import 'package:locami/screens/widgets/tracking_button.dart';
 import 'package:locami/theme/theme_provider.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:locami/core/model/trip_details_model.dart';
-import 'package:locami/db_manager/trip_details_manager.dart';
+import 'package:provider/provider.dart';
+import 'package:locami/screens/widgets/settings_bottom_sheet.dart';
+import 'package:locami/screens/widgets/ultra_simple_display.dart';
 import 'package:locami/core/widgets/glass_container.dart';
 import 'dart:ui';
-import 'package:provider/provider.dart';
 
 class HomeView extends GetView<HomeController> {
   const HomeView({super.key});
 
-  void _showLocationSearch(bool isFrom) {
+  void _showLocationSearch() {
     Get.bottomSheet(
       LocationSearchSheet(
-        isFrom: isFrom,
-        initialValue:
-            isFrom
-                ? controller.fromController.text
-                : controller.toController.text,
+        isFrom: false,
+        initialValue: controller.toController.text,
         userCountry: controller.userCountry.value,
         currentPosition: controller.currentPosition.value,
         onSelected: (address) {
-          if (isFrom) {
-            controller.fromController.text = address;
-          } else {
-            controller.toController.text = address;
-          }
-          controller.update();
+          controller.selectDestination(address);
         },
-        onTestNearby: isFrom ? null : controller.setNearbyTestLocation,
-      ),
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-    );
-  }
-
-  void _showAllHistory() {
-    Get.bottomSheet(
-      _HistoryBottomSheet(
-        history: controller.tripHistory,
-        onClear: () async {
-          await TripDetailsManager.instance.clearLogs();
-          controller.loadTripHistory();
-          Get.back();
-        },
-        onRestart: (TripDetailsModel trip) {
-          controller.fromController.text = trip.street ?? "";
-          controller.toController.text = trip.destination ?? "";
-          Get.back();
-          controller.toggleTracking();
-        },
+        onTestNearby: controller.setNearbyTestLocation,
       ),
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -71,341 +38,431 @@ class HomeView extends GetView<HomeController> {
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
     final accentColor = themeProvider.accentColor;
+    final isDark = themeProvider.theme == AppThemeMode.dark;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: Stack(
-        children: [
-          if (themeProvider.showWaves)
-            ReflectionBackground(accentColor: accentColor, speed: 1.0),
+      backgroundColor: isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF8F9FA),
+      body: Obx(() {
+        final isTracking = controller.isTracking.value;
+        final uiMode = themeProvider.uiMode;
+        final pos = controller.currentPosition.value;
+        final isSatellite = controller.useSatelliteMap.value;
 
-          Positioned.fill(
-            child:
-                themeProvider.showWaves
-                    ? BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Theme.of(
-                                context,
-                              ).scaffoldBackgroundColor.withValues(alpha: 0.5),
-                              accentColor.withValues(alpha: 0.04),
-                              Theme.of(
-                                context,
-                              ).scaffoldBackgroundColor.withValues(alpha: 0.6),
-                            ],
+        if (isTracking && uiMode == 'low') {
+          return const UltraSimpleDisplay();
+        }
+
+        return SizedBox.expand(
+          child: Stack(
+            children: [
+              // ── 1. MAP LAYER ──
+              Positioned.fill(
+                child: fm.FlutterMap(
+                  mapController: controller.mapController,
+                  options: fm.MapOptions(
+                    initialCenter: LatLng(
+                      pos?.latitude ?? 20.5937,
+                      pos?.longitude ?? 78.9629,
+                    ),
+                    initialZoom: pos != null ? 15.0 : 5.0,
+                    interactionOptions: const fm.InteractionOptions(
+                      flags: fm.InteractiveFlag.all,
+                    ),
+                  ),
+                  children: [
+                    // Map Tiles
+                    Obx(() {
+                      final mapDark = controller.isMapDark.value;
+                      return fm.TileLayer(
+                        urlTemplate: isSatellite
+                            ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                            : (mapDark
+                                ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+                                : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'),
+                        subdomains: const ['a', 'b', 'c', 'd'],
+                        userAgentPackageName: 'com.example.locami',
+                      );
+                    }),
+                    // Labels Overlay for Satellite
+                    if (isSatellite)
+                      fm.TileLayer(
+                        urlTemplate: 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',
+                        subdomains: const ['a', 'b', 'c', 'd'],
+                      ),
+
+                    // Route Polyline
+                    if (controller.currentRoute.isNotEmpty)
+                      fm.PolylineLayer(
+                        polylines: [
+                          fm.Polyline(
+                            points: controller.currentRoute.toList(),
+                            color: accentColor,
+                            strokeWidth: 5,
                           ),
-                        ),
+                        ],
                       ),
-                    )
-                    : Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Theme.of(
-                              context,
-                            ).scaffoldBackgroundColor.withValues(alpha: 0.2),
-                          ],
-                        ),
+
+                    // Destination Marker & Circle
+                    if (controller.destinationLatitude.value != null) ...[
+                      fm.CircleLayer(
+                        circles: [
+                          fm.CircleMarker(
+                            point: LatLng(
+                              controller.destinationLatitude.value!,
+                              controller.destinationLongitude.value!,
+                            ),
+                            color: accentColor.withValues(alpha: 0.12),
+                            borderColor: accentColor.withValues(alpha: 0.4),
+                            borderStrokeWidth: 2,
+                            useRadiusInMeter: true,
+                            radius: controller.alertDistance.value.toDouble(),
+                          ),
+                        ],
                       ),
-                    ),
-          ),
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Obx(
-                    () => HomeHeader(
-                      isTracking: controller.isTracking.value,
-                      showLocami: controller.showLocami.value,
-                      accentColor: accentColor,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  Obx(
-                    () => HomeInputCard(
-                      controller: controller.fromController,
-                      label: "From",
-                      hint: "Select starting point",
-                      icon: SolarIconsBold.home,
-                      onTap:
-                          controller.isTracking.value
-                              ? null
-                              : () => _showLocationSearch(true),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Obx(
-                    () => HomeInputCard(
-                      controller: controller.toController,
-                      label: "To",
-                      hint: "Select destination",
-                      icon: SolarIconsBold.flag,
-                      iconColor: accentColor,
-                      onTap:
-                          controller.isTracking.value
-                              ? null
-                              : () => _showLocationSearch(false),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Text(
-                        "Alert Me",
-                        style: TextStyle(
-                          color: customColors().textPrimary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Obx(
-                        () => HomeDistanceOption(
-                          distance: "500m",
-                          isSelected: controller.alertDistance.value == 500,
-                          onTap:
-                              controller.isTracking.value
-                                  ? null
-                                  : () => controller.setAlertDistance(500),
-                        ),
-                      ),
-                      Obx(
-                        () => HomeDistanceOption(
-                          distance: "1km",
-                          isSelected: controller.alertDistance.value == 1000,
-                          onTap:
-                              controller.isTracking.value
-                                  ? null
-                                  : () => controller.setAlertDistance(1000),
-                        ),
-                      ),
-                      Obx(
-                        () => HomeDistanceOption(
-                          distance: "2km",
-                          isSelected: controller.alertDistance.value == 2000,
-                          onTap:
-                              controller.isTracking.value
-                                  ? null
-                                  : () => controller.setAlertDistance(2000),
-                        ),
-                      ),
-                      const Spacer(),
-                      Obx(
-                        () => TrackingButton(
-                          isTracking: controller.isTracking.value,
-                          isLoading: controller.isTrackingLoading.value,
-                          canStart: controller.validateIsTracking(),
-                          accentColor: accentColor,
-                          onPressed: controller.toggleTracking,
-                        ),
+                      fm.MarkerLayer(
+                        markers: [
+                          fm.Marker(
+                            point: LatLng(
+                              controller.destinationLatitude.value!,
+                              controller.destinationLongitude.value!,
+                            ),
+                            width: 44,
+                            height: 44,
+                            child: Icon(
+                              SolarIconsBold.mapPoint,
+                              color: accentColor,
+                              size: 44,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
-                  ),
-                  Obx(() {
-                    if (controller.isTracking.value ||
-                        TripDetailsManager.instance.isTracking) {
-                      return Column(
-                        children: [
-                          const SizedBox(height: 32),
-                          const TripInfoDisplay(),
+
+                    // Current User Location
+                    if (pos != null)
+                      fm.MarkerLayer(
+                        markers: [
+                          fm.Marker(
+                            point: LatLng(pos.latitude, pos.longitude),
+                            width: 32,
+                            height: 32,
+                            child: _buildUserLocationIndicator(accentColor),
+                          ),
                         ],
-                      );
-                    } else {
-                      return Column(
-                        children: [
-                          const SizedBox(height: 32),
-                          if (controller.isLoadingHistory.value)
-                            const Center(child: CircularProgressIndicator())
-                          else if (controller.tripHistory.isNotEmpty) ...[
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  "Recent Trips",
-                                  style: TextStyle(
-                                    color: customColors().textPrimary,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                if (controller.tripHistory.length > 3)
-                                  TextButton(
-                                    onPressed: _showAllHistory,
-                                    child: const Text("Show More"),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Stack(
-                              children: [
-                                Column(
-                                  children:
-                                      controller.tripHistory
-                                          .take(3)
-                                          .map(
-                                            (
-                                              TripDetailsModel trip,
-                                            ) => TripHistoryCard(
-                                              trip: trip,
-                                              onRestart: () {
-                                                controller.fromController.text =
-                                                    trip.street ?? "";
-                                                controller.toController.text =
-                                                    trip.destination ?? "";
-                                                controller.toggleTracking();
-                                              },
-                                            ),
-                                          )
-                                          .toList(),
-                                ),
-                                ],
-                              ),
-                          ] else ...[
-                            const SizedBox(height: 20),
-                            Center(
-                              child: Column(
-                                children: [
-                                  SvgPicture.asset(
-                                    'assets/images/busTerminal.svg',
-                                    height: 240,
-                                  ),
-                                  const SizedBox(height: 24),
-                                  Text(
-                                    "No track history yet",
-                                    style: TextStyle(
-                                      color: customColors().textPrimary
-                                          .withValues(alpha: 0.5),
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
-                      );
-                    }
-                  }),
-                ],
+                      ),
+                  ],
+                ),
               ),
-            ),
-          ),
-          Obx(() {
-            if (controller.tripHistory.length > 3 && !controller.isTracking.value) {
-              return Positioned(
+
+              // ── 2. MAP SPOTLIGHT & VIGNETTE ──
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        center: Alignment.center,
+                        radius: 1.2,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.2),
+                          Colors.black.withValues(alpha: 0.6),
+                          Colors.black.withValues(alpha: 0.9),
+                        ],
+                        stops: const [0.0, 0.4, 0.7, 1.0],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
                 bottom: 0,
                 left: 0,
                 right: 0,
-                height: 60,
+                height: 400,
                 child: IgnorePointer(
                   child: Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
                         colors: [
-                          Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0),
-                          Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.8),
-                          Theme.of(context).scaffoldBackgroundColor,
+                          Colors.black,
+                          Colors.black.withValues(alpha: 0.6),
+                          Colors.transparent,
                         ],
-                        stops: const [0.0, 0.4, 1.0],
+                        stops: const [0.0, 0.5, 1.0],
                       ),
                     ),
                   ),
                 ),
-              );
-            }
-            return const SizedBox.shrink();
-          }),
-        ],
+              ),
+
+              // ── 3. TOP LOCATION HEADER ──
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Obx(
+                          () => Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              Icon(
+                                SolarIconsBold.mapPoint,
+                                color: Colors.white.withValues(alpha: 0.9),
+                                size: 26,
+                              ),
+                              const SizedBox(width: 10),
+                              Flexible(
+                                child: Text(
+                                  controller.currentLocationName.value
+                                      .toLowerCase(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: 'Poppins',
+                                    letterSpacing: -0.5,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              // ── 4. BOTTOM PANELS ──
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: isTracking
+                    ? const TripInfoDisplay()
+                    : _buildSetupPanelGlass(isDark, accentColor),
+              ),
+
+              // ── 5. ALL CTA BUTTONS ──
+              if (!(themeProvider.uiMode == 'low' && isTracking))
+                Positioned(
+                  right: 20,
+                  bottom: isTracking ? 500 : 360,
+                  child: _buildGhostFABGroup(accentColor),
+                ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildUserLocationIndicator(Color accentColor) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: accentColor.withValues(alpha: 0.2),
+          ),
+        ),
+        Container(
+          width: 14,
+          height: 14,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white,
+          ),
+        ),
+        Container(
+          width: 9,
+          height: 9,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: accentColor),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSetupPanelGlass(bool isDark, Color accentColor) {
+    return GlassContainer(
+      customBorderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
+      opacity: isDark ? 0.25 : 0.65,
+      blur: 40,
+      color: isDark ? Colors.black : Colors.white,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 24),
+                decoration: BoxDecoration(
+                  color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              GestureDetector(
+                onTap: _showLocationSearch,
+                child: Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(SolarIconsBold.mapPoint, color: accentColor, size: 24),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Obx(() => Text(
+                          controller.toAddress.value.isEmpty
+                              ? "Where are you going?"
+                              : controller.toAddress.value,
+                          style: TextStyle(
+                            color: controller.toAddress.value.isEmpty
+                                ? (isDark ? Colors.white38 : Colors.black38)
+                                : (isDark ? Colors.white : Colors.black),
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        )),
+                      ),
+                      Icon(
+                        SolarIconsOutline.altArrowRight,
+                        color: isDark ? Colors.white24 : Colors.black12,
+                        size: 18,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // ── DISTANCE SELECTION CHIPS ──
+              Obx(() => Row(
+                children: [500, 1000, 2000].map((dist) {
+                  final isSelected = controller.alertDistance.value == dist;
+                  final label = dist == 500 ? "500m" : "${dist ~/ 1000}km";
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () => controller.setAlertDistance(dist),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: EdgeInsets.only(
+                          left: dist == 500 ? 0 : 6,
+                          right: dist == 2000 ? 0 : 6,
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? accentColor.withValues(alpha: 0.15)
+                              : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: isSelected
+                                ? accentColor.withValues(alpha: 0.4)
+                                : Colors.transparent,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              color: isSelected ? accentColor : (isDark ? Colors.white70 : Colors.black54),
+                              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              )),
+              const SizedBox(height: 20),
+              Obx(() => TrackingButton(
+                onPressed: controller.toggleTracking,
+                isTracking: false,
+                isLoading: controller.isTrackingLoading.value,
+                canStart: controller.toAddress.value.isNotEmpty,
+                accentColor: accentColor,
+              )),
+            ],
+          ),
+        ),
       ),
     );
   }
-}
 
-class _HistoryBottomSheet extends StatelessWidget {
-  final List<TripDetailsModel> history;
-  final VoidCallback onClear;
-  final Function(TripDetailsModel) onRestart;
+  Widget _buildGhostFABGroup(Color accentColor) {
+    return Column(
+      children: [
+        _buildGhostBtn(
+          icon: controller.useSatelliteMap.value ? SolarIconsBold.map : SolarIconsOutline.map,
+          onTap: controller.toggleMapStyle,
+        ),
+        const SizedBox(height: 16),
+        _buildGhostBtn(
+          icon: controller.isMapDark.value ? SolarIconsBold.moon : SolarIconsOutline.sun,
+          onTap: controller.toggleMapTheme,
+        ),
+        const SizedBox(height: 16),
+        _buildGhostBtn(
+          icon: SolarIconsOutline.gps,
+          onTap: controller.focusCurrentLocation,
+        ),
+        const SizedBox(height: 16),
+        _buildGhostBtn(
+          icon: SolarIconsBold.settings,
+          onTap: () {
+            Get.bottomSheet(
+              const SettingsBottomSheet(),
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+            );
+          },
+        ),
+      ],
+    );
+  }
 
-  const _HistoryBottomSheet({
-    required this.history,
-    required this.onClear,
-    required this.onRestart,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final themeProvider = context.watch<ThemeProvider>();
-    final isDark = themeProvider.theme == AppThemeMode.dark;
-
-    return GlassContainer(
-      height: MediaQuery.of(context).size.height * 0.7,
-      padding: const EdgeInsets.all(20),
-      opacity: isDark ? 0.15 : 0.7,
-      blur: 15,
-      color: isDark ? Colors.white : Colors.white.withValues(alpha: 0.9),
-      borderRadius: 24,
-      border: Border.all(
-        color: isDark 
-            ? Colors.white.withValues(alpha: 0.1) 
-            : Colors.white.withValues(alpha: 0.5),
-        width: 1.5,
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: customColors().textPrimary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(2),
-            ),
+  Widget _buildGhostBtn({
+    required IconData icon,
+    required VoidCallback onTap,
+    Color? borderColor,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.1),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: borderColor ?? Colors.white.withValues(alpha: 0.4),
+            width: 1.5,
           ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "All Recent Trips",
-                style: TextStyle(
-                  color: customColors().textPrimary,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              TextButton(
-                onPressed: onClear,
-                child: const Text(
-                  "Clear All",
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: ListView.builder(
-              itemCount: history.length,
-              itemBuilder: (context, index) {
-                return TripHistoryCard(
-                  trip: history[index],
-                  onRestart: () => onRestart(history[index]),
-                );
-              },
-            ),
-          ),
-        ],
+        ),
+        child: Icon(icon, color: Colors.white, size: 24),
       ),
     );
   }
