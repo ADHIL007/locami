@@ -5,6 +5,9 @@ on:
     branches:
       - release
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -28,6 +31,11 @@ jobs:
 
       - name: Build APK
         run: flutter build apk --release
+
+      - name: Create Tag
+        run: |
+          git tag auto-release-${{ github.run_number }}
+          git push origin auto-release-${{ github.run_number }}
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
