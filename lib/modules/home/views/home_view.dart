@@ -1,21 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart' as fm;
 import 'package:latlong2/latlong.dart' hide Path;
-import 'package:solar_icons/solar_icons.dart';
 import 'package:get/get.dart';
-import 'package:locami/modules/home/controllers/home_controller.dart';
-import 'package:locami/screens/widgets/trip_info_display.dart';
-import 'package:locami/screens/widgets/location_search_sheet.dart';
-import 'package:locami/screens/widgets/tracking_button.dart';
-import 'package:locami/theme/theme_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:locami/screens/widgets/settings_bottom_sheet.dart';
 
-import 'package:locami/core/widgets/glass_container.dart';
+import 'package:locami/modules/home/controllers/home_controller.dart';
+import 'package:locami/theme/theme_provider.dart';
 import 'package:locami/core/db_helper/saved_location_db.dart';
-import 'package:locami/screens/widgets/save_location_dialog.dart';
-import 'dart:ui';
-import 'dart:math' as math;
+import 'package:locami/screens/widgets/location_search_sheet.dart';
+import 'package:locami/screens/widgets/trip_info_display.dart';
+
+import 'package:locami/modules/home/views/widgets/loading_screen.dart';
+import 'package:locami/modules/home/views/widgets/setup_panel.dart';
+import 'package:locami/modules/home/views/widgets/top_header.dart';
+import 'package:locami/modules/home/views/widgets/map_center_confirm_panel.dart';
+import 'package:locami/modules/home/views/widgets/ghost_fab_group.dart';
+import 'package:locami/modules/home/views/widgets/navigation_arrow_painter.dart';
+import 'package:locami/core/constants/api_constants.dart';
 
 class HomeView extends GetView<HomeController> {
   const HomeView({super.key});
@@ -123,113 +124,6 @@ class HomeView extends GetView<HomeController> {
     );
   }
 
-  Widget _buildLoadingScreen(bool isDark, Color accentColor) {
-    return Container(
-      color: isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF1F3F5),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // ── Pulsing Radar Ring ──
-            SizedBox(
-              width: 120,
-              height: 120,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Outer pulsing ring
-                  TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0.0, end: 1.0),
-                    duration: const Duration(milliseconds: 1500),
-                    builder: (context, value, child) {
-                      return Container(
-                        width: 100 + (20 * value),
-                        height: 100 + (20 * value),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: accentColor.withValues(alpha: 0.3 * (1 - value)),
-                            width: 2,
-                          ),
-                        ),
-                      );
-                    },
-                    onEnd: () {},
-                  ),
-                  // Inner ring
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: accentColor.withValues(alpha: 0.2),
-                        width: 1.5,
-                      ),
-                    ),
-                  ),
-                  // Center dot with glow
-                  Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      color: accentColor,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: accentColor.withValues(alpha: 0.5),
-                          blurRadius: 20,
-                          spreadRadius: 5,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 48),
-            // ── App Name ──
-            Text(
-              'LOCAMI',
-              style: TextStyle(
-                color: isDark ? Colors.white : Colors.black87,
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 6,
-              ),
-            ),
-            const SizedBox(height: 32),
-            // ── Animated Status Text ──
-            Obx(() => AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: Text(
-                controller.initStatus.value,
-                key: ValueKey(controller.initStatus.value),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: isDark ? Colors.white54 : Colors.black45,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            )),
-            const SizedBox(height: 24),
-            // ── Loading Indicator ──
-            SizedBox(
-              width: 32,
-              height: 32,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: accentColor.withValues(alpha: 0.6),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
@@ -237,12 +131,10 @@ class HomeView extends GetView<HomeController> {
     final isDark = themeProvider.theme == AppThemeMode.dark;
 
     return Scaffold(
-      backgroundColor:
-          isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF8F9FA),
+      backgroundColor: isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF8F9FA),
       body: Obx(() {
-        // ── LOADING SCREEN — shown until GPS is ready ──
         if (!controller.isInitialized.value) {
-          return _buildLoadingScreen(isDark, accentColor);
+          return LoadingScreen(isDark: isDark, accentColor: accentColor);
         }
 
         final isTracking = controller.isTracking.value;
@@ -250,7 +142,6 @@ class HomeView extends GetView<HomeController> {
         return SizedBox.expand(
           child: Stack(
             children: [
-              // ── 1. MAP LAYER (STABLE — never rebuilds on position change) ──
               Positioned.fill(
                 child: fm.FlutterMap(
                   mapController: controller.mapController,
@@ -262,33 +153,27 @@ class HomeView extends GetView<HomeController> {
                     ),
                   ),
                   children: [
-                    // Map Tiles (fully self-contained Obx)
                     Obx(() {
                       final mapDark = controller.isMapDark.value;
                       final sat = controller.useSatelliteMap.value;
                       return fm.TileLayer(
                         key: ValueKey('tiles_${sat}_$mapDark'),
-                        urlTemplate:
-                            sat
-                                ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-                                : (mapDark
-                                    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-                                    : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'),
+                        urlTemplate: sat
+                            ? ApiConstants.arcGisSatelliteUrl
+                            : (mapDark
+                                ? ApiConstants.cartoDbDarkUrl
+                                : ApiConstants.cartoDbLightUrl),
                         subdomains: const ['a', 'b', 'c', 'd'],
                         userAgentPackageName: 'com.example.locami',
                       );
                     }),
-                    // Labels Overlay for Satellite
                     Obx(() {
                       if (!controller.useSatelliteMap.value) return const SizedBox.shrink();
                       return fm.TileLayer(
-                        urlTemplate:
-                            'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',
+                        urlTemplate: ApiConstants.cartoDbLabelsUrl,
                         subdomains: const ['a', 'b', 'c', 'd'],
                       );
                     }),
-
-                    // Route Polyline (reactive)
                     Obx(() {
                       if (controller.currentRoute.isEmpty) {
                         return const SizedBox.shrink();
@@ -303,8 +188,6 @@ class HomeView extends GetView<HomeController> {
                         ],
                       );
                     }),
-
-                    // Destination Marker & Circle (reactive)
                     Obx(() {
                       if (controller.destinationLatitude.value == null) {
                         return const SizedBox.shrink();
@@ -351,9 +234,7 @@ class HomeView extends GetView<HomeController> {
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.4,
-                                      ),
+                                      color: Colors.black.withValues(alpha: 0.4),
                                       blurRadius: 12,
                                       offset: const Offset(0, 5),
                                     ),
@@ -375,8 +256,6 @@ class HomeView extends GetView<HomeController> {
                         ],
                       );
                     }),
-
-                    // Saved/Tagged Location Markers (reactive)
                     Obx(() {
                       final locs = controller.savedLocations;
                       if (locs.isEmpty) return const SizedBox.shrink();
@@ -413,8 +292,6 @@ class HomeView extends GetView<HomeController> {
                         }).toList(),
                       );
                     }),
-
-                    // Current User Location (reactive — only this rebuilds on GPS tick)
                     Obx(() {
                       final pos = controller.currentPosition.value;
                       if (pos == null) return const SizedBox.shrink();
@@ -424,7 +301,10 @@ class HomeView extends GetView<HomeController> {
                             point: LatLng(pos.latitude, pos.longitude),
                             width: 80,
                             height: 80,
-                            child: Obx(() => _buildUserLocationIndicator(controller.currentHeading.value)),
+                            child: Obx(() => CustomPaint(
+                                  size: const Size(80, 80),
+                                  painter: NavigationArrowPainter(heading: controller.currentHeading.value),
+                                )),
                           ),
                         ],
                       );
@@ -432,8 +312,6 @@ class HomeView extends GetView<HomeController> {
                   ],
                 ),
               ),
-
-              // ── 2. MAP SPOTLIGHT & VIGNETTE ──
               Positioned.fill(
                 child: IgnorePointer(
                   child: Container(
@@ -475,84 +353,37 @@ class HomeView extends GetView<HomeController> {
                   ),
                 ),
               ),
-
-              // ── 3. TOP LOCATION HEADER ──
-              Positioned(
+              const Positioned(
                 top: 0,
                 left: 0,
                 right: 0,
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Obx(
-                          () => Row(
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            children: [
-                              Icon(
-                                SolarIconsBold.mapPoint,
-                                color: Colors.white.withValues(alpha: 0.9),
-                                size: 26,
-                              ),
-                              const SizedBox(width: 10),
-                              Flexible(
-                                child: Text(
-                                  controller.currentLocationName.value
-                                      .toLowerCase(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                                    fontFamily: 'Poppins',
-                                    letterSpacing: -0.5,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                child: TopHeader(),
               ),
-
-              // ── 4. BOTTOM PANELS ──
               Positioned(
                 left: 0,
                 right: 0,
                 bottom: 0,
-                child:
-                    controller.isPinSelectionMode.value
-                        ? _buildPinConfirmPanel(accentColor, isDark)
-                        : (isTracking
-                            ? const TripInfoDisplay()
-                            : _buildSetupPanelGlass(isDark, accentColor)),
+                child: controller.isPinSelectionMode.value
+                    ? MapCenterConfirmPanel(accentColor: accentColor, isDark: isDark)
+                    : (isTracking
+                        ? const TripInfoDisplay()
+                        : SetupPanel(
+                            isDark: isDark,
+                            accentColor: accentColor,
+                            onSearchTap: _showLocationSearch,
+                          )),
               ),
-
-              // ── 5. ALL CTA BUTTONS ──
               Positioned(
                 right: 20,
                 bottom: isTracking ? 500 : 360,
-                child: _buildGhostFABGroup(accentColor),
+                child: GhostFABGroup(accentColor: accentColor),
               ),
-
-              // ── 6. FIXED CENTER PIN ──
               if (!isTracking && controller.isPinSelectionMode.value)
                 Positioned.fill(
                   child: IgnorePointer(
                     child: Center(
                       child: Padding(
-                        padding: const EdgeInsets.only(
-                          bottom: 40,
-                        ), // Height of the custom pin
+                        padding: const EdgeInsets.only(bottom: 40),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -588,12 +419,12 @@ class HomeView extends GetView<HomeController> {
                             Container(
                               width: 3,
                               height: 12,
-                              decoration: BoxDecoration(
+                              decoration: const BoxDecoration(
                                 color: Colors.black,
-                                borderRadius: const BorderRadius.vertical(
+                                borderRadius: BorderRadius.vertical(
                                   bottom: Radius.circular(2),
                                 ),
-                                border: const Border(
+                                border: Border(
                                   left: BorderSide(
                                     color: Colors.white,
                                     width: 0.5,
@@ -617,492 +448,4 @@ class HomeView extends GetView<HomeController> {
       }),
     );
   }
-
-  Widget _buildUserLocationIndicator(double heading) {
-    return CustomPaint(
-      size: const Size(80, 80),
-      painter: _NavigationArrowPainter(heading: heading),
-    );
-  }
-
-  Widget _buildSetupPanelGlass(bool isDark, Color accentColor) {
-    return GlassContainer(
-      customBorderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
-      opacity: isDark ? 0.25 : 0.65,
-      blur: 40,
-      color: isDark ? Colors.black : Colors.white,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 44,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 24),
-                decoration: BoxDecoration(
-                  color: (isDark ? Colors.white : Colors.black).withValues(
-                    alpha: 0.15,
-                  ),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              GestureDetector(
-                onTap: _showLocationSearch,
-                child: Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: (isDark ? Colors.white : Colors.black).withValues(
-                      alpha: 0.06,
-                    ),
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        SolarIconsBold.mapPoint,
-                        color: accentColor,
-                        size: 24,
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Obx(
-                          () => Text(
-                            controller.toAddress.value.isEmpty
-                                ? "Where are you going?"
-                                : controller.toAddress.value,
-                            style: TextStyle(
-                              color:
-                                  controller.toAddress.value.isEmpty
-                                      ? (isDark
-                                          ? Colors.white38
-                                          : Colors.black38)
-                                      : (isDark ? Colors.white : Colors.black),
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                      Obx(() => controller.toAddress.value.isNotEmpty
-                          ? GestureDetector(
-                              onTap: () {
-                                controller.clearDestination();
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.only(left: 8.0, top: 4.0, bottom: 4.0),
-                                child: Icon(
-                                  SolarIconsBold.closeCircle,
-                                  color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.3),
-                                  size: 20,
-                                ),
-                              ),
-                            )
-                          : Icon(
-                              SolarIconsOutline.altArrowRight,
-                              color: isDark ? Colors.white24 : Colors.black12,
-                              size: 18,
-                            )),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Optional "Save Location" button if destination is selected
-              Obx(() {
-                if (controller.toAddress.value.isEmpty || controller.destinationLatitude.value == null) {
-                  return const SizedBox.shrink();
-                }
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  alignment: Alignment.centerRight,
-                  child: InkWell(
-                    onTap: () async {
-                      final result = await SaveLocationDialog.show(
-                        Get.context!,
-                        displayName: controller.toAddress.value,
-                        latitude: controller.destinationLatitude.value!,
-                        longitude: controller.destinationLongitude.value!,
-                      );
-                      if (result != null) {
-                        Get.snackbar(
-                          'Saved',
-                          'Location saved as ${result.label}',
-                          snackPosition: SnackPosition.BOTTOM,
-                          backgroundColor: isDark ? const Color(0xFF2A2A2A) : Colors.white,
-                          colorText: isDark ? Colors.white : Colors.black87,
-                        );
-                      }
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: accentColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: accentColor.withValues(alpha: 0.3)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(SolarIconsOutline.bookmark, size: 16, color: accentColor),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Save to Favorites',
-                            style: TextStyle(
-                              color: accentColor,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              }),
-              // ── DISTANCE SELECTION CHIPS ──
-              Obx(
-                () => Row(
-                  children:
-                      [500, 1000, 2000].map((dist) {
-                        final isSelected =
-                            controller.alertDistance.value == dist;
-                        final label =
-                            dist == 500 ? "500m" : "${dist ~/ 1000}km";
-                        return Expanded(
-                          child: GestureDetector(
-                            onTap: () => controller.setAlertDistance(dist),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              margin: EdgeInsets.only(
-                                left: dist == 500 ? 0 : 6,
-                                right: dist == 2000 ? 0 : 6,
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              decoration: BoxDecoration(
-                                color:
-                                    isSelected
-                                        ? accentColor.withValues(alpha: 0.15)
-                                        : (isDark ? Colors.white : Colors.black)
-                                            .withValues(alpha: 0.05),
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(
-                                  color:
-                                      isSelected
-                                          ? accentColor.withValues(alpha: 0.4)
-                                          : Colors.transparent,
-                                  width: 1.5,
-                                ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  label,
-                                  style: TextStyle(
-                                    color:
-                                        isSelected
-                                            ? accentColor
-                                            : (isDark
-                                                ? Colors.white70
-                                                : Colors.black54),
-                                    fontWeight:
-                                        isSelected
-                                            ? FontWeight.w800
-                                            : FontWeight.w600,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Obx(
-                () => TrackingButton(
-                  onPressed: controller.toggleTracking,
-                  isTracking: false,
-                  isLoading: controller.isTrackingLoading.value,
-                  canStart: controller.toAddress.value.isNotEmpty,
-                  accentColor: accentColor,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGhostFABGroup(Color accentColor) {
-    return Column(
-      children: [
-        if (!controller.isTracking.value)
-          _buildGhostBtn(
-            onTap: () => controller.isPinSelectionMode.toggle(),
-            customChild:
-                controller.isPinSelectionMode.value
-                    ? const Icon(
-                      Icons.close_rounded,
-                      color: Colors.white,
-                      size: 28,
-                    )
-                    : _buildMiniUberPin(),
-            borderColor:
-                controller.isPinSelectionMode.value
-                    ? Colors.redAccent.withValues(alpha: 0.6)
-                    : Colors.white.withValues(alpha: 0.5),
-          ),
-        if (!controller.isTracking.value) const SizedBox(height: 16),
-        if (!controller.isPinSelectionMode.value) ...[
-          _buildGhostBtn(
-            icon:
-                controller.useSatelliteMap.value
-                    ? SolarIconsBold.map
-                    : SolarIconsOutline.map,
-            onTap: controller.toggleMapStyle,
-          ),
-          const SizedBox(height: 16),
-          _buildGhostBtn(
-            icon:
-                controller.isMapDark.value
-                    ? SolarIconsBold.moon
-                    : SolarIconsOutline.sun,
-            onTap: controller.toggleMapTheme,
-          ),
-          const SizedBox(height: 16),
-          _buildGhostBtn(
-            icon: SolarIconsOutline.gps,
-            onTap: controller.focusCurrentLocation,
-          ),
-          const SizedBox(height: 16),
-          _buildGhostBtn(
-            icon: SolarIconsBold.settings,
-            onTap: () {
-              Get.bottomSheet(
-                const SettingsBottomSheet(),
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-              );
-            },
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildPinConfirmPanel(Color accentColor, bool isDark) {
-    return GlassContainer(
-      customBorderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
-      opacity: isDark ? 0.25 : 0.65,
-      blur: 40,
-      color: isDark ? Colors.black : Colors.white,
-      padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            "Position destination at center pin",
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: ElevatedButton(
-              onPressed: () {
-                controller.selectCenterLocation();
-                controller.isPinSelectionMode.value = false;
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: accentColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(28),
-                ),
-                elevation: 0,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(SolarIconsBold.checkCircle, size: 22),
-                  SizedBox(width: 12),
-                  Text(
-                    "Confirm Location",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGhostBtn({
-    IconData? icon,
-    Widget? customChild,
-    required VoidCallback onTap,
-    Color? borderColor,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: GlassContainer(
-        width: 54,
-        height: 54,
-        blur: 15,
-        opacity: 0.2,
-        borderRadius: 27, // Half of 54
-        color: Colors.black,
-        border: Border.all(
-          color: borderColor ?? Colors.white.withValues(alpha: 0.25),
-          width: 1.2,
-        ),
-        padding: EdgeInsets.zero,
-        child: Center(
-          child:
-              customChild ??
-              Icon(
-                icon!,
-                color: Colors.white.withValues(alpha: 0.95),
-                size: 26,
-                shadows: [
-                  Shadow(
-                    color: Colors.black.withValues(alpha: 0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMiniUberPin() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 20,
-          height: 20,
-          decoration: BoxDecoration(
-            color: Colors.black,
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 1.2),
-          ),
-          child: Center(
-            child: Container(
-              width: 5,
-              height: 5,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-        ),
-        Container(
-          width: 2,
-          height: 4,
-          color: Colors.white.withValues(alpha: 0.8),
-        ),
-      ],
-    );
-  }
-}
-
-/// Custom painter that draws a Google Maps-style navigation arrow.
-/// The arrow points in the direction of movement (heading in degrees).
-class _NavigationArrowPainter extends CustomPainter {
-  final double heading;
-
-  _NavigationArrowPainter({required this.heading});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final double radius = size.width / 2;
-
-    // ── 1. Accuracy / Glow Circle ──
-    final glowPaint = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          const Color(0xFF4285F4).withValues(alpha: 0.18),
-          const Color(0xFF4285F4).withValues(alpha: 0.05),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.6, 1.0],
-      ).createShader(Rect.fromCircle(center: center, radius: radius));
-    canvas.drawCircle(center, radius, glowPaint);
-
-    // ── 2. Rotate canvas for heading ──
-    canvas.save();
-    canvas.translate(center.dx, center.dy);
-    canvas.rotate(heading * math.pi / 180);
-
-    // Arrow dimensions (relative to center 0,0)
-    const double arrowH = 26;
-    const double arrowW = 12;
-    const double notch = 8;
-
-    // Build arrow path (chevron pointing UP = direction of travel)
-    final arrowPath = Path()
-      ..moveTo(0, -arrowH)           // Tip (top)
-      ..lineTo(arrowW, arrowH - notch) // Bottom-right
-      ..lineTo(0, arrowH - notch * 2)  // Notch center
-      ..lineTo(-arrowW, arrowH - notch) // Bottom-left
-      ..close();
-
-    // ── 3. Drop Shadow ──
-    canvas.save();
-    canvas.translate(0, 2);
-    final shadowPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.25)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-    canvas.drawPath(arrowPath, shadowPaint);
-    canvas.restore();
-
-    // ── 4. White Border ──
-    final borderPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.5
-      ..strokeJoin = StrokeJoin.round;
-    canvas.drawPath(arrowPath, borderPaint);
-
-    // ── 5. Fill: Blue Gradient Arrow ──
-    final arrowPaint = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          Color(0xFF5B9EF4),
-          Color(0xFF4285F4),
-          Color(0xFF3367D6),
-        ],
-      ).createShader(Rect.fromLTRB(-arrowW, -arrowH, arrowW, arrowH));
-    canvas.drawPath(arrowPath, arrowPaint);
-
-    // ── 6. Small white center dot ──
-    final dotPaint = Paint()..color = Colors.white.withValues(alpha: 0.7);
-    canvas.drawCircle(const Offset(0, 0), 3, dotPaint);
-
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(_NavigationArrowPainter oldDelegate) =>
-      oldDelegate.heading != heading;
 }

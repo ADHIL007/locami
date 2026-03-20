@@ -4,13 +4,14 @@ import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:locami/core/db_helper/location_cache_db.dart';
+import 'package:locami/core/constants/api_constants.dart';
 
 class StreetManager {
   StreetManager._();
   static final StreetManager instance = StreetManager._();
   RxList<String> locations = <String>[].obs;
   RxBool isLoading = false.obs;
-  static const _baseUrl = 'https://nominatim.openstreetmap.org';
+  static const _baseUrl = 'https://${ApiConstants.nominatimDomain}';
 
   Future<Position> _getCurrentLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -183,7 +184,7 @@ class StreetManager {
         params['lon'] = '$lon';
       }
 
-      final url = Uri.https('photon.komoot.io', '/api/', params);
+      final url = Uri.https(ApiConstants.photonSearchDomain, ApiConstants.photonSearchPath, params);
 
       final response = await http
           .get(url, headers: {'User-Agent': 'locami-app'})
@@ -249,7 +250,7 @@ class StreetManager {
       params['bounded'] = '0';
     }
 
-    final url = Uri.https('nominatim.openstreetmap.org', '/search', params);
+    final url = Uri.https(ApiConstants.nominatimDomain, ApiConstants.nominatimSearchPath, params);
 
     final response = await http
         .get(url, headers: {'User-Agent': 'locami-app'})
@@ -300,7 +301,7 @@ class StreetManager {
   Future<Map<String, double>?> getCoordinates(String query) async {
     // Try Photon first (faster, better autocomplete)
     try {
-      final url = Uri.https('photon.komoot.io', '/api/', {
+      final url = Uri.https(ApiConstants.photonSearchDomain, ApiConstants.photonSearchPath, {
         'q': query,
         'limit': '1',
         'lang': 'en',
@@ -333,7 +334,7 @@ class StreetManager {
       'accept-language': 'en',
     };
 
-    final url = Uri.https('nominatim.openstreetmap.org', '/search', params);
+    final url = Uri.https(ApiConstants.nominatimDomain, ApiConstants.nominatimSearchPath, params);
 
     try {
       final response = await http

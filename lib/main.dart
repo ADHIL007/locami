@@ -8,6 +8,7 @@ import 'package:locami/modules/home/views/home_view.dart';
 import 'package:locami/theme/theme_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:locami/core/utils/background_service.dart';
+import 'package:locami/core/localization/app_translations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -68,6 +69,9 @@ class _MainAppState extends State<MainApp> {
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       initialBinding: MainBindings(),
+      translations: AppTranslations(),
+      locale: const Locale('en', 'US'),
+      fallbackLocale: const Locale('en', 'US'),
       theme: themeProvider.themeData,
       darkTheme: themeProvider.themeData,
       themeMode: (themeProvider.theme == AppThemeMode.dark ? ThemeMode.dark : ThemeMode.light),
@@ -75,3 +79,4 @@ class _MainAppState extends State<MainApp> {
     );
   }
 }
+

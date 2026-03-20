@@ -65,22 +65,22 @@ class _TripInfoDisplayState extends State<TripInfoDisplay> {
 
         // ETA Calculation
         String etaText = '--';
-        String statusText = 'Waiting for movement...';
+        String statusText = 'waiting_for_movement'.tr;
         if (rawSpeed > 0.5 && remaining > 0) {
           final etaSeconds = remaining / rawSpeed;
           if (etaSeconds < 60) {
-            etaText = '< 1 min';
+            etaText = 'less_than_1_min'.tr;
           } else if (etaSeconds < 3600) {
             final mins = (etaSeconds / 60).ceil();
-            etaText = '$mins min';
+            etaText = 'mins'.trParams({'mins': mins.toString()});
           } else {
             final hours = (etaSeconds / 3600).floor();
             final mins = ((etaSeconds % 3600) / 60).round();
-            etaText = '${hours}h ${mins}m';
+            etaText = 'hours_mins'.trParams({'hours': hours.toString(), 'mins': mins.toString()});
           }
-          statusText = 'Moving · ETA $etaText';
+          statusText = 'moving_eta'.trParams({'eta': etaText});
         } else if (rawSpeed > 0.5) {
-          statusText = 'Moving';
+          statusText = 'moving'.tr;
         }
 
         double progressFactor = 0.0;
@@ -143,7 +143,10 @@ class _TripInfoDisplayState extends State<TripInfoDisplay> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    '${remainingKm.toStringAsFixed(1)} km to ${details.destination ?? 'Destination'}',
+                                    'km_to_destination'.trParams({
+                                      'km': remainingKm.toStringAsFixed(1),
+                                      'destination': details.destination ?? 'destination_placeholder'.tr
+                                    }),
                                     style: TextStyle(
                                       color: textColor,
                                       fontSize: 22,
@@ -173,7 +176,7 @@ class _TripInfoDisplayState extends State<TripInfoDisplay> {
 
                             // Alert within label
                             Text(
-                              'Alert when within ${homeController.alertDistance.value}m',
+                              'alert_when_within'.trParams({'distance': homeController.alertDistance.value.toString()}),
                               style: TextStyle(
                                 color: isDark ? Colors.white70 : Colors.black87.withValues(alpha: 0.7),
                                 fontSize: 14,
@@ -211,7 +214,7 @@ class _TripInfoDisplayState extends State<TripInfoDisplay> {
                                   ),
                                 ),
                                 Text(
-                                  'km/h',
+                                  'km_h'.tr,
                                   style: TextStyle(
                                     color: isDark ? Colors.white54 : Colors.black54,
                                     fontSize: 10,
@@ -296,7 +299,7 @@ class _TripInfoDisplayState extends State<TripInfoDisplay> {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        '${remainingKm.toStringAsFixed(1)} km remaining',
+                        'km_remaining'.trParams({'km': remainingKm.toStringAsFixed(1)}),
                         style: TextStyle(
                           color: subTextColor,
                           fontSize: 13,
@@ -361,13 +364,13 @@ class _TripInfoDisplayState extends State<TripInfoDisplay> {
                                   strokeWidth: 2,
                                 ),
                               )
-                              : const Row(
+                              : Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.play_arrow_rounded, size: 22),
-                                  SizedBox(width: 8),
+                                  const Icon(Icons.play_arrow_rounded, size: 22),
+                                  const SizedBox(width: 8),
                                   Text(
-                                    'Stop Alert',
+                                    'stop_alert'.tr,
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,

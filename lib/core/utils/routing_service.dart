@@ -1,12 +1,13 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
+import 'package:locami/core/constants/api_constants.dart';
 
 class RoutingService {
   RoutingService._();
   static final RoutingService instance = RoutingService._();
 
-  static const _baseUrl = 'https://router.project-osrm.org/route/v1/driving';
+  static const _baseUrl = '${ApiConstants.osrmRouteUrl}driving';
 
   Future<List<LatLng>> getRoute(LatLng start, LatLng end) async {
     final url = Uri.parse(

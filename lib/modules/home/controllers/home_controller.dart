@@ -17,6 +17,7 @@ import 'package:locami/screens/widgets/arrival_alert.dart';
 import 'package:locami/core/utils/trip_simulator.dart';
 import 'package:locami/core/utils/routing_service.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:locami/core/utils/location_utils.dart';
 
 class HomeController extends GetxController {
   final fromController = TextEditingController();
@@ -100,30 +101,14 @@ class HomeController extends GetxController {
       }
 
       // Cross-check with distance-based speed if we have a previous position
-      if (_previousPosition != null && _previousTimestamp != null) {
-        final dt = now.difference(_previousTimestamp!).inMilliseconds / 1000.0;
-        if (dt > 0.1) {
-          final dist = Geolocator.distanceBetween(
-            _previousPosition!.latitude,
-            _previousPosition!.longitude,
-            position.latitude,
-            position.longitude,
-          );
-
-          // Ignore distance under 3m — that's GPS drift, not real movement
-          if (dist > 3.0) {
-            final calcSpeed = dist / dt;
-            if (candidateSpeed > 0) {
-              candidateSpeed = (candidateSpeed + calcSpeed) / 2.0;
-            } else {
-              candidateSpeed = calcSpeed;
-            }
-          } else if (candidateSpeed == 0) {
-            // Both GPS and distance say we're not moving
-            candidateSpeed = 0.0;
-          }
-        }
-      }
+      candidateSpeed = LocationUtils.calculateSmoothedSpeed(
+        currentPos: position,
+        now: now,
+        previousPos: _previousPosition,
+        previousTime: _previousTimestamp,
+        currentSpeedBufferAvg: _speedBuffer.isEmpty ? 0 : _speedBuffer.reduce((a, b) => a + b) / _speedBuffer.length,
+        candidateSpeed: candidateSpeed,
+      );
 
       // Moving average (last 8 samples for stability)
       _speedBuffer.add(candidateSpeed);
@@ -134,24 +119,12 @@ class HomeController extends GetxController {
       smoothedSpeed.value = avgSpeed < 1.0 ? 0.0 : avgSpeed;
 
       // ── INSTANT: Direction (Bearing) Calculation ──
-      if (_previousPosition != null && smoothedSpeed.value > 1.0) {
-        final double newBearing = Geolocator.bearingBetween(
-          _previousPosition!.latitude,
-          _previousPosition!.longitude,
-          position.latitude,
-          position.longitude,
-        );
-
-        double oldHeading = currentHeading.value;
-        double diff = (newBearing - oldHeading).remainder(360.0);
-        if (diff > 180.0) diff -= 360.0;
-        if (diff < -180.0) diff += 360.0;
-
-        // More responsive: 50% old, 50% new
-        currentHeading.value = (oldHeading + diff * 0.5).remainder(360.0);
-      } else if (position.heading != 0.0) {
-        currentHeading.value = position.heading;
-      }
+      currentHeading.value = LocationUtils.calculateResponsiveBearing(
+        currentPos: position,
+        previousPos: _previousPosition,
+        currentHeading: currentHeading.value,
+        smoothedSpeed: smoothedSpeed.value,
+      );
       _previousPosition = position;
       _previousTimestamp = now;
 
