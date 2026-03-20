@@ -10,7 +10,7 @@ import 'package:locami/screens/widgets/tracking_button.dart';
 import 'package:locami/theme/theme_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:locami/screens/widgets/settings_bottom_sheet.dart';
-import 'package:locami/screens/widgets/ultra_simple_display.dart';
+
 import 'package:locami/core/widgets/glass_container.dart';
 import 'dart:ui';
 
@@ -44,13 +44,10 @@ class HomeView extends GetView<HomeController> {
       backgroundColor: isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF8F9FA),
       body: Obx(() {
         final isTracking = controller.isTracking.value;
-        final uiMode = themeProvider.uiMode;
+
         final pos = controller.currentPosition.value;
         final isSatellite = controller.useSatelliteMap.value;
 
-        if (isTracking && uiMode == 'low') {
-          return const UltraSimpleDisplay();
-        }
 
         return SizedBox.expand(
           child: Stack(
