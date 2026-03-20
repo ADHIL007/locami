@@ -1,6 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:solar_icons/solar_icons.dart';
+import 'package:locami/modules/home/controllers/home_controller.dart';
 import 'package:locami/core/db_helper/trip_db.dart';
+import 'package:locami/core/db_helper/saved_location_db.dart';
+import 'package:locami/core/db_helper/location_cache_db.dart';
 import 'package:locami/db_manager/user_model_manager.dart';
 import 'package:locami/db_manager/app_status_manager.dart';
 import 'package:locami/modules/home/views/home_view.dart';
@@ -433,6 +438,12 @@ class SettingsBottomSheet extends StatelessWidget {
                   await TripDbHelper.instance.clearAll();
                   await UserModelManager.instance.clear();
                   await AppStatusManager.instance.reset();
+                  await SavedLocationDb.instance.clearAll();
+                  await LocationCacheDb.instance.clearAll();
+
+                  // Reset the controller state to show loading screen and rebuild everything
+                  final controller = Get.find<HomeController>();
+                  unawaited(controller.reInitialize());
 
                   if (context.mounted) {
                     Navigator.pushAndRemoveUntil(

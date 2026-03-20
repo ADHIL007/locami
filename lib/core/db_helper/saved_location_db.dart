@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+import 'package:solar_icons/solar_icons.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
@@ -32,9 +34,7 @@ class SavedLocationDb {
         created_at INTEGER NOT NULL
       )
     ''');
-    await db.execute(
-      'CREATE INDEX idx_label ON $_tableName (label)',
-    );
+    await db.execute('CREATE INDEX idx_label ON $_tableName (label)');
   }
 
   /// Save a new tagged location.
@@ -107,6 +107,12 @@ class SavedLocationDb {
     if (results.isEmpty) return null;
     return SavedLocation.fromMap(results.first);
   }
+
+  /// Clear all saved locations.
+  Future<void> clearAll() async {
+    final db = await database;
+    await db.delete(_tableName);
+  }
 }
 
 /// Model for a saved/tagged location.
@@ -142,23 +148,28 @@ class SavedLocation {
   }
 
   /// Get the appropriate icon data based on icon string.
-  static Map<String, dynamic> iconOptions() {
+  static Map<String, IconData> iconOptions() {
     return {
-      'home': {'label': 'Home', 'emoji': '🏠'},
-      'work': {'label': 'Work', 'emoji': '💼'},
-      'gym': {'label': 'Gym', 'emoji': '🏋️'},
-      'school': {'label': 'School', 'emoji': '🎓'},
-      'hospital': {'label': 'Hospital', 'emoji': '🏥'},
-      'restaurant': {'label': 'Restaurant', 'emoji': '🍽️'},
-      'shopping': {'label': 'Shopping', 'emoji': '🛒'},
-      'airport': {'label': 'Airport', 'emoji': '✈️'},
-      'temple': {'label': 'Temple', 'emoji': '🛕'},
-      'park': {'label': 'Park', 'emoji': '🌳'},
-      'place': {'label': 'Other', 'emoji': '📍'},
+      'home': SolarIconsOutline.home,
+      'work': SolarIconsOutline.caseMinimalistic,
+      'gym': SolarIconsOutline.dumbbell,
+      'school': SolarIconsOutline.library,
+      'hospital': SolarIconsOutline.hospital,
+      'restaurant': SolarIconsOutline.cupFirst,
+      'shopping': SolarIconsOutline.cart,
+      'airport': SolarIconsOutline.plain,
+      'temple': SolarIconsOutline.buildings,
+      'park': SolarIconsOutline.mapPoint,
+      'place': SolarIconsOutline.mapPoint,
+      'heart': SolarIconsOutline.heart,
+      'star': SolarIconsOutline.star,
+      'flag': SolarIconsOutline.flag,
+      'bus': SolarIconsOutline.bus,
+      'train': SolarIconsOutline.tram,
     };
   }
 
-  String get emoji {
-    return iconOptions()[icon]?['emoji'] ?? '📍';
+  IconData get iconData {
+    return iconOptions()[icon] ?? SolarIconsOutline.mapPoint;
   }
 }

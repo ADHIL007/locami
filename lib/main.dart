@@ -10,6 +10,8 @@ import 'package:provider/provider.dart';
 import 'package:locami/core/utils/background_service.dart';
 import 'package:locami/core/localization/app_translations.dart';
 
+import 'package:locami/core/utils/map_cache_manager.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -22,6 +24,7 @@ void main() async {
     systemNavigationBarIconBrightness: Brightness.light,
   ));
 
+  await MapCacheManager.instance.init();
   await initializeService();
 
   final appStatus = await AppStatusManager.instance.status;

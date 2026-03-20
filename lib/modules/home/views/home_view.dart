@@ -17,6 +17,8 @@ import 'package:locami/modules/home/views/widgets/map_center_confirm_panel.dart'
 import 'package:locami/modules/home/views/widgets/ghost_fab_group.dart';
 import 'package:locami/modules/home/views/widgets/navigation_arrow_painter.dart';
 import 'package:locami/core/constants/api_constants.dart';
+import 'package:flutter_map_cache/flutter_map_cache.dart';
+import 'package:locami/core/utils/map_cache_manager.dart';
 
 class HomeView extends GetView<HomeController> {
   const HomeView({super.key});
@@ -66,7 +68,7 @@ class HomeView extends GetView<HomeController> {
           children: [
             Row(
               children: [
-                Text(loc.emoji, style: const TextStyle(fontSize: 24)),
+                Icon(loc.iconData, size: 24, color: accentColor),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -165,6 +167,9 @@ class HomeView extends GetView<HomeController> {
                                 : ApiConstants.cartoDbLightUrl),
                         subdomains: const ['a', 'b', 'c', 'd'],
                         userAgentPackageName: 'com.example.locami',
+                        tileProvider: CachedTileProvider(
+                          store: MapCacheManager.instance.cacheStore,
+                        ),
                       );
                     }),
                     Obx(() {
@@ -172,6 +177,9 @@ class HomeView extends GetView<HomeController> {
                       return fm.TileLayer(
                         urlTemplate: ApiConstants.cartoDbLabelsUrl,
                         subdomains: const ['a', 'b', 'c', 'd'],
+                        tileProvider: CachedTileProvider(
+                          store: MapCacheManager.instance.cacheStore,
+                        ),
                       );
                     }),
                     Obx(() {
@@ -284,7 +292,7 @@ class HomeView extends GetView<HomeController> {
                                   ],
                                 ),
                                 child: Center(
-                                  child: Text(loc.emoji, style: const TextStyle(fontSize: 18)),
+                                  child: Icon(loc.iconData, size: 18, color: Colors.white),
                                 ),
                               ),
                             ),

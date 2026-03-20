@@ -17,7 +17,7 @@ class GhostFABGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = Get.find<HomeController>();
 
-    return Column(
+    return Obx(() => Column(
       children: [
         if (!controller.isTracking.value)
           _buildGhostBtn(
@@ -51,6 +51,7 @@ class GhostFABGroup extends StatelessWidget {
                     ? SolarIconsBold.moon
                     : SolarIconsOutline.sun,
             onTap: controller.toggleMapTheme,
+            isDisabled: controller.useSatelliteMap.value,
           ),
           const SizedBox(height: 16),
           _buildGhostBtn(
@@ -70,7 +71,7 @@ class GhostFABGroup extends StatelessWidget {
           ),
         ],
       ],
-    );
+    ));
   }
 
   Widget _buildGhostBtn({
@@ -78,10 +79,14 @@ class GhostFABGroup extends StatelessWidget {
     Widget? customChild,
     required VoidCallback onTap,
     Color? borderColor,
+    bool isDisabled = false,
   }) {
     return GestureDetector(
-      onTap: onTap,
-      child: GlassContainer(
+      onTap: isDisabled ? null : onTap,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 200),
+        opacity: isDisabled ? 0.3 : 1.0,
+        child: GlassContainer(
         width: 54,
         height: 54,
         blur: 15,
@@ -108,6 +113,7 @@ class GhostFABGroup extends StatelessWidget {
                   ),
                 ],
               ),
+        ),
         ),
       ),
     );

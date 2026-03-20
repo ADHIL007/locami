@@ -194,4 +194,10 @@ class LocationCacheDb {
     final result = await db.rawQuery('SELECT COUNT(*) as c FROM $_tableName');
     return result.first['c'] as int;
   }
+
+  /// Clear all cached locations.
+  Future<void> clearAll() async {
+    final db = await database;
+    await db.delete(_tableName);
+  }
 }

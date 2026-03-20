@@ -224,7 +224,11 @@ class _LocationSearchSheetState extends State<LocationSearchSheet> {
                       widget.onSelected(loc.displayName);
                       Navigator.pop(context);
                     },
-                    leading: Text(loc.emoji, style: const TextStyle(fontSize: 24)),
+                    leading: Icon(
+                      loc.iconData,
+                      size: 24,
+                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87,
+                    ),
                     title: Text(
                       loc.label,
                       style: TextStyle(

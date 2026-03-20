@@ -152,37 +152,24 @@ class _SaveLocationDialogState extends State<SaveLocationDialog> {
                   return GestureDetector(
                     onTap: () {
                       setState(() => _selectedIcon = entry.key);
-                      if (_labelController.text.isEmpty) {
-                        _labelController.text = entry.value['label'];
-                      }
                     },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         color: isSelected
                             ? accentColor.withValues(alpha: 0.15)
                             : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: isSelected ? accentColor : Colors.transparent,
                           width: 1.5,
                         ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(entry.value['emoji'], style: const TextStyle(fontSize: 16)),
-                          const SizedBox(width: 6),
-                          Text(
-                            entry.value['label'],
-                            style: TextStyle(
-                              color: isSelected ? accentColor : subColor,
-                              fontSize: 12,
-                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                            ),
-                          ),
-                        ],
+                      child: Icon(
+                        entry.value,
+                        color: isSelected ? accentColor : subColor,
+                        size: 26,
                       ),
                     ),
                   );

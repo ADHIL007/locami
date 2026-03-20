@@ -18,6 +18,7 @@ import 'package:locami/core/utils/trip_simulator.dart';
 import 'package:locami/core/utils/routing_service.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:locami/core/utils/location_utils.dart';
+import 'package:locami/core/utils/map_cache_manager.dart';
 
 class HomeController extends GetxController {
   final fromController = TextEditingController();
@@ -48,6 +49,7 @@ class HomeController extends GetxController {
   StreamSubscription<Position>? _positionSubscription;
   Position? _previousPosition;
   DateTime? _previousTimestamp;
+  Position? _lastPreloadPosition;
   final List<double> _speedBuffer = [];
   Timer? _transmissionTimer;
   Timer? _simulationTimer;
@@ -137,6 +139,9 @@ class HomeController extends GetxController {
       if (destinationLatitude.value != null && destinationLongitude.value != null) {
         _updateRouteIfNeeded(position);
       }
+
+      // ── MAP PRELOAD: Preload surrounding area if moved significantly (e.g. 5km) ──
+      _checkAndPreloadMap(position);
     }, onError: (error) {
       debugPrint('Location stream error: $error');
     });
@@ -182,6 +187,19 @@ class HomeController extends GetxController {
         currentRoute.assignAll(await RoutingService.instance.getRoute(start, dest));
       }
     }
+  }
+
+  /// Full reset and re-initialization of the controller state
+  Future<void> reInitialize() async {
+    isInitialized.value = false;
+    currentRoute.clear();
+    destinationLatitude.value = null;
+    destinationLongitude.value = null;
+    isTracking.value = false;
+    fromController.clear();
+    toController.clear();
+    _lastPreloadPosition = null;
+    await _initAsync();
   }
 
   Future<void> _initAsync() async {
@@ -232,6 +250,14 @@ class HomeController extends GetxController {
       loadSavedLocations();
       loadNearbyStreets();
       await Future.delayed(const Duration(milliseconds: 400));
+
+      // Step 7: Preload map cache
+      initStatus.value = 'Preloading surrounding map...';
+      if (currentPosition.value != null) {
+        // We only await half a second to not block forever, map preloading continues in background
+        _preloadAsync(currentPosition.value!);
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
 
       // Done!
       initStatus.value = 'Ready';
@@ -717,7 +743,39 @@ class HomeController extends GetxController {
       final center = mapController.camera.center;
       setDestinationFromCoords(center);
     } catch (e) {
-      debugPrint("Error selecting center location: $e");
+    }
+  }
+
+  Future<void> _preloadAsync(Position pos) async {
+    try {
+      _lastPreloadPosition = pos;
+      await MapCacheManager.instance.preloadSurroundingMap(
+        pos.latitude,
+        pos.longitude,
+        isDark: isMapDark.value,
+        isSatellite: useSatelliteMap.value,
+      );
+    } catch (e) {
+      debugPrint('Map preload error: $e');
+    }
+  }
+
+  void _checkAndPreloadMap(Position pos) {
+    if (_lastPreloadPosition == null) {
+      _preloadAsync(pos);
+      return;
+    }
+
+    final distance = Geolocator.distanceBetween(
+      _lastPreloadPosition!.latitude,
+      _lastPreloadPosition!.longitude,
+      pos.latitude,
+      pos.longitude,
+    );
+
+    // If moved more than 3km from last preload center, preload again.
+    if (distance > 3000) {
+      _preloadAsync(pos);
     }
   }
 
