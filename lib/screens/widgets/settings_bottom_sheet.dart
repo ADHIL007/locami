@@ -164,7 +164,7 @@ class SettingsBottomSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-          _buildSectionTitle("Performance"),
+          _buildSectionTitle("Appearance Details"),
           const SizedBox(height: 8),
           Row(
             children: [

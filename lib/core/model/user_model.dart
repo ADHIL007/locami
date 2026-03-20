@@ -14,6 +14,7 @@ class UserModel {
   final double? alertDistance;
   final String? currentTripId;
   final bool isAlarmActive;
+  final double? totalTripDistance;
 
 
   const UserModel({
@@ -32,6 +33,7 @@ class UserModel {
     this.alertDistance,
     this.currentTripId,
     this.isAlarmActive = false,
+    this.totalTripDistance,
   });
 
   Map<String, dynamic> toJson() => {
@@ -50,6 +52,7 @@ class UserModel {
     'alertDistance': alertDistance,
     'currentTripId': currentTripId,
     'isAlarmActive': isAlarmActive,
+    'totalTripDistance': totalTripDistance,
   };
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -72,6 +75,7 @@ class UserModel {
     alertDistance: (json['alertDistance'] as num?)?.toDouble(),
     currentTripId: json['currentTripId'],
     isAlarmActive: json['isAlarmActive'] ?? false,
+    totalTripDistance: (json['totalTripDistance'] as num?)?.toDouble(),
   );
 
   UserModel copyWith({
@@ -90,6 +94,7 @@ class UserModel {
     double? alertDistance,
     String? currentTripId,
     bool? isAlarmActive,
+    double? totalTripDistance,
   }) {
     return UserModel(
       username: username ?? this.username,
@@ -107,6 +112,7 @@ class UserModel {
       alertDistance: alertDistance ?? this.alertDistance,
       currentTripId: currentTripId ?? this.currentTripId,
       isAlarmActive: isAlarmActive ?? this.isAlarmActive,
+      totalTripDistance: totalTripDistance ?? this.totalTripDistance,
     );
   }
 }

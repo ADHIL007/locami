@@ -34,10 +34,15 @@ class HomeController extends GetxController {
   final useSatelliteMap = false.obs;
   final isMapDark = true.obs;
   final currentLocationName = "Locating...".obs;
+  final isPinSelectionMode = false.obs;
+  final currentHeading = 0.0.obs;
 
   StreamSubscription<Position>? _positionSubscription;
+  Position? _previousPosition;
   Timer? _transmissionTimer;
   Timer? _simulationTimer;
+  Timer? _geocodeTimer;
+  bool _isGeocodingInProgress = false;
   final AudioPlayer _audioPlayer = AudioPlayer();
   final mapController = fm.MapController();
 
@@ -68,20 +73,64 @@ class HomeController extends GetxController {
   void _startLocationStream() {
     _positionSubscription?.cancel();
     _positionSubscription = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.best, distanceFilter: 2),
-    ).listen((position) async {
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        distanceFilter: 0,
+      ),
+    ).listen((position) {
+      // ── INSTANT: Update position (triggers UI rebuild immediately) ──
       currentPosition.value = position;
-      mapController.move(LatLng(position.latitude, position.longitude), 15.0);
-      
-      final details = await StreetManager.instance.getLocationDetailsAt(position.latitude, position.longitude);
-      if (details != null && details['address'] != null) {
-        currentLocationName.value = _formatAddressToTwoCommas(details['address']!);
-      }
 
+      // ── INSTANT: Direction (Bearing) Calculation ──
+      if (_previousPosition != null && position.speed > 1.0) {
+        final double newBearing = Geolocator.bearingBetween(
+          _previousPosition!.latitude,
+          _previousPosition!.longitude,
+          position.latitude,
+          position.longitude,
+        );
+
+        double oldHeading = currentHeading.value;
+        double diff = (newBearing - oldHeading).remainder(360.0);
+        if (diff > 180.0) diff -= 360.0;
+        if (diff < -180.0) diff += 360.0;
+
+        // More responsive: 50% old, 50% new
+        currentHeading.value = (oldHeading + diff * 0.5).remainder(360.0);
+      } else if (position.heading != 0.0) {
+        currentHeading.value = position.heading;
+      }
+      _previousPosition = position;
+
+      // ── DEBOUNCED: Reverse Geocoding (every 3 seconds, non-blocking) ──
+      _geocodeTimer ??= Timer.periodic(const Duration(seconds: 3), (_) {
+        _updateLocationName();
+      });
+
+      // ── THROTTLED: Route Update (only when needed, non-blocking) ──
       if (destinationLatitude.value != null && destinationLongitude.value != null) {
         _updateRouteIfNeeded(position);
       }
     });
+  }
+
+  Future<void> _updateLocationName() async {
+    if (_isGeocodingInProgress) return;
+    final pos = currentPosition.value;
+    if (pos == null) return;
+
+    _isGeocodingInProgress = true;
+    try {
+      final details = await StreetManager.instance.getLocationDetailsAt(
+        pos.latitude,
+        pos.longitude,
+      );
+      if (details != null && details['address'] != null) {
+        currentLocationName.value = _formatAddressToTwoCommas(details['address']!);
+      }
+    } finally {
+      _isGeocodingInProgress = false;
+    }
   }
 
   String _formatAddressToTwoCommas(String address) {
@@ -121,6 +170,7 @@ class HomeController extends GetxController {
     toController.dispose();
     _transmissionTimer?.cancel();
     _simulationTimer?.cancel();
+    _geocodeTimer?.cancel();
     _positionSubscription?.cancel();
     _audioPlayer.dispose();
     TripDetailsManager.instance.isTrackingNotifier.removeListener(_onTrackingStatusChanged);
@@ -310,6 +360,14 @@ class HomeController extends GetxController {
       try {
         await TripDetailsManager.instance.stopTracking();
         isTracking.value = false;
+        
+        // Reset destination and clear route
+        destinationLatitude.value = null;
+        destinationLongitude.value = null;
+        toAddress.value = "";
+        toController.clear();
+        currentRoute.clear();
+        
         stopTransmission();
       } catch (e) {
         Get.snackbar('Error', 'Error stopping tracking: $e');
@@ -388,12 +446,50 @@ class HomeController extends GetxController {
     update();
   }
 
+  Future<void> setDestinationFromCoords(LatLng coords) async {
+    if (isTracking.value) return;
+
+    destinationLatitude.value = coords.latitude;
+    destinationLongitude.value = coords.longitude;
+    currentRoute.clear();
+    centerMap(coords.latitude, coords.longitude);
+
+    final details = await StreetManager.instance.getLocationDetailsAt(
+      coords.latitude,
+      coords.longitude,
+    );
+    if (details != null && details['address'] != null) {
+      final String address = details['address']!;
+      toAddress.value = address;
+      toController.text = address;
+    } else {
+      toAddress.value =
+          "${coords.latitude.toStringAsFixed(4)}, ${coords.longitude.toStringAsFixed(4)}";
+      toController.text = toAddress.value;
+    }
+
+    if (currentPosition.value != null) {
+      _updateRouteIfNeeded(currentPosition.value!);
+    }
+    update();
+  }
+
   void focusCurrentLocation() {
     final pos = currentPosition.value;
     if (pos != null) {
       centerMap(pos.latitude, pos.longitude, 15.0);
     } else {
       getInitialLocation();
+    }
+  }
+
+  void selectCenterLocation() {
+    if (isTracking.value) return;
+    try {
+      final center = mapController.camera.center;
+      setDestinationFromCoords(center);
+    } catch (e) {
+      debugPrint("Error selecting center location: $e");
     }
   }
 

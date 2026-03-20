@@ -34,6 +34,7 @@ class TripDetailsManager {
       _destinationLon = user.destinationLongitude;
       _alertDistance = user.alertDistance;
       _currentTripId = user.currentTripId;
+      _totalTripDistance = user.totalTripDistance;
     }
   }
 
@@ -124,12 +125,28 @@ class TripDetailsManager {
       await FlutterBackgroundService().startService();
     }
 
+    // Initialize total distance for progress bar
+    try {
+      final startPos = await Geolocator.getCurrentPosition();
+      if (_destinationLat != null && _destinationLon != null) {
+        _totalTripDistance = Geolocator.distanceBetween(
+          startPos.latitude,
+          startPos.longitude,
+          _destinationLat!,
+          _destinationLon!,
+        );
+      }
+    } catch (e) {
+      debugPrint("Error getting initial position for total distance: $e");
+    }
+
     await UserModelManager.instance.patchUser(
       isTravelStarted: true,
       isTravelEnded: false,
       startTime: DateTime.now(),
       alertDistance: _alertDistance,
       currentTripId: _currentTripId,
+      totalTripDistance: _totalTripDistance,
     );
 
     _listenToBackgroundService();
@@ -174,6 +191,7 @@ class TripDetailsManager {
       isTravelEnded: true,
       endTime: DateTime.now(),
       currentTripId: null,
+      clearDestination: true,
     );
   }
 
@@ -225,6 +243,12 @@ class TripDetailsManager {
     double? remainingDist;
     if (_destinationLat != null && _destinationLon != null) {
       remainingDist = Geolocator.distanceBetween(position.latitude, position.longitude, _destinationLat!, _destinationLon!);
+      
+      // Fallback: Initialize total distance if it's still null
+      if (_totalTripDistance == null || _totalTripDistance == 0) {
+        _totalTripDistance = remainingDist;
+      }
+
       if (!_alertTriggered && _alertDistance != null && remainingDist <= _alertDistance!) {
         _alertTriggered = true;
         _triggerAlert(remainingDist);
@@ -335,8 +359,12 @@ class TripDetailsManager {
       _destinationLon = user.destinationLongitude;
       _alertDistance = user.alertDistance ?? 500.0;
       _currentTripId = user.currentTripId;
+      _totalTripDistance = user.totalTripDistance;
       _positionStreamSubscription = Geolocator.getPositionStream(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.best, distanceFilter: 5),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.bestForNavigation,
+          distanceFilter: 0,
+        ),
       ).listen((pos) {
         if (!_isSimulationMode) _handlePositionUpdate(pos);
       });
