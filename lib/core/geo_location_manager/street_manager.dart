@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:locami/core/db_helper/location_cache_db.dart';
 
 class StreetManager {
   StreetManager._();
@@ -64,7 +65,6 @@ class StreetManager {
     return null;
   }
 
-
   Future<List<String>> getNearbyStreets() async {
     final details = await getCurrentLocationDetails();
     if (details != null && details['address'] != null) {
@@ -73,10 +73,17 @@ class StreetManager {
     return [];
   }
 
+  /// Smart search: Cache-first, then Nominatim fallback.
+  ///
+  /// Flow:
+  /// 1. Check SQLite cache for prefix match
+  /// 2. If cache has ≥3 results → return them immediately (no network)
+  /// 3. If cache has <3 results → fetch from Nominatim, cache results, return merged
+  /// 4. Results always sorted by: nearby first → most used → most recent
   Future<List<String>> searchStreets(
     String query, {
     String? countryCode = 'IN',
-    int limit = 10,
+    int limit = 15,
     double? lat,
     double? lon,
   }) async {
@@ -86,43 +93,239 @@ class StreetManager {
     }
     isLoading.value = true;
 
-    final params = {
-      'q': query,
-      'format': 'json',
-      'limit': '$limit',
-      'addressdetails': '1',
-      'countrycodes': countryCode ?? '',
-      'accept-language': 'en',
-    };
-
-    if (lat != null && lon != null) {
-      params['viewbox'] = '${lon - 0.1},${lat + 0.1},${lon + 0.1},${lat - 0.1}';
-      params['bounded'] = '0';
-    }
-
-    final url = Uri.https('nominatim.openstreetmap.org', '/search', params);
-
     try {
+      // ── Step 1: Check cache first ──
+      final cachedResults = await LocationCacheDb.instance.searchCache(
+        query: query,
+        userLat: lat,
+        userLon: lon,
+        limit: limit,
+      );
+
+      final cachedNames = cachedResults
+          .map((r) => r['display_name'] as String)
+          .toList();
+
+      // ── Step 2: If cache has enough results, return immediately ──
+      if (cachedNames.length >= 3) {
+        locations.assignAll(cachedNames);
+        isLoading.value = false;
+        return cachedNames;
+      }
+
+      // ── Step 3: Fetch from Photon (cache miss or too few results) ──
+      final networkResults = await _fetchFromPhoton(
+        query,
+        countryCode: countryCode,
+        limit: limit,
+        lat: lat,
+        lon: lon,
+      );
+
+      // ── Step 4: Cache all network results for future use ──
+      if (networkResults.isNotEmpty) {
+        await LocationCacheDb.instance.cacheResults(
+          searchQuery: query,
+          results: networkResults,
+        );
+      }
+
+      // ── Step 5: Merge — cached first (user favorites), then network ──
+      final networkNames = networkResults
+          .map((r) => r['display_name'] as String)
+          .toList();
+
+      final merged = <String>[...cachedNames];
+      for (final name in networkNames) {
+        if (!merged.contains(name)) {
+          merged.add(name);
+        }
+      }
+
+      final finalResults = merged.take(limit).toList();
+      locations.assignAll(finalResults);
+      return finalResults;
+    } catch (e) {
+      debugPrint('Search error: $e');
+      // On error, still try to return cached results
+      final fallback = await LocationCacheDb.instance.searchCache(
+        query: query,
+        userLat: lat,
+        userLon: lon,
+      );
+      final names = fallback.map((r) => r['display_name'] as String).toList();
+      locations.assignAll(names);
+      return names;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  /// Primary search: Photon (Komoot) — excellent street/POI autocomplete.
+  /// Falls back to Nominatim if Photon fails.
+  Future<List<Map<String, dynamic>>> _fetchFromPhoton(
+    String query, {
+    String? countryCode,
+    int limit = 15,
+    double? lat,
+    double? lon,
+  }) async {
+    try {
+      final params = <String, String>{
+        'q': query,
+        'limit': '$limit',
+        'lang': 'en',
+      };
+
+      // Location bias — Photon natively supports this
+      if (lat != null && lon != null) {
+        params['lat'] = '$lat';
+        params['lon'] = '$lon';
+      }
+
+      final url = Uri.https('photon.komoot.io', '/api/', params);
+
       final response = await http
           .get(url, headers: {'User-Agent': 'locami-app'})
           .timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
-        final List data = json.decode(response.body);
-        final results = data.map<String>((e) => _formatDisplayName(e)).toList();
-        locations.assignAll(results);
-        return results;
+        final data = json.decode(response.body);
+        final features = data['features'] as List? ?? [];
+
+        return features.map<Map<String, dynamic>>((f) {
+          final props = f['properties'] ?? {};
+          final coords = f['geometry']?['coordinates'] as List?;
+
+          // Filter by country if specified
+          final itemCountry = (props['country'] ?? '').toString().toLowerCase();
+          final countryName = _countryCodeToName(countryCode);
+          if (countryCode != null && countryName != null &&
+              itemCountry.isNotEmpty && !itemCountry.contains(countryName)) {
+            return <String, dynamic>{};
+          }
+
+          return {
+            'display_name': _formatPhotonResult(props),
+            'latitude': coords != null && coords.length >= 2
+                ? (coords[1] as num).toDouble()
+                : null,
+            'longitude': coords != null && coords.length >= 2
+                ? (coords[0] as num).toDouble()
+                : null,
+          };
+        }).where((r) => r.isNotEmpty && r['display_name'] != null && (r['display_name'] as String).isNotEmpty).toList();
       }
     } catch (e) {
-      debugPrint('Search error: $e');
-    } finally {
-      isLoading.value = false;
+      debugPrint('Photon search error: $e');
+    }
+
+    // Fallback to Nominatim
+    return _fetchFromNominatim(query, countryCode: countryCode, limit: limit, lat: lat, lon: lon);
+  }
+
+  /// Fallback: Nominatim search
+  Future<List<Map<String, dynamic>>> _fetchFromNominatim(
+    String query, {
+    String? countryCode,
+    int limit = 15,
+    double? lat,
+    double? lon,
+  }) async {
+    final params = {
+      'q': query,
+      'format': 'json',
+      'limit': '$limit',
+      'addressdetails': '1',
+      'accept-language': 'en',
+    };
+
+    if (countryCode != null && countryCode.isNotEmpty) {
+      params['countrycodes'] = countryCode;
+    }
+
+    if (lat != null && lon != null) {
+      params['viewbox'] = '${lon - 0.5},${lat + 0.5},${lon + 0.5},${lat - 0.5}';
+      params['bounded'] = '0';
+    }
+
+    final url = Uri.https('nominatim.openstreetmap.org', '/search', params);
+
+    final response = await http
+        .get(url, headers: {'User-Agent': 'locami-app'})
+        .timeout(const Duration(seconds: 5));
+
+    if (response.statusCode == 200) {
+      final List data = json.decode(response.body);
+      return data.map<Map<String, dynamic>>((e) => {
+        'display_name': _formatDisplayName(e),
+        'latitude': double.tryParse(e['lat']?.toString() ?? ''),
+        'longitude': double.tryParse(e['lon']?.toString() ?? ''),
+      }).toList();
     }
 
     return [];
   }
 
+  /// Format Photon result into a readable address
+  String _formatPhotonResult(Map props) {
+    final name = props['name']?.toString() ?? '';
+    final street = props['street']?.toString() ?? '';
+    final city = props['city']?.toString() ?? props['town']?.toString() ?? props['village']?.toString() ?? '';
+    final state = props['state']?.toString() ?? '';
+
+    final parts = <String>[];
+
+    if (name.isNotEmpty) parts.add(name);
+    if (street.isNotEmpty && street != name) parts.add(street);
+    if (city.isNotEmpty && city != name) parts.add(city);
+    if (parts.isEmpty && state.isNotEmpty) parts.add(state);
+
+    if (parts.isEmpty) return props['name']?.toString() ?? '';
+    return parts.take(3).join(', ');
+  }
+
+  /// Simple country code to name mapping for filtering
+  String? _countryCodeToName(String? code) {
+    if (code == null) return null;
+    const map = {
+      'IN': 'india', 'US': 'united states', 'GB': 'united kingdom',
+      'AE': 'united arab emirates', 'SA': 'saudi arabia', 'QA': 'qatar',
+      'SG': 'singapore', 'MY': 'malaysia', 'AU': 'australia',
+      'CA': 'canada', 'DE': 'germany', 'FR': 'france',
+    };
+    return map[code.toUpperCase()];
+  }
+
   Future<Map<String, double>?> getCoordinates(String query) async {
+    // Try Photon first (faster, better autocomplete)
+    try {
+      final url = Uri.https('photon.komoot.io', '/api/', {
+        'q': query,
+        'limit': '1',
+        'lang': 'en',
+      });
+
+      final response = await http
+          .get(url, headers: {'User-Agent': 'locami-app'})
+          .timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final features = data['features'] as List? ?? [];
+        if (features.isNotEmpty) {
+          final coords = features[0]['geometry']?['coordinates'] as List?;
+          if (coords != null && coords.length >= 2) {
+            return {
+              'lat': (coords[1] as num).toDouble(),
+              'lon': (coords[0] as num).toDouble(),
+            };
+          }
+        }
+      }
+    } catch (_) {}
+
+    // Fallback to Nominatim
     final params = {
       'q': query,
       'format': 'json',
@@ -150,6 +353,16 @@ class StreetManager {
       debugPrint('Geocoding error: $e');
     }
     return null;
+  }
+
+  /// Cache a user-selected destination (bumps hit_count for ranking).
+  Future<void> cacheSelectedLocation(String displayName, {double? lat, double? lon}) async {
+    await LocationCacheDb.instance.cacheLocation(
+      displayName: displayName,
+      searchQuery: displayName.toLowerCase(),
+      latitude: lat,
+      longitude: lon,
+    );
   }
 
   String _formatDisplayName(Map item) {

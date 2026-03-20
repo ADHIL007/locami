@@ -34,9 +34,12 @@ class _TripInfoDisplayState extends State<TripInfoDisplay> {
     final handleColor = isDark ? Colors.white.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.1);
     final trackBgColor = isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06);
 
-    return ValueListenableBuilder<TripDetailsModel?>(
+    return Obx(() {
+      // Touch smoothedSpeed to subscribe to changes
+      final _ = homeController.smoothedSpeed.value;
+      return ValueListenableBuilder<TripDetailsModel?>(
       valueListenable: TripDetailsManager.instance.currentTripDetail,
-      builder: (context, details, _) {
+      builder: (context, details, __) {
         if (details == null) {
           return GlassContainer(
             margin: const EdgeInsets.all(20),
@@ -54,10 +57,31 @@ class _TripInfoDisplayState extends State<TripInfoDisplay> {
         final remainingKm = (details.remainingDistance ?? 0) / 1000;
         final total = details.totalDistance ?? 0.0;
         final remaining = details.remainingDistance ?? 0.0;
-        final rawSpeed = details.speed < 0 ? 0.0 : details.speed;
+        // Use smoothed speed from controller (not raw GPS)
+        final rawSpeed = homeController.smoothedSpeed.value;
         final speedKmh = (rawSpeed * 3.6).round();
         final showSimulation =
             EnvironmentConfig.isDevelopment && themeProvider.enableSimulation;
+
+        // ETA Calculation
+        String etaText = '--';
+        String statusText = 'Waiting for movement...';
+        if (rawSpeed > 0.5 && remaining > 0) {
+          final etaSeconds = remaining / rawSpeed;
+          if (etaSeconds < 60) {
+            etaText = '< 1 min';
+          } else if (etaSeconds < 3600) {
+            final mins = (etaSeconds / 60).ceil();
+            etaText = '$mins min';
+          } else {
+            final hours = (etaSeconds / 3600).floor();
+            final mins = ((etaSeconds % 3600) / 60).round();
+            etaText = '${hours}h ${mins}m';
+          }
+          statusText = 'Moving · ETA $etaText';
+        } else if (rawSpeed > 0.5) {
+          statusText = 'Moving';
+        }
 
         double progressFactor = 0.0;
         if (total > 0) {
@@ -136,10 +160,11 @@ class _TripInfoDisplayState extends State<TripInfoDisplay> {
                             Padding(
                               padding: const EdgeInsets.only(left: 32),
                               child: Text(
-                                'Idle, GPS Active',
+                                statusText,
                                 style: TextStyle(
-                                  color: subTextColor,
+                                  color: rawSpeed > 0.5 ? accentColor.withValues(alpha: 0.8) : subTextColor,
                                   fontSize: 13,
+                                  fontWeight: rawSpeed > 0.5 ? FontWeight.w600 : FontWeight.normal,
                                 ),
                               ),
                             ),
@@ -261,7 +286,7 @@ class _TripInfoDisplayState extends State<TripInfoDisplay> {
 
                   const SizedBox(height: 12),
 
-                  // ── Remaining ──
+                  // ── Remaining + ETA ──
                   Row(
                     children: [
                       Icon(
@@ -278,6 +303,32 @@ class _TripInfoDisplayState extends State<TripInfoDisplay> {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
+                      if (rawSpeed > 0.5) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 3,
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: subTextColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          SolarIconsOutline.clockCircle,
+                          color: subTextColor,
+                          size: 13,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          etaText,
+                          style: TextStyle(
+                            color: subTextColor,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
 
@@ -367,6 +418,7 @@ class _TripInfoDisplayState extends State<TripInfoDisplay> {
         );
       },
     );
+    });
   }
 }
 

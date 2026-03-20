@@ -12,11 +12,27 @@ import 'package:provider/provider.dart';
 import 'package:locami/screens/widgets/settings_bottom_sheet.dart';
 
 import 'package:locami/core/widgets/glass_container.dart';
+import 'package:locami/core/db_helper/saved_location_db.dart';
+import 'package:locami/screens/widgets/save_location_dialog.dart';
 import 'dart:ui';
 import 'dart:math' as math;
 
 class HomeView extends GetView<HomeController> {
   const HomeView({super.key});
+
+  Color _getColorForSeed(String seed) {
+    final colors = [
+      Colors.redAccent,
+      Colors.blueAccent,
+      Colors.greenAccent,
+      Colors.orangeAccent,
+      Colors.purpleAccent,
+      Colors.tealAccent,
+      Colors.pinkAccent,
+      Colors.indigoAccent,
+    ];
+    return colors[seed.hashCode.abs() % colors.length];
+  }
 
   void _showLocationSearch() {
     Get.bottomSheet(
@@ -35,6 +51,185 @@ class HomeView extends GetView<HomeController> {
     );
   }
 
+  void _showSavedLocationOptions(SavedLocation loc, bool isDark, Color accentColor) {
+    Get.bottomSheet(
+      Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(loc.emoji, style: const TextStyle(fontSize: 24)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        loc.label,
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black87,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        loc.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            ListTile(
+              leading: Icon(Icons.navigation_rounded, color: accentColor),
+              title: const Text('Start Tracking Here'),
+              onTap: () {
+                Get.back();
+                controller.startTrackingToSaved(loc);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
+              title: const Text('Delete Location'),
+              onTap: () {
+                Get.back();
+                controller.deleteSavedLocation(loc.id);
+                Get.snackbar(
+                  'Deleted',
+                  '${loc.label} removed from saved locations.',
+                  snackPosition: SnackPosition.BOTTOM,
+                  backgroundColor: isDark ? const Color(0xFF2A2A2A) : Colors.white,
+                  colorText: isDark ? Colors.white : Colors.black87,
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingScreen(bool isDark, Color accentColor) {
+    return Container(
+      color: isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF1F3F5),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ── Pulsing Radar Ring ──
+            SizedBox(
+              width: 120,
+              height: 120,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Outer pulsing ring
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    duration: const Duration(milliseconds: 1500),
+                    builder: (context, value, child) {
+                      return Container(
+                        width: 100 + (20 * value),
+                        height: 100 + (20 * value),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: accentColor.withValues(alpha: 0.3 * (1 - value)),
+                            width: 2,
+                          ),
+                        ),
+                      );
+                    },
+                    onEnd: () {},
+                  ),
+                  // Inner ring
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: accentColor.withValues(alpha: 0.2),
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                  // Center dot with glow
+                  Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: accentColor,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: accentColor.withValues(alpha: 0.5),
+                          blurRadius: 20,
+                          spreadRadius: 5,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 48),
+            // ── App Name ──
+            Text(
+              'LOCAMI',
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black87,
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 6,
+              ),
+            ),
+            const SizedBox(height: 32),
+            // ── Animated Status Text ──
+            Obx(() => AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: Text(
+                controller.initStatus.value,
+                key: ValueKey(controller.initStatus.value),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: isDark ? Colors.white54 : Colors.black45,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            )),
+            const SizedBox(height: 24),
+            // ── Loading Indicator ──
+            SizedBox(
+              width: 32,
+              height: 32,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: accentColor.withValues(alpha: 0.6),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
@@ -45,35 +240,36 @@ class HomeView extends GetView<HomeController> {
       backgroundColor:
           isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF8F9FA),
       body: Obx(() {
-        final isTracking = controller.isTracking.value;
+        // ── LOADING SCREEN — shown until GPS is ready ──
+        if (!controller.isInitialized.value) {
+          return _buildLoadingScreen(isDark, accentColor);
+        }
 
-        final pos = controller.currentPosition.value;
-        final isSatellite = controller.useSatelliteMap.value;
+        final isTracking = controller.isTracking.value;
 
         return SizedBox.expand(
           child: Stack(
             children: [
-              // ── 1. MAP LAYER ──
+              // ── 1. MAP LAYER (STABLE — never rebuilds on position change) ──
               Positioned.fill(
                 child: fm.FlutterMap(
                   mapController: controller.mapController,
                   options: fm.MapOptions(
-                    initialCenter: LatLng(
-                      pos?.latitude ?? 20.5937,
-                      pos?.longitude ?? 78.9629,
-                    ),
-                    initialZoom: pos != null ? 15.0 : 5.0,
+                    initialCenter: const LatLng(20.5937, 78.9629),
+                    initialZoom: 5.0,
                     interactionOptions: const fm.InteractionOptions(
                       flags: fm.InteractiveFlag.all,
                     ),
                   ),
                   children: [
-                    // Map Tiles
+                    // Map Tiles (fully self-contained Obx)
                     Obx(() {
                       final mapDark = controller.isMapDark.value;
+                      final sat = controller.useSatelliteMap.value;
                       return fm.TileLayer(
+                        key: ValueKey('tiles_${sat}_$mapDark'),
                         urlTemplate:
-                            isSatellite
+                            sat
                                 ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
                                 : (mapDark
                                     ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
@@ -83,16 +279,21 @@ class HomeView extends GetView<HomeController> {
                       );
                     }),
                     // Labels Overlay for Satellite
-                    if (isSatellite)
-                      fm.TileLayer(
+                    Obx(() {
+                      if (!controller.useSatelliteMap.value) return const SizedBox.shrink();
+                      return fm.TileLayer(
                         urlTemplate:
                             'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',
                         subdomains: const ['a', 'b', 'c', 'd'],
-                      ),
+                      );
+                    }),
 
-                    // Route Polyline
-                    if (controller.currentRoute.isNotEmpty)
-                      fm.PolylineLayer(
+                    // Route Polyline (reactive)
+                    Obx(() {
+                      if (controller.currentRoute.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+                      return fm.PolylineLayer(
                         polylines: [
                           fm.Polyline(
                             points: controller.currentRoute.toList(),
@@ -100,11 +301,15 @@ class HomeView extends GetView<HomeController> {
                             strokeWidth: 5,
                           ),
                         ],
-                      ),
+                      );
+                    }),
 
-                    // Destination Marker & Circle
-                    if (controller.destinationLatitude.value != null) ...[
-                      fm.CircleLayer(
+                    // Destination Marker & Circle (reactive)
+                    Obx(() {
+                      if (controller.destinationLatitude.value == null) {
+                        return const SizedBox.shrink();
+                      }
+                      return fm.CircleLayer(
                         circles: [
                           fm.CircleMarker(
                             point: LatLng(
@@ -118,8 +323,13 @@ class HomeView extends GetView<HomeController> {
                             radius: controller.alertDistance.value.toDouble(),
                           ),
                         ],
-                      ),
-                      fm.MarkerLayer(
+                      );
+                    }),
+                    Obx(() {
+                      if (controller.destinationLatitude.value == null) {
+                        return const SizedBox.shrink();
+                      }
+                      return fm.MarkerLayer(
                         markers: [
                           fm.Marker(
                             point: LatLng(
@@ -163,12 +373,52 @@ class HomeView extends GetView<HomeController> {
                             ),
                           ),
                         ],
-                      ),
-                    ],
+                      );
+                    }),
 
-                    // Current User Location
-                    if (pos != null)
-                      fm.MarkerLayer(
+                    // Saved/Tagged Location Markers (reactive)
+                    Obx(() {
+                      final locs = controller.savedLocations;
+                      if (locs.isEmpty) return const SizedBox.shrink();
+                      return fm.MarkerLayer(
+                        markers: locs.map((loc) {
+                          final pinColor = _getColorForSeed(loc.label);
+                          return fm.Marker(
+                            point: LatLng(loc.latitude, loc.longitude),
+                            width: 36,
+                            height: 36,
+                            child: GestureDetector(
+                              onTap: () {
+                                _showSavedLocationOptions(loc, isDark, accentColor);
+                              },
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: pinColor,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white, width: 2),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.3),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Text(loc.emoji, style: const TextStyle(fontSize: 18)),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      );
+                    }),
+
+                    // Current User Location (reactive — only this rebuilds on GPS tick)
+                    Obx(() {
+                      final pos = controller.currentPosition.value;
+                      if (pos == null) return const SizedBox.shrink();
+                      return fm.MarkerLayer(
                         markers: [
                           fm.Marker(
                             point: LatLng(pos.latitude, pos.longitude),
@@ -177,7 +427,8 @@ class HomeView extends GetView<HomeController> {
                             child: Obx(() => _buildUserLocationIndicator(controller.currentHeading.value)),
                           ),
                         ],
-                      ),
+                      );
+                    }),
                   ],
                 ),
               ),
@@ -437,16 +688,83 @@ class HomeView extends GetView<HomeController> {
                           ),
                         ),
                       ),
-                      Icon(
-                        SolarIconsOutline.altArrowRight,
-                        color: isDark ? Colors.white24 : Colors.black12,
-                        size: 18,
-                      ),
+                      Obx(() => controller.toAddress.value.isNotEmpty
+                          ? GestureDetector(
+                              onTap: () {
+                                controller.clearDestination();
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.only(left: 8.0, top: 4.0, bottom: 4.0),
+                                child: Icon(
+                                  SolarIconsBold.closeCircle,
+                                  color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.3),
+                                  size: 20,
+                                ),
+                              ),
+                            )
+                          : Icon(
+                              SolarIconsOutline.altArrowRight,
+                              color: isDark ? Colors.white24 : Colors.black12,
+                              size: 18,
+                            )),
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: 16),
+              // Optional "Save Location" button if destination is selected
+              Obx(() {
+                if (controller.toAddress.value.isEmpty || controller.destinationLatitude.value == null) {
+                  return const SizedBox.shrink();
+                }
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  alignment: Alignment.centerRight,
+                  child: InkWell(
+                    onTap: () async {
+                      final result = await SaveLocationDialog.show(
+                        Get.context!,
+                        displayName: controller.toAddress.value,
+                        latitude: controller.destinationLatitude.value!,
+                        longitude: controller.destinationLongitude.value!,
+                      );
+                      if (result != null) {
+                        Get.snackbar(
+                          'Saved',
+                          'Location saved as ${result.label}',
+                          snackPosition: SnackPosition.BOTTOM,
+                          backgroundColor: isDark ? const Color(0xFF2A2A2A) : Colors.white,
+                          colorText: isDark ? Colors.white : Colors.black87,
+                        );
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: accentColor.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(SolarIconsOutline.bookmark, size: 16, color: accentColor),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Save to Favorites',
+                            style: TextStyle(
+                              color: accentColor,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
               // ── DISTANCE SELECTION CHIPS ──
               Obx(
                 () => Row(

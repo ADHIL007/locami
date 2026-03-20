@@ -5,6 +5,7 @@ import 'package:locami/core/geo_location_manager/street_manager.dart';
 import 'package:locami/theme/theme_provider.dart';
 import 'package:locami/core/widgets/glass_container.dart';
 import 'package:locami/core/utils/environment.dart';
+import 'package:locami/core/db_helper/saved_location_db.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 
@@ -33,6 +34,7 @@ class LocationSearchSheet extends StatefulWidget {
 class _LocationSearchSheetState extends State<LocationSearchSheet> {
   late TextEditingController _searchController;
   List<String> _suggestions = [];
+  List<SavedLocation> _savedLocs = [];
   bool _isLoading = false;
   Timer? _debounce;
 
@@ -59,6 +61,7 @@ class _LocationSearchSheetState extends State<LocationSearchSheet> {
   void _onSearchChanged(String value) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     if (value.trim().isEmpty) {
+      setState(() => _savedLocs = []);
       _loadNearby();
       return;
     }
@@ -67,15 +70,23 @@ class _LocationSearchSheetState extends State<LocationSearchSheet> {
       if (!mounted) return;
       setState(() => _isLoading = true);
       try {
+        // Fetch matching saved tags AND network results at the same time
+        final savedResults = await SavedLocationDb.instance.search(value);
         final results = await StreetManager.instance.searchStreets(
           value,
           countryCode: widget.userCountry,
           lat: widget.currentPosition?.latitude,
           lon: widget.currentPosition?.longitude,
         );
+        
+        // Remove duplicates where saved loc matches exactly with network result
+        final savedDisplayNames = savedResults.map((e) => e.displayName).toSet();
+        final filteredResults = results.where((r) => !savedDisplayNames.contains(r)).toList();
+
         if (mounted) {
           setState(() {
-            _suggestions = results;
+            _savedLocs = savedResults;
+            _suggestions = filteredResults;
             _isLoading = false;
           });
         }
@@ -199,23 +210,58 @@ class _LocationSearchSheetState extends State<LocationSearchSheet> {
           const SizedBox(height: 16),
           Expanded(
             child: ListView.separated(
-              itemCount: _suggestions.length,
+              itemCount: _savedLocs.length + _suggestions.length,
               separatorBuilder:
                   (_, __) => Divider(
                     color: customColors().textPrimary.withValues(alpha: 0.05),
                   ),
               itemBuilder: (context, index) {
+                if (index < _savedLocs.length) {
+                  final loc = _savedLocs[index];
+                  return ListTile(
+                    onTap: () {
+                      StreetManager.instance.cacheSelectedLocation(loc.displayName);
+                      widget.onSelected(loc.displayName);
+                      Navigator.pop(context);
+                    },
+                    leading: Text(loc.emoji, style: const TextStyle(fontSize: 24)),
+                    title: Text(
+                      loc.label,
+                      style: TextStyle(
+                        color: customColors().textPrimary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    subtitle: Text(
+                      loc.displayName,
+                      style: TextStyle(
+                        color: customColors().textPrimary.withValues(alpha: 0.6),
+                        fontSize: 12,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }
+
+                final suggestionIndex = index - _savedLocs.length;
+                final suggestion = _suggestions[suggestionIndex];
+                final isSavedMatch = _savedLocs.any((s) => s.displayName == suggestion);
+                if (isSavedMatch) return const SizedBox.shrink();
+
                 return ListTile(
                   onTap: () {
-                    widget.onSelected(_suggestions[index]);
+                    // Cache selection for future ranking
+                    StreetManager.instance.cacheSelectedLocation(suggestion);
+                    widget.onSelected(suggestion);
                     Navigator.pop(context);
                   },
-                  leading: Icon(
+                  leading: const Icon(
                     SolarIconsOutline.mapPoint,
                     color: Colors.grey,
                   ),
                   title: Text(
-                    _suggestions[index],
+                    suggestion,
                     style: TextStyle(color: customColors().textPrimary),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,

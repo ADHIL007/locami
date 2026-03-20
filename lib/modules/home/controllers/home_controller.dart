@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart' as fm;
 import 'package:latlong2/latlong.dart';
@@ -6,6 +7,8 @@ import 'package:get/get.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:locami/core/geo_location_manager/street_manager.dart';
 import 'package:locami/db_manager/user_model_manager.dart';
+import 'package:locami/core/db_helper/saved_location_db.dart';
+import 'package:locami/core/db_helper/location_cache_db.dart';
 import 'package:locami/db_manager/trip_details_manager.dart';
 import 'package:locami/theme/theme_provider.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
@@ -25,6 +28,8 @@ class HomeController extends GetxController {
   final currentPosition = Rx<Position?>(null);
   final showLocami = true.obs;
   final alertDistance = 500.obs;
+  final isInitialized = false.obs;
+  final initStatus = 'Starting up...'.obs;
   final locations = <String>[].obs;
   final fromAddress = "".obs;
   final toAddress = "".obs;
@@ -36,9 +41,13 @@ class HomeController extends GetxController {
   final currentLocationName = "Locating...".obs;
   final isPinSelectionMode = false.obs;
   final currentHeading = 0.0.obs;
+  final smoothedSpeed = 0.0.obs; // m/s, smoothed
+  final savedLocations = <SavedLocation>[].obs;
 
   StreamSubscription<Position>? _positionSubscription;
   Position? _previousPosition;
+  DateTime? _previousTimestamp;
+  final List<double> _speedBuffer = [];
   Timer? _transmissionTimer;
   Timer? _simulationTimer;
   Timer? _geocodeTimer;
@@ -81,8 +90,51 @@ class HomeController extends GetxController {
       // ── INSTANT: Update position (triggers UI rebuild immediately) ──
       currentPosition.value = position;
 
+      // ── INSTANT: Speed Calculation (smoothed) ──
+      final now = DateTime.now();
+      double candidateSpeed = 0.0;
+
+      // Only trust GPS speed if it's clearly above noise floor
+      if (position.speed >= 1.0) {
+        candidateSpeed = position.speed;
+      }
+
+      // Cross-check with distance-based speed if we have a previous position
+      if (_previousPosition != null && _previousTimestamp != null) {
+        final dt = now.difference(_previousTimestamp!).inMilliseconds / 1000.0;
+        if (dt > 0.1) {
+          final dist = Geolocator.distanceBetween(
+            _previousPosition!.latitude,
+            _previousPosition!.longitude,
+            position.latitude,
+            position.longitude,
+          );
+
+          // Ignore distance under 3m — that's GPS drift, not real movement
+          if (dist > 3.0) {
+            final calcSpeed = dist / dt;
+            if (candidateSpeed > 0) {
+              candidateSpeed = (candidateSpeed + calcSpeed) / 2.0;
+            } else {
+              candidateSpeed = calcSpeed;
+            }
+          } else if (candidateSpeed == 0) {
+            // Both GPS and distance say we're not moving
+            candidateSpeed = 0.0;
+          }
+        }
+      }
+
+      // Moving average (last 8 samples for stability)
+      _speedBuffer.add(candidateSpeed);
+      if (_speedBuffer.length > 8) _speedBuffer.removeAt(0);
+      final avgSpeed = _speedBuffer.reduce((a, b) => a + b) / _speedBuffer.length;
+
+      // Dead-zone: under 1.0 m/s (~3.6 km/h) = stationary
+      smoothedSpeed.value = avgSpeed < 1.0 ? 0.0 : avgSpeed;
+
       // ── INSTANT: Direction (Bearing) Calculation ──
-      if (_previousPosition != null && position.speed > 1.0) {
+      if (_previousPosition != null && smoothedSpeed.value > 1.0) {
         final double newBearing = Geolocator.bearingBetween(
           _previousPosition!.latitude,
           _previousPosition!.longitude,
@@ -101,6 +153,7 @@ class HomeController extends GetxController {
         currentHeading.value = position.heading;
       }
       _previousPosition = position;
+      _previousTimestamp = now;
 
       // ── DEBOUNCED: Reverse Geocoding (every 3 seconds, non-blocking) ──
       _geocodeTimer ??= Timer.periodic(const Duration(seconds: 3), (_) {
@@ -111,6 +164,8 @@ class HomeController extends GetxController {
       if (destinationLatitude.value != null && destinationLongitude.value != null) {
         _updateRouteIfNeeded(position);
       }
+    }, onError: (error) {
+      debugPrint('Location stream error: $error');
     });
   }
 
@@ -157,11 +212,83 @@ class HomeController extends GetxController {
   }
 
   Future<void> _initAsync() async {
-    await getInitialLocation();
-    _startLocationStream();
-    checkTrackingStatus();
-    loadUserCountryFromProfile();
-    loadNearbyStreets();
+    try {
+      // Step 1: Check location services
+      initStatus.value = 'Checking location services...';
+      await Future.delayed(const Duration(milliseconds: 400));
+
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        initStatus.value = 'Please enable Location Services';
+        // Wait for user to enable location
+        while (!await Geolocator.isLocationServiceEnabled()) {
+          await Future.delayed(const Duration(seconds: 1));
+        }
+      }
+
+      // Step 2: Request permissions
+      initStatus.value = 'Requesting location access...';
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      final permissionGranted = await _requestLocationPermission();
+      if (!permissionGranted) {
+        initStatus.value = 'Location permission required';
+        // Keep retrying
+        while (!await _requestLocationPermission()) {
+          await Future.delayed(const Duration(seconds: 2));
+        }
+      }
+
+      // Step 3: Calibrating sensors
+      initStatus.value = 'Calibrating sensors...';
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // Step 4: Get GPS fix
+      initStatus.value = 'Acquiring GPS signal...';
+      await getInitialLocation();
+
+      // Step 5: Start stream
+      initStatus.value = 'Fetching location data...';
+      _startLocationStream();
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      // Step 6: Load data
+      initStatus.value = 'Loading your data...';
+      checkTrackingStatus();
+      loadUserCountryFromProfile();
+      loadSavedLocations();
+      loadNearbyStreets();
+      await Future.delayed(const Duration(milliseconds: 400));
+
+      // Done!
+      initStatus.value = 'Ready';
+      isInitialized.value = true;
+
+      // Animate map to current location after the map widget renders
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _animateToCurrentLocation();
+      });
+    } catch (e) {
+      debugPrint('Init error: $e');
+      initStatus.value = 'Error: $e';
+      // Still try to show the map
+      await Future.delayed(const Duration(seconds: 2));
+      isInitialized.value = true;
+    }
+  }
+
+  Future<bool> _requestLocationPermission() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.deniedForever) {
+      initStatus.value = 'Location permanently denied.\nPlease enable in Settings.';
+      await Geolocator.openAppSettings();
+      return false;
+    }
+    return permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse;
   }
 
   @override
@@ -239,6 +366,83 @@ class HomeController extends GetxController {
     FlutterBackgroundService().invoke('stop_alarm');
   }
 
+  /// Load all saved/tagged locations from DB.
+  Future<void> loadSavedLocations() async {
+    try {
+      final locs = await SavedLocationDb.instance.getAll();
+      savedLocations.assignAll(locs);
+    } catch (e) {
+      debugPrint('Error loading saved locations: $e');
+    }
+  }
+
+  /// Save current pin/destination as a tagged location.
+  Future<SavedLocation?> saveTaggedLocation({
+    required String label,
+    required String displayName,
+    required double latitude,
+    required double longitude,
+    String icon = 'place',
+  }) async {
+    try {
+      final id = await SavedLocationDb.instance.saveLocation(
+        label: label,
+        displayName: displayName,
+        latitude: latitude,
+        longitude: longitude,
+        icon: icon,
+      );
+
+      // Also cache in location search DB
+      await LocationCacheDb.instance.cacheLocation(
+        displayName: displayName,
+        searchQuery: label.toLowerCase(),
+        latitude: latitude,
+        longitude: longitude,
+      );
+
+      await loadSavedLocations();
+
+      final saved = SavedLocation(
+        id: id,
+        label: label,
+        displayName: displayName,
+        latitude: latitude,
+        longitude: longitude,
+        icon: icon,
+        createdAt: DateTime.now(),
+      );
+      return saved;
+    } catch (e) {
+      debugPrint('Error saving tagged location: $e');
+      return null;
+    }
+  }
+
+  /// Delete a saved location.
+  Future<void> deleteSavedLocation(int id) async {
+    await SavedLocationDb.instance.deleteLocation(id);
+    await loadSavedLocations();
+  }
+
+  /// Start tracking to a saved location.
+  void startTrackingToSaved(SavedLocation loc) {
+    toController.text = loc.displayName;
+    toAddress.value = loc.displayName;
+    destinationLatitude.value = loc.latitude;
+    destinationLongitude.value = loc.longitude;
+    currentRoute.clear();
+
+    // Zoom to show both current and destination
+    if (currentPosition.value != null) {
+      final midLat = (currentPosition.value!.latitude + loc.latitude) / 2;
+      final midLon = (currentPosition.value!.longitude + loc.longitude) / 2;
+      centerMap(midLat, midLon, 12.0);
+    } else {
+      centerMap(loc.latitude, loc.longitude, 15.0);
+    }
+  }
+
   void _onTrackingStatusChanged() {
     final isTrackingNow = TripDetailsManager.instance.isTracking;
     if (isTracking.value != isTrackingNow) {
@@ -258,7 +462,6 @@ class HomeController extends GetxController {
       final lastKnown = await Geolocator.getLastKnownPosition();
       if (lastKnown != null && currentPosition.value == null) {
         currentPosition.value = lastKnown;
-        centerMap(lastKnown.latitude, lastKnown.longitude, 15.0);
       }
       final accurate = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
@@ -267,7 +470,6 @@ class HomeController extends GetxController {
         ),
       );
       currentPosition.value = accurate;
-      centerMap(accurate.latitude, accurate.longitude, 15.0);
       
       final details = await StreetManager.instance.getLocationDetailsAt(accurate.latitude, accurate.longitude);
       if (details != null && details['address'] != null) {
@@ -428,6 +630,59 @@ class HomeController extends GetxController {
     } catch (e) {
       debugPrint("Error moving map: $e");
     }
+  }
+
+  /// Smoothly animate the map to the user's current GPS location.
+  void _animateToCurrentLocation() {
+    final pos = currentPosition.value;
+    if (pos == null) return;
+
+    final targetLat = pos.latitude;
+    final targetLon = pos.longitude;
+    const targetZoom = 16.0;
+
+    try {
+      final startLat = mapController.camera.center.latitude;
+      final startLon = mapController.camera.center.longitude;
+      final startZoom = mapController.camera.zoom;
+
+      const steps = 30;
+      const duration = Duration(milliseconds: 800);
+      final stepDuration = Duration(
+        microseconds: duration.inMicroseconds ~/ steps,
+      );
+
+      int step = 0;
+      Timer.periodic(stepDuration, (timer) {
+        step++;
+        // Ease-out cubic curve
+        final t = step / steps;
+        final ease = 1.0 - math.pow(1.0 - t, 3);
+
+        final lat = startLat + (targetLat - startLat) * ease;
+        final lon = startLon + (targetLon - startLon) * ease;
+        final zoom = startZoom + (targetZoom - startZoom) * ease;
+
+        try {
+          mapController.move(LatLng(lat, lon), zoom);
+        } catch (_) {}
+
+        if (step >= steps) {
+          timer.cancel();
+        }
+      });
+    } catch (e) {
+      // Fallback: just jump
+      centerMap(targetLat, targetLon, targetZoom);
+    }
+  }
+
+  void clearDestination() {
+    toController.clear();
+    toAddress.value = '';
+    destinationLatitude.value = null;
+    destinationLongitude.value = null;
+    currentRoute.clear();
   }
 
   Future<void> selectDestination(String address) async {
