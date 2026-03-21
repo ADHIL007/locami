@@ -230,13 +230,31 @@ class HomeView extends GetView<HomeController> {
                       if (controller.currentRoute.isEmpty) {
                         return const SizedBox.shrink();
                       }
+                      
+                      final traveledIndex = controller.traveledRouteIndex.value;
+                      final route = controller.currentRoute.toList();
+                      
+                      final safeIndex = (traveledIndex >= 0 && traveledIndex < route.length) 
+                          ? traveledIndex 
+                          : 0;
+                          
+                      final traversed = route.sublist(0, safeIndex + 1);
+                      final remaining = route.sublist(safeIndex);
+                      
                       return fm.PolylineLayer(
                         polylines: [
-                          fm.Polyline(
-                            points: controller.currentRoute.toList(),
-                            color: accentColor,
-                            strokeWidth: 5,
-                          ),
+                          if (traversed.length > 1) 
+                            fm.Polyline(
+                              points: traversed,
+                              color: isDark ? Colors.white.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.25),
+                              strokeWidth: 5,
+                            ),
+                          if (remaining.length > 1)
+                            fm.Polyline(
+                              points: remaining,
+                              color: accentColor,
+                              strokeWidth: 5,
+                            ),
                         ],
                       );
                     }),

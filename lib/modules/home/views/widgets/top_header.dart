@@ -18,52 +18,56 @@ class TopHeader extends StatelessWidget {
           children: [
             Obx(
               () => Row(
-                mainAxisAlignment: MainAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  if (controller.isOnline.value) ...[
-                    Icon(
-                      SolarIconsBold.mapPoint,
-                      color: Colors.white.withValues(alpha: 0.9),
-                      size: 26,
-                    ),
-                    const SizedBox(width: 10),
-                  ],
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Row(
                     children: [
-                      Text(
-                        controller.isOnline.value
-                            ? controller.currentLocationName.value.toLowerCase()
-                            : (controller.currentLocationName.value ==
-                                    "Locating..."
-                                ? ""
-                                : controller.currentLocationName.value
-                                    .toLowerCase()),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'Poppins',
-                          letterSpacing: -0.5,
+                      if (controller.isOnline.value) ...[
+                        Icon(
+                          SolarIconsBold.mapPoint,
+                          color: Colors.white.withValues(alpha: 0.9),
+                          size: 26,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                        const SizedBox(width: 10),
+                      ],
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            controller.isOnline.value
+                                ? controller.currentLocationName.value
+                                    .toLowerCase()
+                                : (controller.currentLocationName.value ==
+                                        "Locating..."
+                                    ? ""
+                                    : controller.currentLocationName.value
+                                        .toLowerCase()),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontFamily: 'Poppins',
+                              letterSpacing: -0.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
 
-                      const SizedBox(height: 2),
+                          const SizedBox(height: 2),
 
-                      Text(
-                        controller.isOnline.value
-                            ? "Current location"
-                            : (controller.currentLocationName.value ==
-                                    "Locating..."
-                                ? ""
-                                : "Last updated location"),
-                        style: const TextStyle(
-                          color: Color(0xFF90A4AE), // secondary color
-                          fontSize: 12,
-                          fontFamily: 'Poppins',
-                        ),
+                          Text(
+                            controller.isOnline.value
+                                ? "Current location"
+                                : (controller.currentLocationName.value ==
+                                        "Locating..."
+                                    ? ""
+                                    : "Last updated location"),
+                            style: const TextStyle(
+                              color: Color(0xFF90A4AE), // secondary color
+                              fontSize: 12,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

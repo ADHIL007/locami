@@ -17,6 +17,8 @@ import 'package:vibration/vibration.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:flutter/services.dart';
 import 'package:locami/db_manager/app_status_manager.dart';
+import 'package:locami/core/db_helper/app_status.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 class TripDetailsManager {
   TripDetailsManager._internal();
@@ -114,6 +116,7 @@ class TripDetailsManager {
   double? get totalTripDistance => _totalTripDistance;
   bool _alertTriggered = false;
   bool _isSimulationMode = false;
+  final AudioPlayer _bgAudioPlayer = AudioPlayer();
 
   void setSimulationMode(bool value) {
     _isSimulationMode = value;
@@ -412,15 +415,35 @@ class TripDetailsManager {
     UserModelManager.instance.patchUser(isAlarmActive: true);
     if (_backgroundService != null) {
       _backgroundService!.invoke('on_alert_triggered', {'distance': distance});
-      FlutterRingtonePlayer().playAlarm(looping: true);
       _showFullScreenAlert(distance);
-      final user = await UserModelManager.instance.user;
-      if (user.enableVibration) Vibration.vibrate(pattern: [500, 1000, 500, 1000], repeat: 0);
+      
+      try {
+        final status = await AppStatusDbHelper.instance.getStatus();
+        final user = await UserModelManager.instance.user;
+        
+        if (status.isCustomSound && status.customSoundPath != null) {
+          await _bgAudioPlayer.play(DeviceFileSource(status.customSoundPath!));
+          if (status.loopAlarm) _bgAudioPlayer.setReleaseMode(ReleaseMode.loop);
+        } else {
+          if (status.alertSound == 'alarm') {
+             FlutterRingtonePlayer().playAlarm(looping: status.loopAlarm);
+          } else if (status.alertSound == 'ringtone') {
+             FlutterRingtonePlayer().playRingtone(looping: status.loopAlarm);
+          } else {
+             FlutterRingtonePlayer().playNotification(looping: status.loopAlarm);
+          }
+        }
+        
+        if (user.enableVibration) Vibration.vibrate(pattern: [500, 1000, 500, 1000], repeat: 0);
+      } catch (_) {
+        FlutterRingtonePlayer().playAlarm(looping: true); // fallback
+      }
     }
   }
 
   void stopAlertSound() {
     FlutterRingtonePlayer().stop();
+    _bgAudioPlayer.stop();
     Vibration.cancel();
     _alertTriggered = false;
     FlutterLocalNotificationsPlugin().cancel(999);

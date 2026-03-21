@@ -40,6 +40,8 @@ class HomeController extends GetxController {
   final destinationLatitude = Rx<double?>(null);
   final destinationLongitude = Rx<double?>(null);
   final currentRoute = <LatLng>[].obs;
+  final fetchedAlternatives = <SingleRoute>[].obs;
+  final traveledRouteIndex = 0.obs;
   final useSatelliteMap = false.obs;
   final isMapDark = false.obs;
   final currentLocationName = "Locating...".obs;
@@ -98,10 +100,14 @@ class HomeController extends GetxController {
     // Re-fetch route when internet is back
     AppStatusManager.instance.isOnlineNotifier.addListener(() {
       final bool nowOnline = AppStatusManager.instance.isOnlineNotifier.value;
-      isOnline.value = nowOnline;
-      if (nowOnline && isTracking.value) {
-        if (currentPosition.value != null) _updateRouteIfNeeded(currentPosition.value!, force: true);
+      
+      // If we just got internet back and have a destination, definitively refetch
+      if (nowOnline && !isOnline.value && destinationLatitude.value != null) {
+        if (currentPosition.value != null) {
+           _updateRouteIfNeeded(currentPosition.value!, force: true);
+        }
       }
+      isOnline.value = nowOnline;
     });
 
     isOnline.value = AppStatusManager.instance.isOnlineNotifier.value;
@@ -148,6 +154,7 @@ class HomeController extends GetxController {
         );
         _previousPosition = position;
         _previousTimestamp = now;
+        _updateTraveledIndex(position);
         _geocodeTimer ??= Timer.periodic(const Duration(seconds: 3), (_) {
           _updateLocationName();
         });
@@ -190,37 +197,129 @@ class HomeController extends GetxController {
     if (destinationLatitude.value == null || destinationLongitude.value == null) return;
     final dest = LatLng(destinationLatitude.value!, destinationLongitude.value!);
     final start = LatLng(current.latitude, current.longitude);
-      if (currentRoute.isEmpty || force) {
-        final routeData = await RoutingService.instance.getRoute(
-          start, dest, 
-          destinationName: toAddress.value,
-        );
-        currentRoute.assignAll(routeData.points);
-        
-        // PRELOAD: If online, background cache the entire route tiles
-        if (isOnline.value && currentRoute.isNotEmpty) {
-          MapCacheManager.instance.preloadRouteTiles(currentRoute.toList());
-        }
+    
+    // 1. Check if we are still on the active route
+    bool onCurrentRoute = false;
+    if (!force && currentRoute.isNotEmpty) {
+      int bestIdx = traveledRouteIndex.value;
+      int maxCheck = (bestIdx + 30 < currentRoute.length) ? bestIdx + 30 : currentRoute.length;
+      double minD = double.infinity;
+      for (int i = bestIdx; i < maxCheck; i++) {
+         final d = Geolocator.distanceBetween(start.latitude, start.longitude, currentRoute[i].latitude, currentRoute[i].longitude);
+         if (d < minD) minD = d;
+      }
+      if (minD < 50) {
+         onCurrentRoute = true;
+      }
+    }
+
+    if (onCurrentRoute && !force) {
+       return; // Perfectly on track, keep slicing grey tail
+    }
+
+    // 2. See if we can slice an off-the-shelf alternative from our fetched cache
+    bool nearExisting = false;
+    if (!force && fetchedAlternatives.isNotEmpty) {
+      final sliced = _getSlicedAlternative(start, dest, fetchedAlternatives);
+      if (sliced != null) {
+        currentRoute.assignAll(sliced);
+        traveledRouteIndex.value = 0;
+        nearExisting = true;
+      }
+    }
+
+    // 3. Fallback to network or DB routing if no slice matched
+    if (currentRoute.isEmpty || force || (!onCurrentRoute && !nearExisting)) {
+      final routeData = await RoutingService.instance.getRoute(
+        start, dest, 
+        destinationName: toAddress.value,
+      );
+      if (routeData.alternatives.isNotEmpty) {
+          fetchedAlternatives.assignAll(routeData.alternatives);
+      }
+      
+      final sliced = _getSlicedAlternative(start, dest, routeData.alternatives);
+      if (sliced != null) {
+        currentRoute.assignAll(sliced);
       } else {
-        final firstPoint = currentRoute.first;
+        currentRoute.assignAll(routeData.points); // Fallback to raw points
+      }
+      traveledRouteIndex.value = 0;
+      
+      // PRELOAD: If online, background cache the main route's tiles
+      if (isOnline.value && currentRoute.isNotEmpty) {
+        MapCacheManager.instance.preloadRouteTiles(currentRoute.toList());
+      }
+    }
+  }
+
+  void _updateTraveledIndex(Position position) {
+    if (currentRoute.isEmpty) return;
+    
+    int bestIndex = traveledRouteIndex.value;
+    double minDistance = double.infinity;
+    
+    int maxCheck = (bestIndex + 50 < currentRoute.length) ? bestIndex + 50 : currentRoute.length;
+    for (int i = bestIndex; i < maxCheck; i++) {
+        final point = currentRoute[i];
+        final dist = Geolocator.distanceBetween(position.latitude, position.longitude, point.latitude, point.longitude);
+        if (dist < minDistance) {
+           minDistance = dist;
+           bestIndex = i;
+        }
+    }
+    
+    if (bestIndex > traveledRouteIndex.value && minDistance < 150) {
+       traveledRouteIndex.value = bestIndex;
+    }
+  }
+
+  List<LatLng>? _getSlicedAlternative(LatLng start, LatLng dest, List<SingleRoute> routes) {
+    for (var route in routes) {
+      if (route.points.isEmpty) continue;
+      
+      int startIdx = -1;
+      int destIdx = -1;
+      double minStartDist = double.infinity;
+      double minDestDist = double.infinity;
+      
+      for (int i = 0; i < route.points.length; i++) {
         final dist = Geolocator.distanceBetween(
-          current.latitude, current.longitude,
-          firstPoint.latitude, firstPoint.longitude,
+          start.latitude, start.longitude,
+          route.points[i].latitude, route.points[i].longitude,
         );
-        if (dist > 50) {
-          final routeData = await RoutingService.instance.getRoute(start, dest);
-          currentRoute.assignAll(routeData.points);
-          
-          if (isOnline.value && currentRoute.isNotEmpty) {
-            MapCacheManager.instance.preloadRouteTiles(currentRoute.toList());
+        if (dist < minStartDist && dist < 120) {
+          minStartDist = dist;
+          startIdx = i;
+        }
+      }
+      
+      if (startIdx != -1) {
+        for (int i = startIdx; i < route.points.length; i++) {
+          final dist = Geolocator.distanceBetween(
+            dest.latitude, dest.longitude,
+            route.points[i].latitude, route.points[i].longitude,
+          );
+          if (dist < minDestDist && dist < 250) { // More tolerance for destination
+            minDestDist = dist;
+            destIdx = i;
           }
         }
       }
+      
+      // Found both on the same route!
+      if (startIdx != -1 && destIdx != -1 && destIdx >= startIdx) {
+        return route.points.sublist(startIdx, destIdx + 1);
+      }
+    }
+    return null;
   }
 
   Future<void> reInitialize() async {
     isInitialized.value = false;
     currentRoute.clear();
+    fetchedAlternatives.clear();
+    traveledRouteIndex.value = 0;
     destinationLatitude.value = null;
     destinationLongitude.value = null;
     isTracking.value = false;
@@ -328,44 +427,27 @@ class HomeController extends GetxController {
 
   void showArrivalAlert(double distance) {
     if (_isAlertShown) return;
-    _isAlertShown = true; // Set flag to true to prevent multiple alerts
-    final themeProvider = ThemeProvider.instance;
-    final soundKey = themeProvider.alertSound;
-    final isCustom = themeProvider.isCustomSound;
-    final customPath = themeProvider.customSoundPath;
-    final loop = themeProvider.loopAlarm;
-    stopAllSounds();
-    if (isCustom && customPath != null) {
-      _audioPlayer.play(DeviceFileSource(customPath));
-      if (loop) _audioPlayer.setReleaseMode(ReleaseMode.loop);
-    } else {
-      if (soundKey == 'alarm') {
-        FlutterRingtonePlayer().playAlarm(looping: loop);
-      } else if (soundKey == 'ringtone') {
-        FlutterRingtonePlayer().playRingtone(looping: loop);
-      } else {
-        FlutterRingtonePlayer().playNotification(looping: loop);
-      }
-    }
-    Get.dialog(
-      ArrivalAlert(
-        destination: toAddress.value,
-        onDone: toggleTracking,
-        onThanks: () {
-          Get.back();
-          // Snooze logic (optional)
-        },
-      ),
-      barrierDismissible: false,
-    ).then((_) => stopAllSounds());
-
-    // Vibration logic
-    if (ThemeProvider.instance.enableVibration) {
-      Vibration.vibrate(
-        pattern: [500, 1000, 500, 1000],
-        repeat: 0, // Infinite loop
+    _isAlertShown = true; 
+    
+    // UI popup only. Sound is handled fully by the background isolate now.
+    try {
+      Get.dialog(
+        ArrivalAlert(
+          destination: toAddress.value,
+          onDone: () {
+            Get.back(); // close popup first
+            toggleTracking(); // ends tracking and clears dest
+            stopAllSounds();
+          },
+          onThanks: () {
+            Get.back(); // snooze/dismiss popup
+            stopAllSounds(); // stop sounds, trip remains active
+          },
+        ),
+        barrierDismissible: false,
+        useSafeArea: false,
       );
-    }
+    } catch (_) {}
   }
 
   void stopAllSounds() {
@@ -675,6 +757,7 @@ class HomeController extends GetxController {
     destinationLatitude.value = null;
     destinationLongitude.value = null;
     currentRoute.clear();
+    traveledRouteIndex.value = 0;
     isDestinationSaved.value = false;
   }
 
@@ -716,6 +799,7 @@ class HomeController extends GetxController {
     destinationLatitude.value = coords.latitude;
     destinationLongitude.value = coords.longitude;
     currentRoute.clear();
+    traveledRouteIndex.value = 0;
     centerMap(coords.latitude, coords.longitude);
     final details = await StreetManager.instance.getLocationDetailsAt(coords.latitude, coords.longitude);
     if (details != null && details['address'] != null) {
