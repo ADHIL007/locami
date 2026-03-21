@@ -14,6 +14,7 @@ import 'package:locami/theme/theme_provider.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:locami/screens/widgets/arrival_alert.dart';
+import 'package:vibration/vibration.dart';
 import 'package:locami/core/utils/trip_simulator.dart';
 import 'package:locami/core/utils/routing_service.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
@@ -63,6 +64,7 @@ class HomeController extends GetxController {
   bool _isGeocodingInProgress = false;
   final AudioPlayer _audioPlayer = AudioPlayer();
   final mapController = fm.MapController();
+  bool _isAlertShown = false;
 
   @override
   void onInit() {
@@ -94,6 +96,9 @@ class HomeController extends GetxController {
 
   void _startLocationStream() {
     _positionSubscription?.cancel();
+    _previousPosition = null;
+    _previousTimestamp = null;
+    _speedBuffer.clear();
     _positionSubscription = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.bestForNavigation,
@@ -173,7 +178,8 @@ class HomeController extends GetxController {
     final dest = LatLng(destinationLatitude.value!, destinationLongitude.value!);
     final start = LatLng(current.latitude, current.longitude);
     if (currentRoute.isEmpty) {
-      currentRoute.assignAll(await RoutingService.instance.getRoute(start, dest));
+      final routeData = await RoutingService.instance.getRoute(start, dest);
+      currentRoute.assignAll(routeData.points);
     } else {
       final firstPoint = currentRoute.first;
       final dist = Geolocator.distanceBetween(
@@ -181,7 +187,8 @@ class HomeController extends GetxController {
         firstPoint.latitude, firstPoint.longitude,
       );
       if (dist > 50) {
-        currentRoute.assignAll(await RoutingService.instance.getRoute(start, dest));
+        final routeData = await RoutingService.instance.getRoute(start, dest);
+        currentRoute.assignAll(routeData.points);
       }
     }
   }
@@ -290,7 +297,8 @@ class HomeController extends GetxController {
   }
 
   void showArrivalAlert(double distance) {
-    if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) return;
+    if (_isAlertShown) return;
+    _isAlertShown = true; // Set flag to true to prevent multiple alerts
     final themeProvider = ThemeProvider.instance;
     final soundKey = themeProvider.alertSound;
     final isCustom = themeProvider.isCustomSound;
@@ -309,27 +317,31 @@ class HomeController extends GetxController {
         FlutterRingtonePlayer().playNotification(looping: loop);
       }
     }
-    final destination = TripDetailsManager.instance.currentTripDetail.value?.destination ?? "Destination";
     Get.dialog(
       ArrivalAlert(
-        destination: destination,
-        onDone: () {
-          stopAllSounds();
-          Get.back();
-          toggleTracking();
-        },
+        destination: toAddress.value,
+        onDone: toggleTracking,
         onThanks: () {
-          stopAllSounds();
           Get.back();
+          // Snooze logic (optional)
         },
       ),
       barrierDismissible: false,
     ).then((_) => stopAllSounds());
+
+    // Vibration logic
+    if (ThemeProvider.instance.enableVibration) {
+      Vibration.vibrate(
+        pattern: [500, 1000, 500, 1000],
+        repeat: 0, // Infinite loop
+      );
+    }
   }
 
   void stopAllSounds() {
     FlutterRingtonePlayer().stop();
     _audioPlayer.stop();
+    Vibration.cancel();
     TripDetailsManager.instance.stopAlertSound();
     FlutterBackgroundService().invoke('stop_alarm');
   }
@@ -549,6 +561,7 @@ class HomeController extends GetxController {
       }
     } else {
       try {
+        _isAlertShown = false;
         await UserModelManager.instance.patchUser(
           fromStreet: fromController.text,
           destinationStreet: toController.text,
@@ -635,14 +648,23 @@ class HomeController extends GetxController {
     isDestinationSaved.value = false;
   }
 
-  Future<void> selectDestination(String address) async {
+  Future<void> selectDestination(String address, {double? lat, double? lon}) async {
     toController.text = address;
     toAddress.value = address;
     currentRoute.clear();
-    final coords = await StreetManager.instance.getCoordinates(address);
-    if (coords != null) {
-      destinationLatitude.value = coords['lat'];
-      destinationLongitude.value = coords['lon'];
+
+    if (lat != null && lon != null) {
+      destinationLatitude.value = lat;
+      destinationLongitude.value = lon;
+    } else {
+      final coords = await StreetManager.instance.getCoordinates(address);
+      if (coords != null) {
+        destinationLatitude.value = coords['lat'];
+        destinationLongitude.value = coords['lon'];
+      }
+    }
+
+    if (destinationLatitude.value != null && destinationLongitude.value != null) {
       centerMap(destinationLatitude.value!, destinationLongitude.value!);
       if (currentPosition.value != null) _updateRouteIfNeeded(currentPosition.value!);
       _checkIfDestinationSaved();

@@ -47,8 +47,8 @@ class HomeView extends GetView<HomeController> {
         initialValue: controller.toController.text,
         userCountry: controller.userCountry.value,
         currentPosition: controller.currentPosition.value,
-        onSelected: (address) {
-          controller.selectDestination(address);
+        onSelected: (address, {lat, lon}) {
+          controller.selectDestination(address, lat: lat, lon: lon);
         },
         onTestNearby: controller.setNearbyTestLocation,
       ),

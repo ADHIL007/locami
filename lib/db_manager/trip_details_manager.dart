@@ -7,6 +7,9 @@ import 'package:locami/core/geo_location_manager/street_manager.dart';
 import 'package:locami/core/model/trip_details_model.dart';
 import 'package:locami/core/model/user_model.dart';
 import 'package:locami/db_manager/user_model_manager.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:vibration/vibration.dart';
+import 'package:locami/core/utils/routing_service.dart';
 
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -35,6 +38,7 @@ class TripDetailsManager {
       _alertDistance = user.alertDistance;
       _currentTripId = user.currentTripId;
       _totalTripDistance = user.totalTripDistance;
+      _distanceRatio = user.distanceRatio;
     }
   }
 
@@ -52,6 +56,7 @@ class TripDetailsManager {
   double? _destinationLat;
   double? _destinationLon;
   double? _totalTripDistance;
+  double _distanceRatio = 1.0; // Ratio between road and haversine distance
   String? _currentTripId;
   ServiceInstance? _backgroundService;
   bool _isInitialized = false;
@@ -125,19 +130,29 @@ class TripDetailsManager {
       await FlutterBackgroundService().startService();
     }
 
-    // Initialize total distance for progress bar
+    // Initialize total distance for progress bar (use road distance if possible)
     try {
       final startPos = await Geolocator.getCurrentPosition();
       if (_destinationLat != null && _destinationLon != null) {
-        _totalTripDistance = Geolocator.distanceBetween(
-          startPos.latitude,
-          startPos.longitude,
-          _destinationLat!,
-          _destinationLon!,
+        final haversine = Geolocator.distanceBetween(
+          startPos.latitude, startPos.longitude,
+          _destinationLat!, _destinationLon!,
         );
+        
+        final routeData = await RoutingService.instance.getRoute(
+          LatLng(startPos.latitude, startPos.longitude),
+          LatLng(_destinationLat!, _destinationLon!),
+        );
+        
+        _totalTripDistance = routeData.distance;
+        
+        // Calculate ratio to keep remaining distance consistent with road distance
+        if (haversine > 0) {
+          _distanceRatio = _totalTripDistance! / haversine;
+        }
       }
     } catch (e) {
-      debugPrint("Error getting initial position for total distance: $e");
+      debugPrint("Error getting initial road distance: $e");
     }
 
     await UserModelManager.instance.patchUser(
@@ -147,6 +162,7 @@ class TripDetailsManager {
       alertDistance: _alertDistance,
       currentTripId: _currentTripId,
       totalTripDistance: _totalTripDistance,
+      distanceRatio: _distanceRatio,
     );
 
     _listenToBackgroundService();
@@ -242,16 +258,22 @@ class TripDetailsManager {
     final user = await UserModelManager.instance.user;
     double? remainingDist;
     if (_destinationLat != null && _destinationLon != null) {
-      remainingDist = Geolocator.distanceBetween(position.latitude, position.longitude, _destinationLat!, _destinationLon!);
+      final rawHaversine = Geolocator.distanceBetween(
+        position.latitude, position.longitude,
+        _destinationLat!, _destinationLon!,
+      );
+      
+      // Use the road/haversine ratio to estimate actual road remaining
+      remainingDist = rawHaversine * _distanceRatio;
       
       // Fallback: Initialize total distance if it's still null
       if (_totalTripDistance == null || _totalTripDistance == 0) {
         _totalTripDistance = remainingDist;
       }
 
-      if (!_alertTriggered && _alertDistance != null && remainingDist <= _alertDistance!) {
+      if (!_alertTriggered && _alertDistance != null && rawHaversine <= _alertDistance!) {
         _alertTriggered = true;
-        _triggerAlert(remainingDist);
+        _triggerAlert(rawHaversine);
       }
     }
 
@@ -311,18 +333,26 @@ class TripDetailsManager {
     await flutterLocalNotificationsPlugin.show(888, '$fromStr → $toStr', '$remainingKm km remaining', NotificationDetails(android: androidDetails));
   }
 
-  void _triggerAlert(double distance) {
+  void _triggerAlert(double distance) async {
     alertTriggeredNotifier.value = distance;
     UserModelManager.instance.patchUser(isAlarmActive: true);
     if (_backgroundService != null) {
       _backgroundService!.invoke('on_alert_triggered', {'distance': distance});
       FlutterRingtonePlayer().playAlarm(looping: true);
       _showFullScreenAlert(distance);
+      
+      // Background vibration (will only work if enabled in user model/settings)
+      final user = await UserModelManager.instance.user;
+      if (user.enableVibration) {
+        Vibration.vibrate(pattern: [500, 1000, 500, 1000], repeat: 0);
+      }
     }
   }
 
   void stopAlertSound() {
     FlutterRingtonePlayer().stop();
+    Vibration.cancel();
+    _alertTriggered = false;
     FlutterLocalNotificationsPlugin().cancel(999);
     UserModelManager.instance.patchUser(isAlarmActive: false);
     if (_backgroundService != null) _backgroundService!.invoke('stop_alarm');
@@ -360,6 +390,7 @@ class TripDetailsManager {
       _alertDistance = user.alertDistance ?? 500.0;
       _currentTripId = user.currentTripId;
       _totalTripDistance = user.totalTripDistance;
+      _distanceRatio = user.distanceRatio;
       _positionStreamSubscription = Geolocator.getPositionStream(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.bestForNavigation,

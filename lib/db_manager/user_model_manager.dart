@@ -34,6 +34,8 @@ class UserModelManager {
     String? currentTripId,
     bool? isAlarmActive,
     double? totalTripDistance,
+    double? distanceRatio,
+    bool? enableVibration,
     bool clearDestination = false,
   }) async {
     final current = await user;
@@ -56,6 +58,8 @@ class UserModelManager {
       currentTripId: currentTripId ?? current.currentTripId,
       isAlarmActive: isAlarmActive ?? current.isAlarmActive,
       totalTripDistance: clearDestination ? null : (totalTripDistance ?? current.totalTripDistance),
+      distanceRatio: distanceRatio ?? current.distanceRatio,
+      enableVibration: enableVibration ?? current.enableVibration,
     );
 
     await updateUser(updated);

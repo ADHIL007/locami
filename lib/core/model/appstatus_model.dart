@@ -16,6 +16,7 @@ class AppStatus {
   final bool enableSimulation;
   final bool enableTimerSimulation;
   final String uiMode; // 'low', 'mid', 'high'
+  final bool enableVibration;
 
   const AppStatus({
     this.isFirstTimeUser = true,
@@ -35,6 +36,7 @@ class AppStatus {
     this.enableSimulation = false,
     this.enableTimerSimulation = false,
     this.uiMode = 'high',
+    this.enableVibration = true,
   });
 
   Map<String, dynamic> toJson() => {
@@ -55,6 +57,7 @@ class AppStatus {
     'enableSimulation': enableSimulation,
     'enableTimerSimulation': enableTimerSimulation,
     'uiMode': uiMode,
+    'enableVibration': enableVibration,
   };
 
   factory AppStatus.fromJson(Map<String, dynamic> json) => AppStatus(
@@ -75,6 +78,7 @@ class AppStatus {
     enableSimulation: json['enableSimulation'] ?? false,
     enableTimerSimulation: json['enableTimerSimulation'] ?? false,
     uiMode: json['uiMode'] ?? 'high',
+    enableVibration: json['enableVibration'] ?? true,
   );
 
   AppStatus copyWith({
@@ -95,6 +99,7 @@ class AppStatus {
     bool? enableSimulation,
     bool? enableTimerSimulation,
     String? uiMode,
+    bool? enableVibration,
   }) => AppStatus(
     isFirstTimeUser: isFirstTimeUser ?? this.isFirstTimeUser,
     isTripStarted: isTripStarted ?? this.isTripStarted,
@@ -113,5 +118,6 @@ class AppStatus {
     enableSimulation: enableSimulation ?? this.enableSimulation,
     enableTimerSimulation: enableTimerSimulation ?? this.enableTimerSimulation,
     uiMode: uiMode ?? this.uiMode,
+    enableVibration: enableVibration ?? this.enableVibration,
   );
 }

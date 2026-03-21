@@ -14,7 +14,8 @@ class LocationUtils {
 
     if (previousPos != null && previousTime != null) {
       final dt = now.difference(previousTime).inMilliseconds / 1000.0;
-      if (dt > 0.1) {
+      // If the gap is too large (> 10s), the delta distance is unreliable for speed
+      if (dt > 0.1 && dt < 10.0) {
         final dist = Geolocator.distanceBetween(
           previousPos.latitude,
           previousPos.longitude,

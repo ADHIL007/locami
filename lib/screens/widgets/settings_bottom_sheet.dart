@@ -168,6 +168,23 @@ class SettingsBottomSheet extends StatelessWidget {
               onChanged: (val) => themeProvider.setShowWaves(val),
             ),
           ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(SolarIconsOutline.smartphone, color: accentColor),
+            title: Text(
+              "Vibrate on Arrival",
+              style: TextStyle(color: customColors().textPrimary),
+            ),
+            trailing: Switch(
+              value: themeProvider.enableVibration,
+              activeColor: accentColor,
+              onChanged: (val) {
+                themeProvider.setEnableVibration(val);
+                // Also update user model for background consistency
+                UserModelManager.instance.patchUser(enableVibration: val);
+              },
+            ),
+          ),
           const SizedBox(height: 24),
           _buildSectionTitle("Appearance Details"),
           const SizedBox(height: 8),

@@ -15,7 +15,7 @@ class LocationSearchSheet extends StatefulWidget {
   final String initialValue;
   final String userCountry;
   final Position? currentPosition;
-  final Function(String) onSelected;
+  final Function(String address, {double? lat, double? lon}) onSelected;
   final VoidCallback? onTestNearby;
 
   const LocationSearchSheet({
@@ -197,7 +197,7 @@ class _LocationSearchSheetState extends State<LocationSearchSheet> {
                     await StreetManager.instance.getCurrentLocationDetails();
                 if (!context.mounted) return;
                 if (details != null && mounted) {
-                  widget.onSelected(details['address']!);
+                  widget.onSelected(details['address']!, lat: (details['lat'] as num?)?.toDouble(), lon: (details['lon'] as num?)?.toDouble());
                   Navigator.pop(context);
                 }
               },
@@ -243,7 +243,7 @@ class _LocationSearchSheetState extends State<LocationSearchSheet> {
                   return ListTile(
                     onTap: () {
                       StreetManager.instance.cacheSelectedLocation(loc.displayName);
-                      widget.onSelected(loc.displayName);
+                      widget.onSelected(loc.displayName, lat: loc.latitude, lon: loc.longitude);
                       Navigator.pop(context);
                     },
                     leading: Icon(

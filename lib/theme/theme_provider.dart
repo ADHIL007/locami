@@ -34,6 +34,7 @@ class ThemeProvider extends ChangeNotifier {
   bool enableSimulation = false;
   bool enableTimerSimulation = false;
   String uiMode = 'high'; // 'low', 'mid', 'high'
+  bool enableVibration = true;
 
   void _applyTheme() {
     if (isMatchWithSystem) {
@@ -168,6 +169,12 @@ class ThemeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setEnableVibration(bool value) {
+    enableVibration = value;
+    _saveStatus();
+    notifyListeners();
+  }
+
   Future<void> _saveStatus() async {
     final status = await AppStatusDbHelper.instance.getStatus();
     await AppStatusDbHelper.instance.saveStatus(
@@ -186,6 +193,7 @@ class ThemeProvider extends ChangeNotifier {
         enableSimulation: enableSimulation,
         enableTimerSimulation: enableTimerSimulation,
         uiMode: uiMode,
+        enableVibration: enableVibration,
       ),
     );
   }
@@ -210,6 +218,7 @@ class ThemeProvider extends ChangeNotifier {
     enableTimerSimulation =
         EnvironmentConfig.isDevelopment && status.enableTimerSimulation;
     uiMode = status.uiMode;
+    enableVibration = status.enableVibration;
     notifyListeners();
   }
 }
