@@ -6,6 +6,7 @@ import 'package:locami/theme/theme_provider.dart';
 import 'package:locami/core/widgets/glass_container.dart';
 import 'package:locami/core/utils/environment.dart';
 import 'package:locami/core/db_helper/saved_location_db.dart';
+import 'package:locami/core/db_helper/location_cache_db.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 
@@ -58,34 +59,55 @@ class _LocationSearchSheetState extends State<LocationSearchSheet> {
     }
   }
 
-  void _onSearchChanged(String value) {
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
-    if (value.trim().isEmpty) {
-      setState(() => _savedLocs = []);
+  void _onSearchChanged(String value) async {
+    final query = value.trim();
+    if (query.isEmpty) {
+      if (_debounce?.isActive ?? false) _debounce!.cancel();
+      setState(() {
+        _savedLocs = [];
+        _suggestions = [];
+        _isLoading = false;
+      });
       _loadNearby();
       return;
     }
 
-    _debounce = Timer(const Duration(milliseconds: 300), () async {
+    // ── INSTANT: Show matching tagged locations AND search history ──
+    final savedResults = await SavedLocationDb.instance.search(query);
+    final cachedHistory = await LocationCacheDb.instance.searchCache(query: query);
+    final historyNames = cachedHistory.map((r) => r['display_name'] as String).toList();
+
+    if (mounted) {
+      setState(() {
+        _savedLocs = savedResults;
+        // Merge them for now, but suggestions will be refined by network later
+        _suggestions = historyNames; 
+      });
+    }
+
+    // ── DEBOUNCED: Online Search ──
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () async {
       if (!mounted) return;
-      setState(() => _isLoading = true);
+      
+      // Only show top loading spinner if we don't already have results from cache/db
+      if (_savedLocs.isEmpty && _suggestions.isEmpty) {
+        setState(() => _isLoading = true);
+      }
+
       try {
-        // Fetch matching saved tags AND network results at the same time
-        final savedResults = await SavedLocationDb.instance.search(value);
         final results = await StreetManager.instance.searchStreets(
-          value,
+          query,
           countryCode: widget.userCountry,
           lat: widget.currentPosition?.latitude,
           lon: widget.currentPosition?.longitude,
         );
         
-        // Remove duplicates where saved loc matches exactly with network result
-        final savedDisplayNames = savedResults.map((e) => e.displayName).toSet();
+        final savedDisplayNames = _savedLocs.map((e) => e.displayName).toSet();
         final filteredResults = results.where((r) => !savedDisplayNames.contains(r)).toList();
 
         if (mounted) {
           setState(() {
-            _savedLocs = savedResults;
             _suggestions = filteredResults;
             _isLoading = false;
           });

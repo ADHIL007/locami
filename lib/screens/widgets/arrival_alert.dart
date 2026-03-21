@@ -92,23 +92,23 @@ class ArrivalAlert extends StatelessWidget {
             const SizedBox(height: 24),
 
             // Map Clip with subtle glass border
-            if (trip != null)
-              Container(
-                height: 160,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: customColors().textPrimary.withValues(alpha: 0.08),
-                  ),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
-                  child: _buildMapSnippet(trip),
-                ),
-              ),
+            // if (trip != null)
+            //   Container(
+            //     height: 160,
+            //     width: double.infinity,
+            //     decoration: BoxDecoration(
+            //       borderRadius: BorderRadius.circular(24),
+            //       border: Border.all(
+            //         color: customColors().textPrimary.withValues(alpha: 0.08),
+            //       ),
+            //     ),
+            //     child: ClipRRect(
+            //       borderRadius: BorderRadius.circular(24),
+            //       child: _buildMapSnippet(trip),
+            //     ),
+            //   ),
 
-            const SizedBox(height: 32),
+            // const SizedBox(height: 32),
 
             // Premium Glass-style Buttons
             Row(
@@ -119,10 +119,16 @@ class ArrivalAlert extends StatelessWidget {
                     child: TextButton(
                       onPressed: onThanks,
                       style: TextButton.styleFrom(
-                        backgroundColor: customColors().textPrimary.withValues(alpha: 0.03),
+                        backgroundColor: customColors().textPrimary.withValues(
+                          alpha: 0.03,
+                        ),
                         foregroundColor: customColors().textPrimary,
                         shape: RoundedRectangleBorder(
-                          side: BorderSide(color: customColors().textPrimary.withValues(alpha: 0.05)),
+                          side: BorderSide(
+                            color: customColors().textPrimary.withValues(
+                              alpha: 0.05,
+                            ),
+                          ),
                           borderRadius: BorderRadius.circular(18),
                         ),
                       ),
@@ -132,7 +138,9 @@ class ArrivalAlert extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.2,
                           fontSize: 13,
-                          color: customColors().textPrimary.withValues(alpha: 0.7),
+                          color: customColors().textPrimary.withValues(
+                            alpha: 0.7,
+                          ),
                         ),
                       ),
                     ),
@@ -198,4 +206,3 @@ class ArrivalAlert extends StatelessWidget {
     );
   }
 }
-

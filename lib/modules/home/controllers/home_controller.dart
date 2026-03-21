@@ -23,7 +23,7 @@ import 'package:locami/core/utils/map_cache_manager.dart';
 class HomeController extends GetxController {
   final fromController = TextEditingController();
   final toController = TextEditingController();
-  
+
   final userCountry = 'India'.obs;
   final isTracking = false.obs;
   final isTrackingLoading = false.obs;
@@ -39,7 +39,7 @@ class HomeController extends GetxController {
   final destinationLongitude = Rx<double?>(null);
   final currentRoute = <LatLng>[].obs;
   final useSatelliteMap = false.obs;
-  final isMapDark = true.obs;
+  final isMapDark = false.obs;
   final currentLocationName = "Locating...".obs;
   final isPinSelectionMode = false.obs;
   final currentHeading = 0.0.obs;
@@ -74,8 +74,12 @@ class HomeController extends GetxController {
       update();
     });
 
-    TripDetailsManager.instance.isTrackingNotifier.addListener(_onTrackingStatusChanged);
-    TripDetailsManager.instance.alertTriggeredNotifier.addListener(_onAlertTriggered);
+    TripDetailsManager.instance.isTrackingNotifier.addListener(
+      _onTrackingStatusChanged,
+    );
+    TripDetailsManager.instance.alertTriggeredNotifier.addListener(
+      _onAlertTriggered,
+    );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initAsync();
@@ -89,62 +93,70 @@ class HomeController extends GetxController {
         accuracy: LocationAccuracy.bestForNavigation,
         distanceFilter: 0,
       ),
-    ).listen((position) {
-      // ── INSTANT: Update position (triggers UI rebuild immediately) ──
-      currentPosition.value = position;
+    ).listen(
+      (position) {
+        // ── INSTANT: Update position (triggers UI rebuild immediately) ──
+        currentPosition.value = position;
 
-      // ── INSTANT: Speed Calculation (smoothed) ──
-      final now = DateTime.now();
-      double candidateSpeed = 0.0;
+        // ── INSTANT: Speed Calculation (smoothed) ──
+        final now = DateTime.now();
+        double candidateSpeed = 0.0;
 
-      // Only trust GPS speed if it's clearly above noise floor
-      if (position.speed >= 1.0) {
-        candidateSpeed = position.speed;
-      }
+        // Only trust GPS speed if it's clearly above noise floor
+        if (position.speed >= 1.0) {
+          candidateSpeed = position.speed;
+        }
 
-      // Cross-check with distance-based speed if we have a previous position
-      candidateSpeed = LocationUtils.calculateSmoothedSpeed(
-        currentPos: position,
-        now: now,
-        previousPos: _previousPosition,
-        previousTime: _previousTimestamp,
-        currentSpeedBufferAvg: _speedBuffer.isEmpty ? 0 : _speedBuffer.reduce((a, b) => a + b) / _speedBuffer.length,
-        candidateSpeed: candidateSpeed,
-      );
+        // Cross-check with distance-based speed if we have a previous position
+        candidateSpeed = LocationUtils.calculateSmoothedSpeed(
+          currentPos: position,
+          now: now,
+          previousPos: _previousPosition,
+          previousTime: _previousTimestamp,
+          currentSpeedBufferAvg:
+              _speedBuffer.isEmpty
+                  ? 0
+                  : _speedBuffer.reduce((a, b) => a + b) / _speedBuffer.length,
+          candidateSpeed: candidateSpeed,
+        );
 
-      // Moving average (last 8 samples for stability)
-      _speedBuffer.add(candidateSpeed);
-      if (_speedBuffer.length > 8) _speedBuffer.removeAt(0);
-      final avgSpeed = _speedBuffer.reduce((a, b) => a + b) / _speedBuffer.length;
+        // Moving average (last 8 samples for stability)
+        _speedBuffer.add(candidateSpeed);
+        if (_speedBuffer.length > 8) _speedBuffer.removeAt(0);
+        final avgSpeed =
+            _speedBuffer.reduce((a, b) => a + b) / _speedBuffer.length;
 
-      // Dead-zone: under 1.0 m/s (~3.6 km/h) = stationary
-      smoothedSpeed.value = avgSpeed < 1.0 ? 0.0 : avgSpeed;
+        // Dead-zone: under 1.0 m/s (~3.6 km/h) = stationary
+        smoothedSpeed.value = avgSpeed < 1.0 ? 0.0 : avgSpeed;
 
-      // ── INSTANT: Direction (Bearing) Calculation ──
-      currentHeading.value = LocationUtils.calculateResponsiveBearing(
-        currentPos: position,
-        previousPos: _previousPosition,
-        currentHeading: currentHeading.value,
-        smoothedSpeed: smoothedSpeed.value,
-      );
-      _previousPosition = position;
-      _previousTimestamp = now;
+        // ── INSTANT: Direction (Bearing) Calculation ──
+        currentHeading.value = LocationUtils.calculateResponsiveBearing(
+          currentPos: position,
+          previousPos: _previousPosition,
+          currentHeading: currentHeading.value,
+          smoothedSpeed: smoothedSpeed.value,
+        );
+        _previousPosition = position;
+        _previousTimestamp = now;
 
-      // ── DEBOUNCED: Reverse Geocoding (every 3 seconds, non-blocking) ──
-      _geocodeTimer ??= Timer.periodic(const Duration(seconds: 3), (_) {
-        _updateLocationName();
-      });
+        // ── DEBOUNCED: Reverse Geocoding (every 3 seconds, non-blocking) ──
+        _geocodeTimer ??= Timer.periodic(const Duration(seconds: 3), (_) {
+          _updateLocationName();
+        });
 
-      // ── THROTTLED: Route Update (only when needed, non-blocking) ──
-      if (destinationLatitude.value != null && destinationLongitude.value != null) {
-        _updateRouteIfNeeded(position);
-      }
+        // ── THROTTLED: Route Update (only when needed, non-blocking) ──
+        if (destinationLatitude.value != null &&
+            destinationLongitude.value != null) {
+          _updateRouteIfNeeded(position);
+        }
 
-      // ── MAP PRELOAD: Preload surrounding area if moved significantly (e.g. 5km) ──
-      _checkAndPreloadMap(position);
-    }, onError: (error) {
-      debugPrint('Location stream error: $error');
-    });
+        // ── MAP PRELOAD: Preload surrounding area if moved significantly (e.g. 5km) ──
+        _checkAndPreloadMap(position);
+      },
+      onError: (error) {
+        debugPrint('Location stream error: $error');
+      },
+    );
   }
 
   Future<void> _updateLocationName() async {
@@ -159,7 +171,9 @@ class HomeController extends GetxController {
         pos.longitude,
       );
       if (details != null && details['address'] != null) {
-        currentLocationName.value = _formatAddressToTwoCommas(details['address']!);
+        currentLocationName.value = _formatAddressToTwoCommas(
+          details['address']!,
+        );
       }
     } finally {
       _isGeocodingInProgress = false;
@@ -173,18 +187,31 @@ class HomeController extends GetxController {
   }
 
   Future<void> _updateRouteIfNeeded(Position current) async {
-    if (destinationLatitude.value == null || destinationLongitude.value == null) return;
-    
-    final dest = LatLng(destinationLatitude.value!, destinationLongitude.value!);
+    if (destinationLatitude.value == null || destinationLongitude.value == null)
+      return;
+
+    final dest = LatLng(
+      destinationLatitude.value!,
+      destinationLongitude.value!,
+    );
     final start = LatLng(current.latitude, current.longitude);
-    
+
     if (currentRoute.isEmpty) {
-      currentRoute.assignAll(await RoutingService.instance.getRoute(start, dest));
+      currentRoute.assignAll(
+        await RoutingService.instance.getRoute(start, dest),
+      );
     } else {
       final firstPoint = currentRoute.first;
-      final dist = Geolocator.distanceBetween(current.latitude, current.longitude, firstPoint.latitude, firstPoint.longitude);
+      final dist = Geolocator.distanceBetween(
+        current.latitude,
+        current.longitude,
+        firstPoint.latitude,
+        firstPoint.longitude,
+      );
       if (dist > 50) {
-        currentRoute.assignAll(await RoutingService.instance.getRoute(start, dest));
+        currentRoute.assignAll(
+          await RoutingService.instance.getRoute(start, dest),
+        );
       }
     }
   }
@@ -282,7 +309,8 @@ class HomeController extends GetxController {
       permission = await Geolocator.requestPermission();
     }
     if (permission == LocationPermission.deniedForever) {
-      initStatus.value = 'Location permanently denied.\nPlease enable in Settings.';
+      initStatus.value =
+          'Location permanently denied.\nPlease enable in Settings.';
       await Geolocator.openAppSettings();
       return false;
     }
@@ -299,8 +327,12 @@ class HomeController extends GetxController {
     _geocodeTimer?.cancel();
     _positionSubscription?.cancel();
     _audioPlayer.dispose();
-    TripDetailsManager.instance.isTrackingNotifier.removeListener(_onTrackingStatusChanged);
-    TripDetailsManager.instance.alertTriggeredNotifier.removeListener(_onAlertTriggered);
+    TripDetailsManager.instance.isTrackingNotifier.removeListener(
+      _onTrackingStatusChanged,
+    );
+    TripDetailsManager.instance.alertTriggeredNotifier.removeListener(
+      _onAlertTriggered,
+    );
     super.onClose();
   }
 
@@ -337,7 +369,9 @@ class HomeController extends GetxController {
       }
     }
 
-    final destination = TripDetailsManager.instance.currentTripDetail.value?.destination ?? "Destination";
+    final destination =
+        TripDetailsManager.instance.currentTripDetail.value?.destination ??
+        "Destination";
 
     Get.dialog(
       ArrivalAlert(
@@ -469,10 +503,15 @@ class HomeController extends GetxController {
         ),
       );
       currentPosition.value = accurate;
-      
-      final details = await StreetManager.instance.getLocationDetailsAt(accurate.latitude, accurate.longitude);
+
+      final details = await StreetManager.instance.getLocationDetailsAt(
+        accurate.latitude,
+        accurate.longitude,
+      );
       if (details != null && details['address'] != null) {
-        currentLocationName.value = _formatAddressToTwoCommas(details['address']!);
+        currentLocationName.value = _formatAddressToTwoCommas(
+          details['address']!,
+        );
       }
     } catch (_) {}
   }
@@ -489,7 +528,8 @@ class HomeController extends GetxController {
         fromController.text = user.fromStreet!;
         fromAddress.value = user.fromStreet!;
       }
-      if (user.destinationStreet != null && user.destinationStreet!.isNotEmpty) {
+      if (user.destinationStreet != null &&
+          user.destinationStreet!.isNotEmpty) {
         toController.text = user.destinationStreet!;
         toAddress.value = user.destinationStreet!;
       }
@@ -527,7 +567,9 @@ class HomeController extends GetxController {
     _simulationTimer?.cancel();
     final themeProvider = ThemeProvider.instance;
     if (themeProvider.enableTimerSimulation) {
-      FlutterBackgroundService().invoke('set_simulation_mode', {'enabled': true});
+      FlutterBackgroundService().invoke('set_simulation_mode', {
+        'enabled': true,
+      });
       _simulationTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (isTracking.value && themeProvider.enableTimerSimulation) {
           TripSimulator.simulateMoveTowards();
@@ -540,7 +582,9 @@ class HomeController extends GetxController {
 
   void stopSimulation() {
     _simulationTimer?.cancel();
-    FlutterBackgroundService().invoke('set_simulation_mode', {'enabled': false});
+    FlutterBackgroundService().invoke('set_simulation_mode', {
+      'enabled': false,
+    });
   }
 
   Future<void> loadNearbyStreets() async {
@@ -561,14 +605,14 @@ class HomeController extends GetxController {
       try {
         await TripDetailsManager.instance.stopTracking();
         isTracking.value = false;
-        
+
         // Reset destination and clear route
         destinationLatitude.value = null;
         destinationLongitude.value = null;
         toAddress.value = "";
         toController.clear();
         currentRoute.clear();
-        
+
         stopTransmission();
       } catch (e) {
         Get.snackbar('Error', 'Error stopping tracking: $e');
@@ -609,12 +653,13 @@ class HomeController extends GetxController {
   }
 
   Future<void> setNearbyTestLocation() async {
-    final position = currentPosition.value ?? await Geolocator.getCurrentPosition();
+    final position =
+        currentPosition.value ?? await Geolocator.getCurrentPosition();
     currentPosition.value = position;
-    
+
     final double distanceInMeters = alertDistance.value.toDouble() + 2.0;
     final double deltaLat = distanceInMeters / 111111.0;
-    
+
     destinationLatitude.value = position.latitude + deltaLat;
     destinationLongitude.value = position.longitude;
     toAddress.value = "Test Destination (Nearby)";
@@ -742,8 +787,7 @@ class HomeController extends GetxController {
     try {
       final center = mapController.camera.center;
       setDestinationFromCoords(center);
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   Future<void> _preloadAsync(Position pos) async {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:solar_icons/solar_icons.dart';
 import 'package:locami/modules/home/controllers/home_controller.dart';
@@ -161,61 +162,59 @@ class SetupPanel extends StatelessWidget {
                 );
               }),
               Obx(
-                () => Row(
-                  children:
-                      [500, 1000, 2000].map((dist) {
-                        final isSelected =
-                            controller.alertDistance.value == dist;
-                        final label =
-                            dist == 500 ? "500m" : "${dist ~/ 1000}km";
-                        return Expanded(
-                          child: GestureDetector(
-                            onTap: () => controller.setAlertDistance(dist),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              margin: EdgeInsets.only(
-                                left: dist == 500 ? 0 : 6,
-                                right: dist == 2000 ? 0 : 6,
+                () {
+                  final options = [if (kDebugMode) 10, 500, 1000, 2000];
+                  return Row(
+                    children: options.map((dist) {
+                      final isSelected = controller.alertDistance.value == dist;
+                      String label;
+                      if (dist == 10) {
+                        label = "10m";
+                      } else if (dist < 1000) {
+                        label = "${dist}m";
+                      } else {
+                        label = "${dist ~/ 1000}km";
+                      }
+
+                      final isFirst = dist == options.first;
+                      final isLast = dist == options.last;
+
+                      return Expanded(
+                        child: GestureDetector(
+                          onTap: () => controller.setAlertDistance(dist),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            margin: EdgeInsets.only(
+                              left: isFirst ? 0 : 6,
+                              right: isLast ? 0 : 6,
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? accentColor.withValues(alpha: 0.15)
+                                  : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(
+                                color: isSelected ? accentColor.withValues(alpha: 0.4) : Colors.transparent,
+                                width: 1.5,
                               ),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              decoration: BoxDecoration(
-                                color:
-                                    isSelected
-                                        ? accentColor.withValues(alpha: 0.15)
-                                        : (isDark ? Colors.white : Colors.black)
-                                            .withValues(alpha: 0.05),
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(
-                                  color:
-                                      isSelected
-                                          ? accentColor.withValues(alpha: 0.4)
-                                          : Colors.transparent,
-                                  width: 1.5,
-                                ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  label,
-                                  style: TextStyle(
-                                    color:
-                                        isSelected
-                                            ? accentColor
-                                            : (isDark
-                                                ? Colors.white70
-                                                : Colors.black54),
-                                    fontWeight:
-                                        isSelected
-                                            ? FontWeight.w800
-                                            : FontWeight.w600,
-                                    fontSize: 14,
-                                  ),
+                            ),
+                            child: Center(
+                              child: Text(
+                                label,
+                                style: TextStyle(
+                                  color: isSelected ? accentColor : (isDark ? Colors.white70 : Colors.black54),
+                                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                  fontSize: 14,
                                 ),
                               ),
                             ),
                           ),
-                        );
-                      }).toList(),
-                ),
+                        ),
+                      );
+                    }).toList(),
+                  );
+                },
               ),
               const SizedBox(height: 20),
               Obx(
