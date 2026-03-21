@@ -367,14 +367,20 @@ class _TripInfoDisplayState extends State<TripInfoDisplay> {
                               : Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Icon(Icons.play_arrow_rounded, size: 22),
-                                  const SizedBox(width: 8),
+                                  Icon(
+                                    homeController.isTracking.value
+                                        ? SolarIconsBold.alarmTurnOff
+                                        : SolarIconsBold.alarmAdd,
+                                    size: 20,
+                                    color: Colors.white,
+                                  ),
+                                  const SizedBox(width: 10),
                                   Text(
-                                    'stop_alert'.tr,
-                                    style: TextStyle(
+                                    (homeController.isTracking.value ? "stop_alert" : "start_alert").tr,
+                                    style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.3,
+                                      letterSpacing: 0.5,
                                     ),
                                   ),
                                 ],

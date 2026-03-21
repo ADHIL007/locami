@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:solar_icons/solar_icons.dart';
 
 class TrackingButton extends StatelessWidget {
@@ -33,13 +34,16 @@ class TrackingButton extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
-              colors: isTracking 
-                  ? [const Color(0xFFE53935), const Color(0xFFB71C1C)]
-                  : [accentColor, accentColor.withValues(alpha: 0.8)],
+              colors:
+                  isTracking
+                      ? [const Color(0xFFE53935), const Color(0xFFB71C1C)]
+                      : [accentColor, accentColor.withValues(alpha: 0.8)],
             ),
             boxShadow: [
               BoxShadow(
-                color: (isTracking ? Colors.red : accentColor).withValues(alpha: 0.4),
+                color: (isTracking ? Colors.red : accentColor).withValues(
+                  alpha: 0.4,
+                ),
                 blurRadius: 12,
                 offset: const Offset(0, 6),
               ),
@@ -70,13 +74,16 @@ class TrackingButton extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          isTracking ? SolarIconsBold.stop : SolarIconsBold.play,
+                          isTracking
+                              ? SolarIconsBold.alarmTurnOff
+                              : SolarIconsBold.alarmAdd,
                           size: 20,
                           color: Colors.white,
                         ),
                         const SizedBox(width: 10),
                         Text(
-                          textOverride ?? (isTracking ? "Stop Tracking" : "Start Tracking"),
+                          textOverride ??
+                              (isTracking ? "stop_alert".tr : "start_alert".tr),
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,

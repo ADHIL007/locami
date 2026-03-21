@@ -45,6 +45,9 @@ class HomeController extends GetxController {
   final currentHeading = 0.0.obs;
   final smoothedSpeed = 0.0.obs; // m/s, smoothed
   final savedLocations = <SavedLocation>[].obs;
+  final isDestinationSaved = false.obs;
+  final bearingToDestination = 0.0.obs;
+  final isDestinationInView = true.obs;
 
   StreamSubscription<Position>? _positionSubscription;
   Position? _previousPosition;
@@ -54,6 +57,7 @@ class HomeController extends GetxController {
   Timer? _transmissionTimer;
   Timer? _simulationTimer;
   Timer? _geocodeTimer;
+  Timer? _destTrackingTimer;
   bool _isGeocodingInProgress = false;
   final AudioPlayer _audioPlayer = AudioPlayer();
   final mapController = fm.MapController();
@@ -465,6 +469,7 @@ class HomeController extends GetxController {
     destinationLatitude.value = loc.latitude;
     destinationLongitude.value = loc.longitude;
     currentRoute.clear();
+    isDestinationSaved.value = true;
 
     // Zoom to show both current and destination
     if (currentPosition.value != null) {
@@ -605,7 +610,9 @@ class HomeController extends GetxController {
       try {
         await TripDetailsManager.instance.stopTracking();
         isTracking.value = false;
-
+        _destTrackingTimer?.cancel();
+        _destTrackingTimer = null;
+        
         // Reset destination and clear route
         destinationLatitude.value = null;
         destinationLongitude.value = null;
@@ -631,8 +638,9 @@ class HomeController extends GetxController {
         await TripDetailsManager.instance.startTracking(
           alertDistance: alertDistance.value.toDouble(),
         );
+
         isTracking.value = true;
-        startTransmission();
+        _startDestTrackingTimer();
         startSimulation();
       } catch (e) {
         Get.snackbar('Error', 'Error starting tracking: $e');
@@ -727,6 +735,7 @@ class HomeController extends GetxController {
     destinationLatitude.value = null;
     destinationLongitude.value = null;
     currentRoute.clear();
+    isDestinationSaved.value = false;
   }
 
   Future<void> selectDestination(String address) async {
@@ -741,8 +750,21 @@ class HomeController extends GetxController {
       if (currentPosition.value != null) {
         _updateRouteIfNeeded(currentPosition.value!);
       }
+      _checkIfDestinationSaved();
     }
     update();
+  }
+
+  Future<void> _checkIfDestinationSaved() async {
+    if (destinationLatitude.value == null) {
+      isDestinationSaved.value = false;
+      return;
+    }
+    final saved = await SavedLocationDb.instance.findByCoordinates(
+      destinationLatitude.value!,
+      destinationLongitude.value!,
+    );
+    isDestinationSaved.value = saved != null;
   }
 
   Future<void> setDestinationFromCoords(LatLng coords) async {
@@ -770,6 +792,7 @@ class HomeController extends GetxController {
     if (currentPosition.value != null) {
       _updateRouteIfNeeded(currentPosition.value!);
     }
+    _checkIfDestinationSaved();
     update();
   }
 
@@ -821,6 +844,36 @@ class HomeController extends GetxController {
     if (distance > 3000) {
       _preloadAsync(pos);
     }
+  }
+
+  void _startDestTrackingTimer() {
+    _destTrackingTimer?.cancel();
+    _destTrackingTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      _updateDestStatus();
+    });
+  }
+
+  void _updateDestStatus() {
+    if (!isTracking.value || destinationLatitude.value == null) return;
+    try {
+      final camera = mapController.camera;
+      final center = camera.center;
+      final dest = LatLng(destinationLatitude.value!, destinationLongitude.value!);
+      
+      // Calculate bearing from center screen to destination
+      bearingToDestination.value = Geolocator.bearingBetween(
+        center.latitude, center.longitude,
+        dest.latitude, dest.longitude,
+      );
+
+      // Check if destination is in current viewport
+      isDestinationInView.value = camera.visibleBounds.contains(dest);
+    } catch (_) {}
+  }
+
+  void animateToDestination() {
+    if (destinationLatitude.value == null) return;
+    centerMap(destinationLatitude.value!, destinationLongitude.value!, 15.0);
   }
 
   void toggleMapTheme() {

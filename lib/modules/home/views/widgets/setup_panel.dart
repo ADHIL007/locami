@@ -71,12 +71,9 @@ class SetupPanel extends StatelessWidget {
                                 ? 'where_are_you_going'.tr
                                 : controller.toAddress.value,
                             style: TextStyle(
-                              color:
-                                  controller.toAddress.value.isEmpty
-                                      ? (isDark
-                                          ? Colors.white38
-                                          : Colors.black38)
-                                      : (isDark ? Colors.white : Colors.black),
+                              color: controller.toAddress.value.isEmpty
+                                  ? (isDark ? Colors.white38 : Colors.black38)
+                                  : (isDark ? Colors.white : Colors.black),
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
@@ -110,7 +107,9 @@ class SetupPanel extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Obx(() {
-                if (controller.toAddress.value.isEmpty || controller.destinationLatitude.value == null) {
+                if (controller.toAddress.value.isEmpty || 
+                    controller.destinationLatitude.value == null ||
+                    controller.isDestinationSaved.value) {
                   return const SizedBox.shrink();
                 }
                 return Container(
@@ -220,7 +219,7 @@ class SetupPanel extends StatelessWidget {
               Obx(
                 () => TrackingButton(
                   onPressed: controller.toggleTracking,
-                  isTracking: false,
+                  isTracking: controller.isTracking.value,
                   isLoading: controller.isTrackingLoading.value,
                   canStart: controller.toAddress.value.isNotEmpty,
                   accentColor: accentColor,

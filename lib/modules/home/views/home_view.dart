@@ -1,14 +1,17 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart' as fm;
 import 'package:latlong2/latlong.dart' hide Path;
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import 'package:locami/modules/home/controllers/home_controller.dart';
 import 'package:locami/theme/theme_provider.dart';
 import 'package:locami/core/db_helper/saved_location_db.dart';
 import 'package:locami/screens/widgets/location_search_sheet.dart';
 import 'package:locami/screens/widgets/trip_info_display.dart';
+import 'package:locami/core/widgets/glass_container.dart';
 
 import 'package:locami/modules/home/views/widgets/loading_screen.dart';
 import 'package:locami/modules/home/views/widgets/setup_panel.dart';
@@ -386,6 +389,40 @@ class HomeView extends GetView<HomeController> {
                 bottom: isTracking ? 500 : 360,
                 child: GhostFABGroup(accentColor: accentColor),
               ),
+              Obx(() {
+                if (!controller.isTracking.value || controller.isDestinationInView.value) {
+                  return const SizedBox.shrink();
+                }
+                return Positioned(
+                  left: 20,
+                  bottom: isTracking ? 500 : 360,
+                  child: GestureDetector(
+                    onTap: controller.animateToDestination,
+                    child: GlassContainer(
+                      width: 54,
+                      height: 54,
+                      blur: 15,
+                      opacity: 0.2,
+                      borderRadius: 27,
+                      color: Colors.black,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.25),
+                        width: 1.2,
+                      ),
+                      child: Center(
+                        child: Transform.rotate(
+                          angle: (controller.bearingToDestination.value - 90) * (math.pi / 180),
+                          child: Icon(
+                            SolarIconsBold.altArrowRight,
+                            color: accentColor,
+                            size: 28,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
               if (!isTracking && controller.isPinSelectionMode.value)
                 Positioned.fill(
                   child: IgnorePointer(
