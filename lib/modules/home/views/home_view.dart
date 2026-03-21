@@ -57,7 +57,11 @@ class HomeView extends GetView<HomeController> {
     );
   }
 
-  void _showSavedLocationOptions(SavedLocation loc, bool isDark, Color accentColor) {
+  void _showSavedLocationOptions(
+    SavedLocation loc,
+    bool isDark,
+    Color accentColor,
+  ) {
     Get.bottomSheet(
       Container(
         padding: const EdgeInsets.all(24),
@@ -90,7 +94,8 @@ class HomeView extends GetView<HomeController> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5),
+                          color: (isDark ? Colors.white : Colors.black)
+                              .withValues(alpha: 0.5),
                           fontSize: 13,
                         ),
                       ),
@@ -109,7 +114,10 @@ class HomeView extends GetView<HomeController> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
+              leading: const Icon(
+                Icons.delete_outline,
+                color: Colors.redAccent,
+              ),
               title: const Text('Delete Location'),
               onTap: () {
                 Get.back();
@@ -118,7 +126,8 @@ class HomeView extends GetView<HomeController> {
                   'Deleted',
                   '${loc.label} removed from saved locations.',
                   snackPosition: SnackPosition.BOTTOM,
-                  backgroundColor: isDark ? const Color(0xFF2A2A2A) : Colors.white,
+                  backgroundColor:
+                      isDark ? const Color(0xFF2A2A2A) : Colors.white,
                   colorText: isDark ? Colors.white : Colors.black87,
                 );
               },
@@ -136,7 +145,8 @@ class HomeView extends GetView<HomeController> {
     final isDark = themeProvider.theme == AppThemeMode.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF8F9FA),
+      backgroundColor:
+          isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF8F9FA),
       body: Obx(() {
         if (!controller.isInitialized.value) {
           return LoadingScreen(isDark: isDark, accentColor: accentColor);
@@ -163,11 +173,12 @@ class HomeView extends GetView<HomeController> {
                       final sat = controller.useSatelliteMap.value;
                       return fm.TileLayer(
                         key: ValueKey('tiles_${sat}_$mapDark'),
-                        urlTemplate: sat
-                            ? ApiConstants.arcGisSatelliteUrl
-                            : (mapDark
-                                ? ApiConstants.cartoDbDarkUrl
-                                : ApiConstants.cartoDbLightUrl),
+                        urlTemplate:
+                            sat
+                                ? ApiConstants.arcGisSatelliteUrl
+                                : (mapDark
+                                    ? ApiConstants.cartoDbDarkUrl
+                                    : ApiConstants.cartoDbLightUrl),
                         subdomains: const ['a', 'b', 'c', 'd'],
                         userAgentPackageName: 'com.example.locami',
                         tileProvider: CachedTileProvider(
@@ -176,7 +187,8 @@ class HomeView extends GetView<HomeController> {
                       );
                     }),
                     Obx(() {
-                      if (!controller.useSatelliteMap.value) return const SizedBox.shrink();
+                      if (!controller.useSatelliteMap.value)
+                        return const SizedBox.shrink();
                       return fm.TileLayer(
                         urlTemplate: ApiConstants.cartoDbLabelsUrl,
                         subdomains: const ['a', 'b', 'c', 'd'],
@@ -245,7 +257,9 @@ class HomeView extends GetView<HomeController> {
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.4),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.4,
+                                      ),
                                       blurRadius: 12,
                                       offset: const Offset(0, 5),
                                     ),
@@ -271,36 +285,50 @@ class HomeView extends GetView<HomeController> {
                       final locs = controller.savedLocations;
                       if (locs.isEmpty) return const SizedBox.shrink();
                       return fm.MarkerLayer(
-                        markers: locs.map((loc) {
-                          final pinColor = _getColorForSeed(loc.label);
-                          return fm.Marker(
-                            point: LatLng(loc.latitude, loc.longitude),
-                            width: 36,
-                            height: 36,
-                            child: GestureDetector(
-                              onTap: () {
-                                _showSavedLocationOptions(loc, isDark, accentColor);
-                              },
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: pinColor,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 2),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.3),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 3),
+                        markers:
+                            locs.map((loc) {
+                              final pinColor = _getColorForSeed(loc.label);
+                              return fm.Marker(
+                                point: LatLng(loc.latitude, loc.longitude),
+                                width: 36,
+                                height: 36,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    _showSavedLocationOptions(
+                                      loc,
+                                      isDark,
+                                      accentColor,
+                                    );
+                                  },
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: pinColor,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 2,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.3,
+                                          ),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ],
                                     ),
-                                  ],
+                                    child: Center(
+                                      child: Icon(
+                                        loc.iconData,
+                                        size: 18,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                                child: Center(
-                                  child: Icon(loc.iconData, size: 18, color: Colors.white),
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
+                              );
+                            }).toList(),
                       );
                     }),
                     Obx(() {
@@ -312,10 +340,14 @@ class HomeView extends GetView<HomeController> {
                             point: LatLng(pos.latitude, pos.longitude),
                             width: 80,
                             height: 80,
-                            child: Obx(() => CustomPaint(
-                                  size: const Size(80, 80),
-                                  painter: NavigationArrowPainter(heading: controller.currentHeading.value),
-                                )),
+                            child: Obx(
+                              () => CustomPaint(
+                                size: const Size(80, 80),
+                                painter: NavigationArrowPainter(
+                                  heading: controller.currentHeading.value,
+                                ),
+                              ),
+                            ),
                           ),
                         ],
                       );
@@ -364,25 +396,24 @@ class HomeView extends GetView<HomeController> {
                   ),
                 ),
               ),
-              const Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: TopHeader(),
-              ),
+              const Positioned(top: 0, left: 0, right: 0, child: TopHeader()),
               Positioned(
                 left: 0,
                 right: 0,
                 bottom: 0,
-                child: controller.isPinSelectionMode.value
-                    ? MapCenterConfirmPanel(accentColor: accentColor, isDark: isDark)
-                    : (isTracking
-                        ? const TripInfoDisplay()
-                        : SetupPanel(
-                            isDark: isDark,
-                            accentColor: accentColor,
-                            onSearchTap: _showLocationSearch,
-                          )),
+                child:
+                    controller.isPinSelectionMode.value
+                        ? MapCenterConfirmPanel(
+                          accentColor: accentColor,
+                          isDark: isDark,
+                        )
+                        : (isTracking
+                            ? const TripInfoDisplay()
+                            : SetupPanel(
+                              isDark: isDark,
+                              accentColor: accentColor,
+                              onSearchTap: _showLocationSearch,
+                            )),
               ),
               Positioned(
                 right: 20,
@@ -390,33 +421,45 @@ class HomeView extends GetView<HomeController> {
                 child: GhostFABGroup(accentColor: accentColor),
               ),
               Obx(() {
-                if (!controller.isTracking.value || controller.isDestinationInView.value) {
+                if (!controller.isTracking.value ||
+                    controller.isDestinationInView.value) {
                   return const SizedBox.shrink();
                 }
+                final isTracking = controller.isTracking.value;
                 return Positioned(
                   left: 20,
                   bottom: isTracking ? 500 : 360,
                   child: GestureDetector(
                     onTap: controller.animateToDestination,
-                    child: GlassContainer(
-                      width: 54,
-                      height: 54,
-                      blur: 15,
-                      opacity: 0.2,
-                      borderRadius: 27,
-                      color: Colors.black,
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.25),
-                        width: 1.2,
-                      ),
-                      child: Center(
-                        child: Transform.rotate(
-                          angle: (controller.bearingToDestination.value - 90) * (math.pi / 180),
-                          child: Icon(
-                            SolarIconsBold.altArrowRight,
-                            color: accentColor,
-                            size: 28,
-                          ),
+                    child: Container(
+                      decoration: BoxDecoration(shape: BoxShape.circle),
+                      child: GlassContainer(
+                        width: 56,
+                        height: 56,
+                        blur: 20,
+                        opacity: 0.15,
+                        borderRadius: 28,
+                        color: Colors.black,
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.3),
+                          width: 1.5,
+                        ),
+                        child: Center(
+                          child: Obx(() {
+                            // Bearing is geographical, subtract map rotation to get screen-relative angle
+                            final rotation = controller.mapRotation.value;
+                            final bearing = controller.bearingToDestination.value;
+                            final angle = (bearing - rotation) * (math.pi / 180);
+                            
+                            return Transform.rotate(
+                              angle: angle,
+                              child: Icon(
+                                SolarIconsBold.mapArrowUp,
+                                color: accentColor,
+                                size: 30,
+                              ),
+                            );
+                          }),
                         ),
                       ),
                     ),
