@@ -20,6 +20,7 @@ import 'package:locami/core/utils/routing_service.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:locami/core/utils/location_utils.dart';
 import 'package:locami/core/utils/map_cache_manager.dart';
+import 'package:locami/db_manager/app_status_manager.dart';
 
 class HomeController extends GetxController {
   final fromController = TextEditingController();
@@ -50,6 +51,7 @@ class HomeController extends GetxController {
   final bearingToDestination = 0.0.obs;
   final mapRotation = 0.0.obs;
   final isDestinationInView = true.obs;
+  final isOnline = true.obs;
 
   StreamSubscription<Position>? _positionSubscription;
   Position? _previousPosition;
@@ -92,6 +94,17 @@ class HomeController extends GetxController {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initAsync();
     });
+
+    // Re-fetch route when internet is back
+    AppStatusManager.instance.isOnlineNotifier.addListener(() {
+      final bool nowOnline = AppStatusManager.instance.isOnlineNotifier.value;
+      isOnline.value = nowOnline;
+      if (nowOnline && isTracking.value) {
+        if (currentPosition.value != null) _updateRouteIfNeeded(currentPosition.value!, force: true);
+      }
+    });
+
+    isOnline.value = AppStatusManager.instance.isOnlineNotifier.value;
   }
 
   void _startLocationStream() {
@@ -173,12 +186,15 @@ class HomeController extends GetxController {
     return "${parts[0].trim()}, ${parts[1].trim()}";
   }
 
-  Future<void> _updateRouteIfNeeded(Position current) async {
+  Future<void> _updateRouteIfNeeded(Position current, {bool force = false}) async {
     if (destinationLatitude.value == null || destinationLongitude.value == null) return;
     final dest = LatLng(destinationLatitude.value!, destinationLongitude.value!);
     final start = LatLng(current.latitude, current.longitude);
-    if (currentRoute.isEmpty) {
-      final routeData = await RoutingService.instance.getRoute(start, dest);
+    if (currentRoute.isEmpty || force) {
+      final routeData = await RoutingService.instance.getRoute(
+        start, dest, 
+        destinationName: toAddress.value,
+      );
       currentRoute.assignAll(routeData.points);
     } else {
       final firstPoint = currentRoute.first;

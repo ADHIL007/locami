@@ -29,16 +29,31 @@
                 android:textSize="12sp"
                 android:textStyle="bold" />
 
-            <TextView
-                android:id="@+id/widget_current_loc"
+            <!-- Current Location Row with Icon -->
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Finding location..."
-                android:textColor="#AAFFFFFF"
-                android:textSize="10sp"
-                android:layout_marginTop="4dp"
-                android:singleLine="true"
-                android:ellipsize="end" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="4dp">
+
+                <ImageView
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
+                    android:src="@drawable/ic_near_me"
+                    android:layout_marginEnd="4dp"
+                    android:alpha="0.7" />
+
+                <TextView
+                    android:id="@+id/widget_current_loc"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Finding location..."
+                    android:textColor="#AAFFFFFF"
+                    android:textSize="10sp"
+                    android:singleLine="true"
+                    android:ellipsize="end" />
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/widget_distance_value"
@@ -86,12 +101,10 @@
         android:layout_below="@id/top_section"
         android:layout_marginTop="6dp">
 
-        <!-- Linear Progress replaces with another Bitmap for custom style if needed, 
-             or we keep a clean horizontal one. User asked for ProgressBar and Speedometer both as Bitmap. -->
         <ImageView
             android:id="@+id/widget_progress_img"
             android:layout_width="match_parent"
-            android:layout_height="12dp"
+            android:layout_height="14dp"
             android:scaleType="fitXY" />
 
         <TextView

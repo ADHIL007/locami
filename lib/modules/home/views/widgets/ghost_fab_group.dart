@@ -43,6 +43,7 @@ class GhostFABGroup extends StatelessWidget {
                     ? SolarIconsBold.map
                     : SolarIconsOutline.map,
             onTap: controller.toggleMapStyle,
+            isDisabled: !controller.isOnline.value,
           ),
           const SizedBox(height: 16),
           _buildGhostBtn(
@@ -51,7 +52,7 @@ class GhostFABGroup extends StatelessWidget {
                     ? SolarIconsBold.moon
                     : SolarIconsOutline.sun,
             onTap: controller.toggleMapTheme,
-            isDisabled: controller.useSatelliteMap.value,
+            isDisabled: controller.useSatelliteMap.value || !controller.isOnline.value,
           ),
           const SizedBox(height: 16),
           _buildGhostBtn(

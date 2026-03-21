@@ -31,4 +31,13 @@ class WidgetHelper {
       qualifiedAndroidName: "com.example.locami.LocamiWidget",
     );
   }
+  static Future<void> resetWidget() async {
+    await HomeWidget.saveWidgetData("is_tracking", false);
+    await HomeWidget.saveWidgetData("distance", "-- km");
+    await HomeWidget.saveWidgetData("speed", "0");
+    await HomeWidget.updateWidget(
+      androidName: androidWidgetName,
+      qualifiedAndroidName: "com.example.locami.LocamiWidget",
+    );
+  }
 }

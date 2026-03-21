@@ -1,16 +1,39 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:locami/core/db_helper/app_status.dart';
 import 'package:locami/core/model/appstatus_model.dart';
 
 class AppStatusManager {
-  AppStatusManager._internal();
+  AppStatusManager._internal() {
+    _initConnectivityListener();
+  }
   static final AppStatusManager instance = AppStatusManager._internal();
 
   AppStatus? _currentStatus;
+  final Connectivity _connectivity = Connectivity();
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  final ValueNotifier<bool> isOnlineNotifier = ValueNotifier(true);
 
   Future<AppStatus> get status async {
     if (_currentStatus != null) return _currentStatus!;
     _currentStatus = await AppStatusDbHelper.instance.getStatus();
     return _currentStatus!;
+  }
+
+  void _initConnectivityListener() {
+    _connectivitySubscription = _connectivity.onConnectivityChanged.listen((List<ConnectivityResult> results) {
+      final bool hasInternet = results.any((result) => result != ConnectivityResult.none);
+      isOnlineNotifier.value = hasInternet;
+      patchStatus(isInternetOn: hasInternet);
+    });
+    
+    // Initial check
+    _connectivity.checkConnectivity().then((results) {
+      final bool hasInternet = results.any((result) => result != ConnectivityResult.none);
+      isOnlineNotifier.value = hasInternet;
+      patchStatus(isInternetOn: hasInternet);
+    });
   }
 
   Future<void> updateStatus(AppStatus newStatus) async {
@@ -60,5 +83,9 @@ class AppStatusManager {
         showWaves: true,
       ),
     );
+  }
+
+  void dispose() {
+    _connectivitySubscription?.cancel();
   }
 }

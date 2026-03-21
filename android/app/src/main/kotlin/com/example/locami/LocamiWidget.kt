@@ -9,6 +9,7 @@ import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetProvider
 import android.app.PendingIntent
 import android.content.Intent
+import android.util.Log
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.PI
@@ -16,46 +17,43 @@ import kotlin.math.PI
 class LocamiWidget : HomeWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray, widgetData: android.content.SharedPreferences) {
         for (appWidgetId in appWidgetIds) {
+            val isTracking = widgetData.getBoolean("is_tracking", false)
+            Log.d("LocamiWidget", "Updating Widget ID: $appWidgetId, isTracking: $isTracking")
+
             val views = RemoteViews(context.packageName, R.layout.locami_widget).apply {
                 val distance = widgetData.getString("distance", "-- km")
                 val speedVal = widgetData.getString("speed", "0")?.toIntOrNull() ?: 0
-                val isTracking = widgetData.getBoolean("is_tracking", false)
                 val currentLoc = widgetData.getString("current_loc", "Finding location...")
                 val destName = widgetData.getString("dest_name", "Destination")
                 val progressVal = widgetData.getInt("progress", 0)
                 val statusInfo = widgetData.getString("status_info", "--")
                 val alertDist = widgetData.getString("alert_dist", "500m")
 
-                setTextViewText(R.id.widget_distance_value, distance)
-                setTextViewText(R.id.widget_current_loc, currentLoc)
-                setTextViewText(R.id.widget_dest_name, "to $destName")
-                setTextViewText(R.id.widget_status_label, statusInfo)
-                setTextViewText(R.id.widget_alert_dist, "Alert within $alertDist")
-                
-                // Draw Gauge Bitmap
-                val gaugeBitmap = drawCircularGauge(context, speedVal)
-                setImageViewBitmap(R.id.widget_gauge_img, gaugeBitmap)
-
-                // Draw Linear Progress Bitmap
-                val progressBitmap = drawLinearProgress(context, progressVal)
-                setImageViewBitmap(R.id.widget_progress_img, progressBitmap)
-
                 if (isTracking) {
-                    setViewVisibility(R.id.top_section, View.VISIBLE)
+                    setTextViewText(R.id.widget_distance_value, distance)
+                    setTextViewText(R.id.widget_current_loc, currentLoc)
+                    setTextViewText(R.id.widget_dest_name, "to $destName")
+                    setTextViewText(R.id.widget_status_label, statusInfo)
+                    setTextViewText(R.id.widget_alert_dist, "Alert within $alertDist")
+                    
+                    setImageViewBitmap(R.id.widget_gauge_img, drawCircularGauge(context, speedVal, true))
+                    setImageViewBitmap(R.id.widget_progress_img, drawLinearProgress(context, progressVal, true))
+
                     setViewVisibility(R.id.progress_section, View.VISIBLE)
-                    setViewVisibility(R.id.widget_button, View.VISIBLE)
                     setTextViewText(R.id.widget_button_text, "STOP ALERT")
                     setInt(R.id.widget_button, "setBackgroundResource", R.drawable.widget_button_bg)
                 } else {
-                    setViewVisibility(R.id.top_section, View.VISIBLE)
                     setTextViewText(R.id.widget_current_loc, "Ready to start a new trip")
                     setTextViewText(R.id.widget_distance_value, "Locami")
                     setTextViewText(R.id.widget_dest_name, "Select a destination")
+                    setTextViewText(R.id.widget_status_label, "Ready for next adventure")
+                    
+                    setImageViewBitmap(R.id.widget_gauge_img, drawCircularGauge(context, 0, false))
+                    setImageViewBitmap(R.id.widget_progress_img, drawLinearProgress(context, 0, false))
+
                     setViewVisibility(R.id.progress_section, View.INVISIBLE)
-                    setViewVisibility(R.id.widget_button, View.VISIBLE)
                     setTextViewText(R.id.widget_button_text, "START TRIP")
                     setInt(R.id.widget_button, "setBackgroundResource", R.drawable.widget_button_accent)
-                    setTextViewText(R.id.widget_status_label, "Ready for next adventure")
                 }
 
                 // Launch App on click
@@ -68,7 +66,7 @@ class LocamiWidget : HomeWidgetProvider() {
         }
     }
 
-    private fun drawCircularGauge(context: Context, speed: Int): Bitmap {
+    private fun drawCircularGauge(context: Context, speed: Int, active: Boolean): Bitmap {
         val density = context.resources.displayMetrics.density
         val size = (80 * density).toInt()
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
@@ -86,10 +84,11 @@ class LocamiWidget : HomeWidgetProvider() {
         paint.color = Color.parseColor("#15FFFFFF")
         canvas.drawArc(rect, 135f, 270f, false, paint)
 
-        // Active Speed Arc
-        paint.color = Color.parseColor("#C62828")
-        val sweepAngle = (speed.toFloat() / 120f).coerceIn(0f, 1f) * 270f
-        canvas.drawArc(rect, 135f, sweepAngle, false, paint)
+        if (active) {
+            paint.color = Color.parseColor("#C62828")
+            val sweepAngle = (speed.toFloat() / 120f).coerceIn(0f, 1f) * 270f
+            canvas.drawArc(rect, 135f, sweepAngle, false, paint)
+        }
 
         // Tick marks
         paint.strokeWidth = 1 * density
@@ -121,7 +120,7 @@ class LocamiWidget : HomeWidgetProvider() {
         return bitmap
     }
 
-    private fun drawLinearProgress(context: Context, progress: Int): Bitmap {
+    private fun drawLinearProgress(context: Context, progress: Int, active: Boolean): Bitmap {
         val density = context.resources.displayMetrics.density
         val width = (300 * density).toInt().coerceAtLeast(1)
         val height = (14 * density).toInt().coerceAtLeast(1)
@@ -137,16 +136,17 @@ class LocamiWidget : HomeWidgetProvider() {
         paint.color = Color.parseColor("#15FFFFFF")
         canvas.drawRoundRect(rect, 2 * density, 2 * density, paint)
 
-        // Active progress
-        paint.color = Color.parseColor("#C62828")
-        val progressWidth = (progress.toFloat() / 100f) * width
-        val activeRect = RectF(0f, height / 2f - 2 * density, progressWidth, height / 2f + 2 * density)
-        canvas.drawRoundRect(activeRect, 2 * density, 2 * density, paint)
+        if (active) {
+            paint.color = Color.parseColor("#C62828")
+            val progressWidth = (progress.toFloat() / 100f) * width
+            val activeRect = RectF(0f, height / 2f - 2 * density, progressWidth, height / 2f + 2 * density)
+            canvas.drawRoundRect(activeRect, 2 * density, 2 * density, paint)
 
-        // Progress Thumb (Circle)
-        paint.color = Color.WHITE
-        val thumbX = progressWidth.coerceIn(4 * density, width.toFloat() - 4 * density)
-        canvas.drawCircle(thumbX, height / 2f, 5 * density, paint)
+            // Progress Thumb
+            paint.color = Color.WHITE
+            val thumbX = progressWidth.coerceIn(4 * density, width.toFloat() - 4 * density)
+            canvas.drawCircle(thumbX, height / 2f, 5 * density, paint)
+        }
 
         return bitmap
     }

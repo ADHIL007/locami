@@ -5,6 +5,8 @@ import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:locami/core/db_helper/location_cache_db.dart';
 import 'package:locami/core/constants/api_constants.dart';
+import 'package:locami/db_manager/app_status_manager.dart';
+import 'package:locami/core/model/appstatus_model.dart';
 
 class StreetManager {
   StreetManager._();
@@ -299,6 +301,27 @@ class StreetManager {
   }
 
   Future<Map<String, double>?> getCoordinates(String query) async {
+    final AppStatus appStatus = await AppStatusManager.instance.status;
+    final bool isOnline = appStatus.isInternetOn;
+
+    // ── Step 1: Check Local Cache FIRST (especially if offline) ──
+    try {
+      final cached = await LocationCacheDb.instance.searchCache(query: query, limit: 1);
+      if (cached.isNotEmpty) {
+        final double? lat = cached[0]['latitude'] as double?;
+        final double? lon = cached[0]['longitude'] as double?;
+        if (lat != null && lon != null) {
+          debugPrint("GEO: Found in cache: $query");
+          return {'lat': lat, 'lon': lon};
+        }
+      }
+    } catch (_) {}
+
+    if (!isOnline) {
+      debugPrint("GEO: Offline and not in cache, skipping network...");
+      return null;
+    }
+
     // Try Photon first (faster, better autocomplete)
     try {
       final url = Uri.https(ApiConstants.photonSearchDomain, ApiConstants.photonSearchPath, {
@@ -309,7 +332,7 @@ class StreetManager {
 
       final response = await http
           .get(url, headers: {'User-Agent': 'locami-app'})
-          .timeout(const Duration(seconds: 5));
+          .timeout(const Duration(seconds: 3));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -339,7 +362,7 @@ class StreetManager {
     try {
       final response = await http
           .get(url, headers: {'User-Agent': 'locami-app'})
-          .timeout(const Duration(seconds: 5));
+          .timeout(const Duration(seconds: 3));
 
       if (response.statusCode == 200) {
         final List data = json.decode(response.body);
