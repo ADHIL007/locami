@@ -241,6 +241,8 @@ class HomeView extends GetView<HomeController> {
                       final traversed = route.sublist(0, safeIndex + 1);
                       final remaining = route.sublist(safeIndex);
                       
+                      // Optimized polyline rendering with reduced point count
+                      // The route is already simplified by OptimizedRouteRenderer
                       return fm.PolylineLayer(
                         polylines: [
                           if (traversed.length > 1) 
@@ -248,12 +250,17 @@ class HomeView extends GetView<HomeController> {
                               points: traversed,
                               color: isDark ? Colors.white.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.25),
                               strokeWidth: 5,
+                              // Use optimized stroke cap/join for better performance
+                              strokeCap: fm.StrokeCap.round,
+                              strokeJoin: fm.StrokeJoin.round,
                             ),
                           if (remaining.length > 1)
                             fm.Polyline(
                               points: remaining,
                               color: accentColor,
                               strokeWidth: 5,
+                              strokeCap: fm.StrokeCap.round,
+                              strokeJoin: fm.StrokeJoin.round,
                             ),
                         ],
                       );

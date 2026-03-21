@@ -17,6 +17,8 @@ import 'package:locami/screens/widgets/arrival_alert.dart';
 import 'package:vibration/vibration.dart';
 import 'package:locami/core/utils/trip_simulator.dart';
 import 'package:locami/core/utils/routing_service.dart';
+import 'package:locami/core/utils/optimized_route_renderer.dart';
+import 'package:locami/core/utils/route_lod_manager.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:locami/core/utils/location_utils.dart';
 import 'package:locami/core/utils/map_cache_manager.dart';
@@ -69,6 +71,10 @@ class HomeController extends GetxController {
   final AudioPlayer _audioPlayer = AudioPlayer();
   final mapController = fm.MapController();
   bool _isAlertShown = false;
+  
+  // Optimized route rendering system
+  OptimizedRouteRenderer? _routeRenderer;
+  double _currentMapZoom = 5.0;
 
   @override
   void onInit() {
@@ -91,6 +97,17 @@ class HomeController extends GetxController {
     );
     TripDetailsManager.instance.alertTriggeredNotifier.addListener(
       _onAlertTriggered,
+    );
+
+    // Initialize optimized route renderer
+    _routeRenderer = OptimizedRouteRenderer(
+      onRouteUpdated: (optimizedPoints) {
+        // Update route on UI thread without full rebuild
+        currentRoute.assignAll(optimizedPoints);
+      },
+      onRenderComplete: () {
+        debugPrint('Route rendering complete with ${currentRoute.length} points');
+      },
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -230,20 +247,34 @@ class HomeController extends GetxController {
 
     // 3. Fallback to network or DB routing if no slice matched
     if (currentRoute.isEmpty || force || (!onCurrentRoute && !nearExisting)) {
+      // Use optimized route renderer for smooth rendering
       final routeData = await RoutingService.instance.getRoute(
         start, dest, 
         destinationName: toAddress.value,
+        simplifyLongRoutes: true,
+        maxPoints: 2000, // Limit points to prevent UI freeze
       );
+      
       if (routeData.alternatives.isNotEmpty) {
           fetchedAlternatives.assignAll(routeData.alternatives);
       }
       
       final sliced = _getSlicedAlternative(start, dest, routeData.alternatives);
+      List<LatLng> routePoints;
+      
       if (sliced != null) {
-        currentRoute.assignAll(sliced);
+        routePoints = sliced;
       } else {
-        currentRoute.assignAll(routeData.points); // Fallback to raw points
+        routePoints = routeData.points;
       }
+      
+      // Use optimized renderer for progressive, LOD-aware rendering
+      if (_routeRenderer != null) {
+        await _routeRenderer!.setRoute(routePoints, immediate: force);
+      } else {
+        currentRoute.assignAll(routePoints);
+      }
+      
       traveledRouteIndex.value = 0;
       
       // PRELOAD: If online, background cache the main route's tiles
@@ -413,6 +444,7 @@ class HomeController extends GetxController {
     _mapEventSubscription?.cancel();
     _positionSubscription?.cancel();
     _audioPlayer.dispose();
+    _routeRenderer?.dispose();
     TripDetailsManager.instance.isTrackingNotifier.removeListener(_onTrackingStatusChanged);
     TripDetailsManager.instance.alertTriggeredNotifier.removeListener(_onAlertTriggered);
     super.onClose();
@@ -852,6 +884,14 @@ class HomeController extends GetxController {
     _mapEventSubscription?.cancel();
     _mapEventSubscription = mapController.mapEventStream.listen((event) {
       mapRotation.value = mapController.camera.rotation;
+      
+      // Update LOD based on zoom level for optimized rendering
+      final newZoom = mapController.camera.zoom;
+      if ((_currentMapZoom - newZoom).abs() > 0.5) {
+        _currentMapZoom = newZoom;
+        _routeRenderer?.updateZoom(newZoom);
+      }
+      
       if (isTracking.value) _updateDestStatus();
     });
   }
