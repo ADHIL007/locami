@@ -185,6 +185,19 @@ class SettingsBottomSheet extends StatelessWidget {
               },
             ),
           ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(SolarIconsOutline.mapPoint, color: accentColor),
+            title: Text(
+              "Background Map Download",
+              style: TextStyle(color: customColors().textPrimary),
+            ),
+            trailing: Switch(
+              value: themeProvider.enableBackgroundMapDownload,
+              activeColor: accentColor,
+              onChanged: (val) => themeProvider.setEnableBackgroundMapDownload(val),
+            ),
+          ),
           const SizedBox(height: 24),
           _buildSectionTitle("Appearance Details"),
           const SizedBox(height: 8),

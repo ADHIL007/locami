@@ -161,6 +161,7 @@ class HomeView extends GetView<HomeController> {
                 child: fm.FlutterMap(
                   mapController: controller.mapController,
                   options: fm.MapOptions(
+                    backgroundColor: isDark ? const Color(0xFF1A1B1E) : const Color(0xFFF2EFE9),
                     initialCenter: const LatLng(20.5937, 78.9629),
                     initialZoom: 5.0,
                     interactionOptions: const fm.InteractionOptions(
@@ -168,30 +169,58 @@ class HomeView extends GetView<HomeController> {
                     ),
                   ),
                   children: [
+                    // ── BASE PERSISTENT LAYER (Zoom 0-6) ──
+                    // Always available in the background to prevent grey holes.
+                    // Zoom 0-6 tiles are very few and almost certainly cached.
+                    fm.TileLayer(
+                      key: const ValueKey('base_overview_layer'),
+                      urlTemplate: ApiConstants.cartoDbLightUrl,
+                      subdomains: const ['a', 'b', 'c', 'd'],
+                      maxNativeZoom: 6, // STRETCHES from zoom 6 even if zoomed in
+                      tileProvider: CachedTileProvider(
+                        store: MapCacheManager.instance.cacheStore,
+                      ),
+                    ),
                     Obx(() {
+                      final isOnline = controller.isOnline.value;
                       final mapDark = controller.isMapDark.value;
                       final sat = controller.useSatelliteMap.value;
-                      return fm.TileLayer(
-                        key: ValueKey('tiles_${sat}_$mapDark'),
-                        urlTemplate:
-                            sat
-                                ? ApiConstants.arcGisSatelliteUrl
-                                : (mapDark
-                                    ? ApiConstants.cartoDbDarkUrl
-                                    : ApiConstants.cartoDbLightUrl),
-                        subdomains: const ['a', 'b', 'c', 'd'],
-                        userAgentPackageName: 'com.example.locami',
-                        tileProvider: CachedTileProvider(
-                          store: MapCacheManager.instance.cacheStore,
-                        ),
-                      );
+                      final cacheStore = MapCacheManager.instance.cacheStore;
+
+                      if (isOnline) {
+                        // ── Online Mode: Show SELECTED style ──
+                        return fm.TileLayer(
+                          key: ValueKey('online_${sat}_$mapDark'),
+                          urlTemplate: sat
+                              ? ApiConstants.arcGisSatelliteUrl
+                              : (mapDark
+                                  ? ApiConstants.cartoDbDarkUrl
+                                  : ApiConstants.cartoDbLightUrl),
+                          subdomains: const ['a', 'b', 'c', 'd'],
+                          userAgentPackageName: 'com.example.locami',
+                          tileProvider: CachedTileProvider(store: cacheStore),
+                        );
+                      } else {
+                        // ── Offline Mode: Force Standard Light Map ──
+                        // This prevents flickering between different cached styles
+                        return fm.TileLayer(
+                          key: const ValueKey('offline_standard_light'),
+                          urlTemplate: ApiConstants.cartoDbLightUrl,
+                          subdomains: const ['a', 'b', 'c', 'd'],
+                          tileDisplay: const fm.TileDisplay.fadeIn(),
+                          tileProvider: CachedTileProvider(store: cacheStore),
+                        );
+                      }
                     }),
                     Obx(() {
-                      if (!controller.useSatelliteMap.value)
-                        return const SizedBox.shrink();
+                      final isOnline = controller.isOnline.value;
+                      final sat = controller.useSatelliteMap.value;
+                      if (!sat && isOnline) return const SizedBox.shrink();
+                      
                       return fm.TileLayer(
                         urlTemplate: ApiConstants.cartoDbLabelsUrl,
                         subdomains: const ['a', 'b', 'c', 'd'],
+                        tileDisplay: const fm.TileDisplay.fadeIn(),
                         tileProvider: CachedTileProvider(
                           store: MapCacheManager.instance.cacheStore,
                         ),

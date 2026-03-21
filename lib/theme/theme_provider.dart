@@ -35,6 +35,7 @@ class ThemeProvider extends ChangeNotifier {
   bool enableTimerSimulation = false;
   String uiMode = 'high'; // 'low', 'mid', 'high'
   bool enableVibration = true;
+  bool enableBackgroundMapDownload = true;
 
   void _applyTheme() {
     if (isMatchWithSystem) {
@@ -175,6 +176,12 @@ class ThemeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setEnableBackgroundMapDownload(bool value) {
+    enableBackgroundMapDownload = value;
+    _saveStatus();
+    notifyListeners();
+  }
+
   Future<void> _saveStatus() async {
     final status = await AppStatusDbHelper.instance.getStatus();
     await AppStatusDbHelper.instance.saveStatus(
@@ -194,6 +201,7 @@ class ThemeProvider extends ChangeNotifier {
         enableTimerSimulation: enableTimerSimulation,
         uiMode: uiMode,
         enableVibration: enableVibration,
+        enableBackgroundMapDownload: enableBackgroundMapDownload,
       ),
     );
   }
@@ -219,6 +227,7 @@ class ThemeProvider extends ChangeNotifier {
         EnvironmentConfig.isDevelopment && status.enableTimerSimulation;
     uiMode = status.uiMode;
     enableVibration = status.enableVibration;
+    enableBackgroundMapDownload = status.enableBackgroundMapDownload;
     notifyListeners();
   }
 }

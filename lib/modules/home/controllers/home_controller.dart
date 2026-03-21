@@ -190,23 +190,32 @@ class HomeController extends GetxController {
     if (destinationLatitude.value == null || destinationLongitude.value == null) return;
     final dest = LatLng(destinationLatitude.value!, destinationLongitude.value!);
     final start = LatLng(current.latitude, current.longitude);
-    if (currentRoute.isEmpty || force) {
-      final routeData = await RoutingService.instance.getRoute(
-        start, dest, 
-        destinationName: toAddress.value,
-      );
-      currentRoute.assignAll(routeData.points);
-    } else {
-      final firstPoint = currentRoute.first;
-      final dist = Geolocator.distanceBetween(
-        current.latitude, current.longitude,
-        firstPoint.latitude, firstPoint.longitude,
-      );
-      if (dist > 50) {
-        final routeData = await RoutingService.instance.getRoute(start, dest);
+      if (currentRoute.isEmpty || force) {
+        final routeData = await RoutingService.instance.getRoute(
+          start, dest, 
+          destinationName: toAddress.value,
+        );
         currentRoute.assignAll(routeData.points);
+        
+        // PRELOAD: If online, background cache the entire route tiles
+        if (isOnline.value && currentRoute.isNotEmpty) {
+          MapCacheManager.instance.preloadRouteTiles(currentRoute.toList());
+        }
+      } else {
+        final firstPoint = currentRoute.first;
+        final dist = Geolocator.distanceBetween(
+          current.latitude, current.longitude,
+          firstPoint.latitude, firstPoint.longitude,
+        );
+        if (dist > 50) {
+          final routeData = await RoutingService.instance.getRoute(start, dest);
+          currentRoute.assignAll(routeData.points);
+          
+          if (isOnline.value && currentRoute.isNotEmpty) {
+            MapCacheManager.instance.preloadRouteTiles(currentRoute.toList());
+          }
+        }
       }
-    }
   }
 
   Future<void> reInitialize() async {
@@ -224,7 +233,6 @@ class HomeController extends GetxController {
   Future<void> _initAsync() async {
     try {
       initStatus.value = 'Checking location services...';
-      await Future.delayed(const Duration(milliseconds: 400));
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         initStatus.value = 'Please enable Location Services';
@@ -233,7 +241,6 @@ class HomeController extends GetxController {
         }
       }
       initStatus.value = 'Requesting location access...';
-      await Future.delayed(const Duration(milliseconds: 300));
       final permissionGranted = await _requestLocationPermission();
       if (!permissionGranted) {
         initStatus.value = 'Location permission required';
@@ -241,30 +248,37 @@ class HomeController extends GetxController {
           await Future.delayed(const Duration(seconds: 2));
         }
       }
-      initStatus.value = 'Calibrating sensors...';
-      await Future.delayed(const Duration(milliseconds: 500));
+      
       initStatus.value = 'Acquiring GPS signal...';
       await getInitialLocation();
+      
       initStatus.value = 'Fetching location data...';
       _startLocationStream();
-      await Future.delayed(const Duration(milliseconds: 300));
+      
       initStatus.value = 'Loading your data...';
       checkTrackingStatus();
       loadUserCountryFromProfile();
       loadSavedLocations();
       loadNearbyStreets();
-      await Future.delayed(const Duration(milliseconds: 400));
+      
+      initStatus.value = 'Preparing world view...';
+      if (isOnline.value) {
+        // Run preloading in the background without awaiting it.
+        MapCacheManager.instance.preloadWorldMap();
+      }
+      
       initStatus.value = 'Preloading surrounding map...';
       if (currentPosition.value != null) {
         _preloadAsync(currentPosition.value!);
-        await Future.delayed(const Duration(milliseconds: 500));
       }
+      
       initStatus.value = 'Ready';
       isInitialized.value = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         // Delay slightly for smoother first animation
-        Future.delayed(const Duration(milliseconds: 1000), () {
+        Future.delayed(const Duration(milliseconds: 300), () {
           _animateToCurrentLocation();
+
         });
         _listenToMapEvents();
       });

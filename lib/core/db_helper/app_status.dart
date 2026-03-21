@@ -20,7 +20,7 @@ class AppStatusDbHelper {
     final path = join(await getDatabasesPath(), 'app_status.db');
     return openDatabase(
       path,
-      version: 6,
+      version: 8,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -67,6 +67,16 @@ class AppStatusDbHelper {
         'ALTER TABLE $tableName ADD COLUMN ui_mode TEXT NOT NULL DEFAULT "high"',
       );
     }
+    if (oldVersion < 7) {
+      await db.execute(
+        'ALTER TABLE $tableName ADD COLUMN enable_vibration INTEGER NOT NULL DEFAULT 1 CHECK (enable_vibration IN (0,1))',
+      );
+    }
+    if (oldVersion < 8) {
+      await db.execute(
+        'ALTER TABLE $tableName ADD COLUMN enable_background_map_download INTEGER NOT NULL DEFAULT 1 CHECK (enable_background_map_download IN (0,1))',
+      );
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -89,7 +99,9 @@ class AppStatusDbHelper {
         show_waves INTEGER NOT NULL DEFAULT 1 CHECK (show_waves IN (0,1)),
         enable_simulation INTEGER NOT NULL DEFAULT 0 CHECK (enable_simulation IN (0,1)),
         enable_timer_simulation INTEGER NOT NULL DEFAULT 0 CHECK (enable_timer_simulation IN (0,1)),
-        ui_mode TEXT NOT NULL DEFAULT 'high'
+        ui_mode TEXT NOT NULL DEFAULT 'high',
+        enable_vibration INTEGER NOT NULL DEFAULT 1 CHECK (enable_vibration IN (0,1)),
+        enable_background_map_download INTEGER NOT NULL DEFAULT 1 CHECK (enable_background_map_download IN (0,1))
       )
     ''');
 
@@ -121,6 +133,8 @@ class AppStatusDbHelper {
       enableSimulation: row['enable_simulation'] == 1,
       enableTimerSimulation: row['enable_timer_simulation'] == 1,
       uiMode: row['ui_mode'] as String? ?? 'high',
+      enableVibration: row['enable_vibration'] == 1,
+      enableBackgroundMapDownload: row['enable_background_map_download'] == 1,
     );
   }
 
@@ -146,6 +160,8 @@ class AppStatusDbHelper {
       'enable_simulation': status.enableSimulation ? 1 : 0,
       'enable_timer_simulation': status.enableTimerSimulation ? 1 : 0,
       'ui_mode': status.uiMode,
+      'enable_vibration': status.enableVibration ? 1 : 0,
+      'enable_background_map_download': status.enableBackgroundMapDownload ? 1 : 0,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 }
