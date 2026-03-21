@@ -10,6 +10,7 @@ import 'package:locami/db_manager/user_model_manager.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:vibration/vibration.dart';
 import 'package:locami/core/utils/routing_service.dart';
+import 'package:locami/core/utils/widget_helper.dart';
 
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -202,6 +203,17 @@ class TripDetailsManager {
     _alertTriggered = false;
     alertTriggeredNotifier.value = null;
 
+    WidgetHelper.updateWidget(
+      remainingDistance: null,
+      isTracking: false,
+      currentLoc: "Ready to track",
+      destName: "Select a destination",
+      progress: 0,
+      statusInfo: "Setup a destination to start",
+      alertDist: "500m",
+      speed: 0,
+    );
+
     await UserModelManager.instance.patchUser(
       isTravelStarted: false,
       isTravelEnded: true,
@@ -331,6 +343,38 @@ class TripDetailsManager {
       icon: '@mipmap/ic_launcher', color: const Color(0xFF16171B), colorized: true,
     );
     await flutterLocalNotificationsPlugin.show(888, '$fromStr → $toStr', '$remainingKm km remaining', NotificationDetails(android: androidDetails));
+    
+    // Status matching InfoDisplay logic
+    String etaText = '--';
+    double speed = details.speed;
+    String statusInfo = speed > 0.5 ? 'Moving' : 'Waiting for movement';
+    
+    if (speed > 0.5 && remaining > 0) {
+      final etaSeconds = remaining / speed;
+      if (etaSeconds < 60) {
+        etaText = 'Less than 1 min';
+      } else if (etaSeconds < 3600) {
+        final mins = (etaSeconds / 60).ceil();
+        etaText = '$mins mins';
+      } else {
+        final hours = (etaSeconds / 3600).floor();
+        final mins = ((etaSeconds % 3600) / 60).round();
+        etaText = '$hours hr $mins min';
+      }
+      statusInfo = "Moving | ~ $etaText";
+    }
+
+    // Update Home Screen Widget
+    WidgetHelper.updateWidget(
+      remainingDistance: remaining / 1000,
+      isTracking: true,
+      currentLoc: fromStr,
+      destName: toStr,
+      progress: progress,
+      statusInfo: statusInfo,
+      alertDist: "${_alertDistance?.toInt() ?? 500}m",
+      speed: (speed * 3.6).round(),
+    );
   }
 
   void _triggerAlert(double distance) async {
