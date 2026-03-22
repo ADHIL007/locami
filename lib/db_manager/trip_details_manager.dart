@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:get/get.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:locami/core/model/trip_details_model.dart';
@@ -130,21 +131,6 @@ class TripDetailsManager {
       if (!status.isGranted) throw Exception('Notification permission required');
     }
 
-    _isTracking = true;
-    isTrackingNotifier.value = true;
-    _currentTripId = DateTime.now().millisecondsSinceEpoch.toString();
-    currentTripDetail.value = null;
-    _alertDistance = alertDistance;
-    _alertTriggered = false;
-    alertTriggeredNotifier.value = null;
-
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      _isTracking = false;
-      isTrackingNotifier.value = false;
-      throw Exception('Location services are disabled.');
-    }
-
     UserModel user = await UserModelManager.instance.user;
     
     // Quick Coordinates Check
@@ -161,10 +147,46 @@ class TripDetailsManager {
       }
     }
 
+    _isTracking = true;
+    isTrackingNotifier.value = true;
+    _currentTripId = DateTime.now().millisecondsSinceEpoch.toString();
+    
+    // Set initial detail with destination immediately to avoid spinner if possible
+    currentTripDetail.value = TripDetailsModel(
+      latitude: _destinationLat ?? 0.0,
+      longitude: _destinationLon ?? 0.0,
+      timestamp: DateTime.now(),
+      destination: user.destinationStreet ?? 'destination_placeholder'.tr,
+      tripId: _currentTripId,
+      destinationLatitude: _destinationLat,
+      destinationLongitude: _destinationLon,
+      alertDistance: _alertDistance,
+    );
+    
+    _alertDistance = alertDistance;
+    _alertTriggered = false;
+    alertTriggeredNotifier.value = null;
+
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      _isTracking = false;
+      isTrackingNotifier.value = false;
+      currentTripDetail.value = null;
+      throw Exception('Location services are disabled.');
+    }
+
     if (!(await FlutterBackgroundService().isRunning())) {
       await FlutterBackgroundService().startService();
     }
 
+    // Heavy initialization continues in background
+    _initializeTripAsync(user);
+    
+    _listenToBackgroundService();
+    FlutterBackgroundService().invoke('start_tracking');
+  }
+
+  Future<void> _initializeTripAsync(UserModel user) async {
     // Try to get initial position quickly
     try {
       Position? startPos;
@@ -193,6 +215,14 @@ class TripDetailsManager {
         
         _totalTripDistance = routeData.distance;
         if (haversine > 0) _distanceRatio = _totalTripDistance! / haversine;
+        
+        // Update current detail with initial distance estimate
+        if (currentTripDetail.value != null) {
+          currentTripDetail.value = currentTripDetail.value!.copyWith(
+            totalDistance: _totalTripDistance,
+            remainingDistance: _totalTripDistance,
+          );
+        }
       }
     } catch (e) {
       debugPrint("GEO_INIT: Error getting initial road distance: $e");
@@ -209,9 +239,6 @@ class TripDetailsManager {
       destinationLatitude: _destinationLat,
       destinationLongitude: _destinationLon,
     );
-
-    _listenToBackgroundService();
-    FlutterBackgroundService().invoke('start_tracking');
   }
 
   void _listenToBackgroundService() {

@@ -162,8 +162,8 @@ class HomeView extends GetView<HomeController> {
                   mapController: controller.mapController,
                   options: fm.MapOptions(
                     backgroundColor: isDark ? const Color(0xFF1A1B1E) : const Color(0xFFF2EFE9),
-                    initialCenter: const LatLng(20.5937, 78.9629),
-                    initialZoom: 5.0,
+                    initialCenter: controller.initialPosition.value ?? const LatLng(20.5937, 78.9629),
+                    initialZoom: controller.initialPosition.value != null ? 14.5 : 5.0,
                     interactionOptions: const fm.InteractionOptions(
                       flags: fm.InteractiveFlag.all,
                     ),
@@ -251,16 +251,16 @@ class HomeView extends GetView<HomeController> {
                               color: isDark ? Colors.white.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.25),
                               strokeWidth: 5,
                               // Use optimized stroke cap/join for better performance
-                              strokeCap: fm.StrokeCap.round,
-                              strokeJoin: fm.StrokeJoin.round,
+                              strokeCap: StrokeCap.round,
+                              strokeJoin: StrokeJoin.round,
                             ),
                           if (remaining.length > 1)
                             fm.Polyline(
                               points: remaining,
                               color: accentColor,
                               strokeWidth: 5,
-                              strokeCap: fm.StrokeCap.round,
-                              strokeJoin: fm.StrokeJoin.round,
+                              strokeCap: StrokeCap.round,
+                              strokeJoin: StrokeJoin.round,
                             ),
                         ],
                       );

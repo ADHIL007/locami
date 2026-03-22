@@ -32,6 +32,7 @@ class HomeController extends GetxController {
   final isTracking = false.obs;
   final isTrackingLoading = false.obs;
   final currentPosition = Rx<Position?>(null);
+  final initialPosition = Rx<LatLng?>(null);
   final showLocami = true.obs;
   final alertDistance = 500.obs;
   final isInitialized = false.obs;
@@ -362,60 +363,69 @@ class HomeController extends GetxController {
 
   Future<void> _initAsync() async {
     try {
-      initStatus.value = 'Checking location services...';
+      initStatus.value = 'Granting permissions...';
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        initStatus.value = 'Please enable Location Services';
+        initStatus.value = 'Please enable GPS';
         while (!await Geolocator.isLocationServiceEnabled()) {
           await Future.delayed(const Duration(seconds: 1));
         }
       }
-      initStatus.value = 'Requesting location access...';
+      
       final permissionGranted = await _requestLocationPermission();
       if (!permissionGranted) {
-        initStatus.value = 'Location permission required';
+        initStatus.value = 'GPS permission needed';
         while (!await _requestLocationPermission()) {
           await Future.delayed(const Duration(seconds: 2));
         }
       }
       
-      initStatus.value = 'Acquiring GPS signal...';
-      await getInitialLocation();
-      
-      initStatus.value = 'Fetching location data...';
+      initStatus.value = 'Locating...';
+      // 1. Get last known location immediately if available
+      try {
+        final lastKnown = await Geolocator.getLastKnownPosition();
+        if (lastKnown != null) {
+          currentPosition.value = lastKnown;
+          initialPosition.value = LatLng(lastKnown.latitude, lastKnown.longitude);
+        }
+      } catch (_) {}
+
+      // 2. Start location updates in background
       _startLocationStream();
+
+      // 3. Parallelize data loading to reduce wait time
+      initStatus.value = 'Preparing...';
+      await Future.wait([
+        // If we don't have a location, give GPS 3 seconds to find one
+        if (currentPosition.value == null)
+          getInitialLocation().timeout(const Duration(seconds: 3)).catchError((_) => null),
+        
+        // Critical data
+        checkTrackingStatus().timeout(const Duration(seconds: 3)).catchError((_) => null),
+        loadUserCountryFromProfile().timeout(const Duration(seconds: 2)).catchError((_) => null),
+        loadSavedLocations().timeout(const Duration(seconds: 2)).catchError((_) => null),
+      ]);
       
-      initStatus.value = 'Loading your data...';
-      checkTrackingStatus();
-      loadUserCountryFromProfile();
-      loadSavedLocations();
+      // 4. Non-critical data (background)
       loadNearbyStreets();
-      
-      initStatus.value = 'Preparing world view...';
       if (isOnline.value) {
-        // Run preloading in the background without awaiting it.
         MapCacheManager.instance.preloadWorldMap();
       }
-      
-      initStatus.value = 'Preloading surrounding map...';
       if (currentPosition.value != null) {
         _preloadAsync(currentPosition.value!);
       }
-      
+
+      // 5. Ready to show map
       initStatus.value = 'Ready';
       isInitialized.value = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        // Delay slightly for smoother first animation
-        Future.delayed(const Duration(milliseconds: 300), () {
-          _animateToCurrentLocation();
-
-        });
-        _listenToMapEvents();
-      });
+      
+      // Listen to map events (rotation, etc.)
+      _listenToMapEvents();
+      
     } catch (e) {
       debugPrint('Init error: $e');
       initStatus.value = 'Error: $e';
-      await Future.delayed(const Duration(seconds: 2));
+      await Future.delayed(const Duration(seconds: 1));
       isInitialized.value = true;
     }
   }
@@ -567,6 +577,7 @@ class HomeController extends GetxController {
       final lastKnown = await Geolocator.getLastKnownPosition();
       if (lastKnown != null && currentPosition.value == null) {
         currentPosition.value = lastKnown;
+        initialPosition.value ??= LatLng(lastKnown.latitude, lastKnown.longitude);
       }
       final accurate = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
@@ -575,6 +586,7 @@ class HomeController extends GetxController {
         ),
       );
       currentPosition.value = accurate;
+      initialPosition.value ??= LatLng(accurate.latitude, accurate.longitude);
       final details = await StreetManager.instance.getLocationDetailsAt(accurate.latitude, accurate.longitude);
       if (details != null && details['address'] != null) {
         currentLocationName.value = _formatAddressToTwoCommas(details['address']!);
@@ -678,7 +690,7 @@ class HomeController extends GetxController {
     locations.assignAll(result);
   }
 
-  void loadUserCountryFromProfile() async {
+  Future<void> loadUserCountryFromProfile() async {
     final user = await UserModelManager.instance.user;
     userCountry.value = user.country.isNotEmpty ? user.country : 'in';
   }
@@ -751,11 +763,6 @@ class HomeController extends GetxController {
     }
   }
 
-  void _animateToCurrentLocation() {
-    final pos = currentPosition.value;
-    if (pos == null) return;
-    animatedMapMove(pos.latitude, pos.longitude, 16.0);
-  }
 
   void animatedMapMove(double targetLat, double targetLon, double targetZoom) {
     try {

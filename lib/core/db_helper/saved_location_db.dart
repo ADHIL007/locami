@@ -19,7 +19,18 @@ class SavedLocationDb {
 
   Future<Database> _openDb() async {
     final path = join(await getDatabasesPath(), 'saved_locations.db');
-    return openDatabase(path, version: 1, onCreate: _onCreate);
+    return openDatabase(
+      path,
+      version: 1,
+      onCreate: _onCreate,
+      onOpen: (db) async {
+        try {
+          await db.rawQuery('PRAGMA journal_mode=WAL');
+        } catch (e) {
+          print('Error setting journal_mode to WAL in saved_location_db: $e');
+        }
+      },
+    );
   }
 
   Future<void> _onCreate(Database db, int version) async {

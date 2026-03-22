@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
@@ -41,9 +42,12 @@ class RouteData {
 
   RouteData({required this.alternatives});
 
-  List<LatLng> get points => alternatives.isNotEmpty ? alternatives.first.points : [];
-  double get distance => alternatives.isNotEmpty ? alternatives.first.distance : 0.0;
-  double get duration => alternatives.isNotEmpty ? alternatives.first.duration : 0.0;
+  List<LatLng> get points =>
+      alternatives.isNotEmpty ? alternatives.first.points : [];
+  double get distance =>
+      alternatives.isNotEmpty ? alternatives.first.distance : 0.0;
+  double get duration =>
+      alternatives.isNotEmpty ? alternatives.first.duration : 0.0;
 }
 
 class RoutingService {
@@ -51,55 +55,55 @@ class RoutingService {
   static final RoutingService instance = RoutingService._();
 
   static const _baseUrl = '${ApiConstants.osrmRouteUrl}driving';
-  
+
   // Cache for decoded routes to prevent re-decoding
   final Map<String, RouteData> _routeCache = {};
-  
+
   // Debounce timer for route requests
   Timer? _debounceTimer;
 
   /// Get route with isolate-based decoding and simplification
   /// Automatically simplifies long routes to prevent UI freeze
   Future<RouteData> getRoute(
-    LatLng start, 
-    LatLng end, 
-    {String? destinationName,
+    LatLng start,
+    LatLng end, {
+    String? destinationName,
     bool simplifyLongRoutes = true,
     int maxPoints = 2000,
-    Duration debounceDuration = const Duration(milliseconds: 50)} 
-  ) async {
+    Duration debounceDuration = const Duration(milliseconds: 50),
+  }) async {
     // Cancel any pending request
     _debounceTimer?.cancel();
-    
+
     final cacheId = destinationName ?? '${end.latitude},${end.longitude}';
-    
+
     // Create a debounced future
     Future<RouteData> fetchRoute() async {
       return _fetchRouteInternal(
-        start, end, 
+        start,
+        end,
         cacheId: cacheId,
         simplifyLongRoutes: simplifyLongRoutes,
         maxPoints: maxPoints,
       );
     }
-    
+
     // Apply debounce
     if (debounceDuration.inMilliseconds > 0) {
-      return _debounceTimer = Timer(debounceDuration, () {});
-      await Future.delayed(debounceDuration);
+       await Future.delayed(debounceDuration);
     }
-    
+
     return fetchRoute();
   }
-  
+
   /// Internal method to fetch and process route
   Future<RouteData> _fetchRouteInternal(
-    LatLng start, 
-    LatLng end, 
-    {required String cacheId,
+    LatLng start,
+    LatLng end, {
+    required String cacheId,
     required bool simplifyLongRoutes,
-    required int maxPoints}) async {
-    
+    required int maxPoints,
+  }) async {
     final AppStatus appStatus = await AppStatusManager.instance.status;
     final bool isOnline = appStatus.isInternetOn;
 
@@ -115,19 +119,28 @@ class RoutingService {
         try {
           final decoded = json.decode(cached['points']);
           if (decoded is List && decoded.isNotEmpty && decoded.first is Map) {
-             final alternatives = decoded.map((e) => SingleRoute.fromJson(e)).toList();
-             if (alternatives.isNotEmpty) {
-               final routeData = RouteData(alternatives: List<SingleRoute>.from(alternatives));
-               _routeCache[cacheId] = routeData;
-               return routeData;
-             }
+            final alternatives =
+                decoded.map((e) => SingleRoute.fromJson(e)).toList();
+            if (alternatives.isNotEmpty) {
+              final routeData = RouteData(
+                alternatives: List<SingleRoute>.from(alternatives),
+              );
+              _routeCache[cacheId] = routeData;
+              return routeData;
+            }
           } else if (decoded is List) {
-             final points = decoded.map((p) => LatLng(p[0], p[1])).toList();
-             final routeData = RouteData(alternatives: [
-               SingleRoute(points: points, distance: cached['distance'], duration: cached['duration'])
-             ]);
-             _routeCache[cacheId] = routeData;
-             return routeData;
+            final points = decoded.map((p) => LatLng(p[0], p[1])).toList();
+            final routeData = RouteData(
+              alternatives: [
+                SingleRoute(
+                  points: points,
+                  distance: cached['distance'],
+                  duration: cached['duration'],
+                ),
+              ],
+            );
+            _routeCache[cacheId] = routeData;
+            return routeData;
           }
         } catch (_) {}
       }
@@ -144,15 +157,23 @@ class RoutingService {
         final data = json.decode(response.body);
         if (data['routes'] != null && (data['routes'] as List).isNotEmpty) {
           final List<SingleRoute> alts = [];
-          
+
           for (var route in data['routes']) {
             final List coordinates = route['geometry']['coordinates'];
             final double osrmDist = (route['distance'] as num).toDouble();
             final double duration = (route['duration'] as num).toDouble();
-            
+
             // Convert coordinates to LatLng
-            var points = coordinates.map((c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble())).toList();
-            
+            var points =
+                coordinates
+                    .map(
+                      (c) => LatLng(
+                        (c[1] as num).toDouble(),
+                        (c[0] as num).toDouble(),
+                      ),
+                    )
+                    .toList();
+
             // Apply simplification for long routes using isolate
             if (simplifyLongRoutes && points.length > maxPoints) {
               points = await PolylineDecoder.simplifyRoute(
@@ -161,17 +182,30 @@ class RoutingService {
                 maxPoints: maxPoints,
               );
             }
-            
-            alts.add(SingleRoute(points: points, distance: osrmDist, duration: duration));
+
+            alts.add(
+              SingleRoute(
+                points: points,
+                distance: osrmDist,
+                duration: duration,
+              ),
+            );
           }
-          
+
           if (alts.isNotEmpty) {
             // Save to cache asynchronously so failure doesn't block route rendering
             try {
-              final routesJson = json.encode(alts.map((a) => a.toJson()).toList());
-              TripDbHelper.instance.saveCachedRoute(cacheId, routesJson, alts.first.distance, alts.first.duration);
+              final routesJson = json.encode(
+                alts.map((a) => a.toJson()).toList(),
+              );
+              TripDbHelper.instance.saveCachedRoute(
+                cacheId,
+                routesJson,
+                alts.first.distance,
+                alts.first.duration,
+              );
             } catch (_) {} // Ignore cache DB locking errors
-            
+
             final routeData = RouteData(alternatives: alts);
             _routeCache[cacheId] = routeData;
             return routeData;
@@ -181,31 +215,33 @@ class RoutingService {
     } catch (e) {
       // Print error to console for debugging if needed
     }
-    
+
     // Fallback to straight line (Haversine) if internet/routing fails and no cache
     final fallbackDistance = Geolocator.distanceBetween(
-      start.latitude, start.longitude,
-      end.latitude, end.longitude,
+      start.latitude,
+      start.longitude,
+      end.latitude,
+      end.longitude,
     );
-    
+
     final routeData = RouteData(
       alternatives: [
         SingleRoute(
           points: [start, end],
           distance: fallbackDistance,
           duration: fallbackDistance / 12.0,
-        )
-      ]
+        ),
+      ],
     );
     _routeCache[cacheId] = routeData;
     return routeData;
   }
-  
+
   /// Clear the in-memory route cache
   void clearCache() {
     _routeCache.clear();
   }
-  
+
   @override
   void close() {
     _debounceTimer?.cancel();

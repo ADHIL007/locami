@@ -23,6 +23,13 @@ class UserDbHelper {
       version: 6,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
+      onOpen: (db) async {
+        try {
+          await db.rawQuery('PRAGMA journal_mode=WAL');
+        } catch (e) {
+          print('Error setting journal_mode to WAL in user_db: $e');
+        }
+      },
     );
   }
 

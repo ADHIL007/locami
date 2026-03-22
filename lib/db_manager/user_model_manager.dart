@@ -8,6 +8,7 @@ class UserModelManager {
   UserModel? _currentUser;
 
   Future<UserModel> get user async {
+    if (_currentUser != null) return _currentUser!;
     _currentUser = await UserDbHelper.instance.getUser();
     return _currentUser!;
   }

@@ -34,13 +34,18 @@ class MapCacheManager {
     final path = '${directory.path}/map_cache_v2'; // Changed from map_cache to avoid old corrupted strings
     _cacheStore = FileCacheStore(path);
     
-    _dio = Dio()
+    _dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 10),
+      ),
+    )
       ..interceptors.add(
         DioCacheInterceptor(
           options: CacheOptions(
             store: _cacheStore,
             policy: CachePolicy.request,
-            hitCacheOnErrorExcept: [401, 403],
+            hitCacheOnErrorExcept: [401, 403, 408],
             maxStale: const Duration(days: 30),
             priority: CachePriority.high,
           ),
@@ -66,7 +71,16 @@ class MapCacheManager {
     const int tileRadius = 4;
     final centerTile = _latLngToTile(lat, lon, zoom);
     
-    final String urlTemplate = ApiConstants.cartoDbLightUrl;
+    String urlTemplate = ApiConstants.cartoDbLightUrl;
+    bool isArcGis = false;
+    
+    if (isSatellite) {
+      urlTemplate = ApiConstants.arcGisSatelliteUrl;
+      isArcGis = true;
+    } else if (isDark) {
+      urlTemplate = ApiConstants.cartoDbDarkUrl;
+    }
+
     final subdomains = ['a', 'b', 'c', 'd'];
     final futures = <Future>[];
 
@@ -75,12 +89,23 @@ class MapCacheManager {
         final x = centerTile.x + dx;
         final y = centerTile.y + dy;
         final subdomain = subdomains[(x + y) % subdomains.length];
-        String url = urlTemplate
-            .replaceAll('{s}', subdomain)
-            .replaceAll('{z}', zoom.toString())
-            .replaceAll('{x}', x.toString())
-            .replaceAll('{y}', y.toString())
-            .replaceAll('{r}', '@2x');
+        
+        String url;
+        if (isArcGis) {
+          // ArcGIS uses {z}/{y}/{x} pattern
+          url = urlTemplate
+              .replaceAll('{z}', zoom.toString())
+              .replaceAll('{x}', x.toString())
+              .replaceAll('{y}', y.toString());
+        } else {
+          // CartoDB uses {s}.basemaps.cartocdn.com/.../{z}/{x}/{y}{r}.png
+          url = urlTemplate
+              .replaceAll('{s}', subdomain)
+              .replaceAll('{z}', zoom.toString())
+              .replaceAll('{x}', x.toString())
+              .replaceAll('{y}', y.toString())
+              .replaceAll('{r}', '@2x');
+        }
         
         futures.add(_fetchTileSafely(url));
       }
@@ -95,10 +120,42 @@ class MapCacheManager {
     }
   }
 
-  /// Preloads the world map (zoomed out) tiles to ensure some map is always there.
+  /// Fast preload for zoom 0-3 to ensure basic map is visible immediately.
+  Future<void> preloadInitialOverview() async {
+    if (_dio == null) return;
+    const zooms = [0, 1, 2, 3];
+    final futures = <Future>[];
+    for (final zoom in zooms) {
+      final n = math.pow(2.0, zoom).toInt();
+      for (int x = 0; x < n; x++) {
+        for (int y = 0; y < n; y++) {
+          final subdomain = ['a', 'b', 'c', 'd'][(x + y) % 4];
+          String url = ApiConstants.cartoDbLightUrl
+              .replaceAll('{s}', subdomain)
+              .replaceAll('{z}', zoom.toString())
+              .replaceAll('{x}', x.toString())
+              .replaceAll('{y}', y.toString())
+              .replaceAll('{r}', '');
+          futures.add(_fetchTileSafely(url));
+        }
+      }
+    }
+    // Zoom 0-3 is 1+4+16+64 = 85 tiles. Download in batches.
+    for (int i = 0; i < futures.length; i += 25) {
+      final end = (i + 25 < futures.length) ? i + 25 : futures.length;
+      await Future.wait(futures.sublist(i, end));
+    }
+  }
+
+  /// Continues preloading world map to deeper levels zoomed out.
   Future<void> preloadWorldMap() async {
     if (_dio == null) return;
-    const zooms = [0, 1, 2, 3, 4, 5];
+    
+    // First ensures 0-3 are ready
+    await preloadInitialOverview();
+
+    // Then background the rest without blocking much
+    const zooms = [4, 5];
     final futures = <Future>[];
     for (final zoom in zooms) {
       final n = math.pow(2.0, zoom).toInt();
@@ -118,7 +175,7 @@ class MapCacheManager {
     for (int i = 0; i < futures.length; i += 20) {
       final end = (i + 20 < futures.length) ? i + 20 : futures.length;
       await Future.wait(futures.sublist(i, end));
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 100));
     }
   }
 

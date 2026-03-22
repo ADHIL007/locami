@@ -24,8 +24,14 @@ class TripDbHelper {
       version: 8,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
+      onOpen: (db) async {
+        try {
+          await db.rawQuery('PRAGMA journal_mode=WAL');
+        } catch (e) {
+          print('Error setting journal_mode to WAL in trip_db: $e');
+        }
+      },
     );
-    await db.rawQuery('PRAGMA journal_mode=WAL');
     return db;
   }
 

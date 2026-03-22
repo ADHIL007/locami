@@ -17,7 +17,12 @@ class AppStatusManager {
 
   Future<AppStatus> get status async {
     if (_currentStatus != null) return _currentStatus!;
-    _currentStatus = await AppStatusDbHelper.instance.getStatus();
+    try {
+      _currentStatus = await AppStatusDbHelper.instance.getStatus().timeout(const Duration(seconds: 5));
+    } catch (e) {
+      debugPrint("Error fetching app status: $e");
+      _currentStatus = const AppStatus();
+    }
     return _currentStatus!;
   }
 
