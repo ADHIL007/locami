@@ -3,6 +3,7 @@ import 'package:locami/core/db_helper/app_status.dart';
 import 'package:locami/core/model/appstatus_model.dart';
 import 'package:locami/theme/app_theme.dart';
 import 'package:locami/core/utils/environment.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 
 enum AppThemeMode { light, dark }
 
@@ -150,6 +151,7 @@ class ThemeProvider extends ChangeNotifier {
     } else {
       enableSimulation = value;
     }
+    FlutterBackgroundService().invoke('set_simulation_mode', {'enabled': enableSimulation});
     _saveStatus();
     notifyListeners();
   }

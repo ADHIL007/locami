@@ -147,403 +147,161 @@ class HomeView extends GetView<HomeController> {
     return Scaffold(
       backgroundColor:
           isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF8F9FA),
-      body: Obx(() {
-        if (!controller.isInitialized.value) {
-          return LoadingScreen(isDark: isDark, accentColor: accentColor);
-        }
-
-        final isTracking = controller.isTracking.value;
-
-        return SizedBox.expand(
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: fm.FlutterMap(
-                  mapController: controller.mapController,
-                  options: fm.MapOptions(
-                    backgroundColor: isDark ? const Color(0xFF1A1B1E) : const Color(0xFFF2EFE9),
-                    initialCenter: controller.initialPosition.value ?? const LatLng(20.5937, 78.9629),
-                    initialZoom: controller.initialPosition.value != null ? 14.5 : 5.0,
-                    interactionOptions: const fm.InteractionOptions(
-                      flags: fm.InteractiveFlag.all,
+      body: SizedBox.expand(
+        child: Stack(
+          children: [
+            // ── MAP: Always rendered so tiles load during loading screen ──
+            Positioned.fill(
+              child: fm.FlutterMap(
+                mapController: controller.mapController,
+                options: fm.MapOptions(
+                  backgroundColor: isDark ? const Color(0xFF1A1B1E) : const Color(0xFFF2EFE9),
+                  initialCenter: controller.initialPosition.value ?? const LatLng(20.5937, 78.9629),
+                  initialZoom: controller.initialPosition.value != null ? 14.5 : 5.0,
+                  interactionOptions: const fm.InteractionOptions(
+                    flags: fm.InteractiveFlag.all,
+                  ),
+                ),
+                children: [
+                  // ── BASE PERSISTENT LAYER (Zoom 0-6) ──
+                  fm.TileLayer(
+                    key: const ValueKey('base_overview_layer'),
+                    urlTemplate: ApiConstants.cartoDbLightUrl,
+                    subdomains: const ['a', 'b', 'c', 'd'],
+                    maxNativeZoom: 6,
+                    tileProvider: CachedTileProvider(
+                      store: MapCacheManager.instance.cacheStore,
                     ),
                   ),
-                  children: [
-                    // ── BASE PERSISTENT LAYER (Zoom 0-6) ──
-                    // Always available in the background to prevent grey holes.
-                    // Zoom 0-6 tiles are very few and almost certainly cached.
-                    fm.TileLayer(
-                      key: const ValueKey('base_overview_layer'),
-                      urlTemplate: ApiConstants.cartoDbLightUrl,
+                  Obx(() {
+                    final isOnline = controller.isOnline.value;
+                    final mapDark = controller.isMapDark.value;
+                    final sat = controller.useSatelliteMap.value;
+                    final cacheStore = MapCacheManager.instance.cacheStore;
+
+                    if (isOnline) {
+                      return fm.TileLayer(
+                        key: ValueKey('online_${sat}_$mapDark'),
+                        urlTemplate: sat
+                            ? ApiConstants.arcGisSatelliteUrl
+                            : (mapDark
+                                ? ApiConstants.cartoDbDarkUrl
+                                : ApiConstants.cartoDbLightUrl),
+                        subdomains: const ['a', 'b', 'c', 'd'],
+                        userAgentPackageName: 'com.example.locami',
+                        tileProvider: CachedTileProvider(store: cacheStore),
+                      );
+                    } else {
+                      return fm.TileLayer(
+                        key: const ValueKey('offline_standard_light'),
+                        urlTemplate: ApiConstants.cartoDbLightUrl,
+                        subdomains: const ['a', 'b', 'c', 'd'],
+                        tileDisplay: const fm.TileDisplay.fadeIn(),
+                        tileProvider: CachedTileProvider(store: cacheStore),
+                      );
+                    }
+                  }),
+                  Obx(() {
+                    final isOnline = controller.isOnline.value;
+                    final sat = controller.useSatelliteMap.value;
+                    if (!sat && isOnline) return const SizedBox.shrink();
+                    
+                    return fm.TileLayer(
+                      urlTemplate: ApiConstants.cartoDbLabelsUrl,
                       subdomains: const ['a', 'b', 'c', 'd'],
-                      maxNativeZoom: 6, // STRETCHES from zoom 6 even if zoomed in
+                      tileDisplay: const fm.TileDisplay.fadeIn(),
                       tileProvider: CachedTileProvider(
                         store: MapCacheManager.instance.cacheStore,
                       ),
-                    ),
-                    Obx(() {
-                      final isOnline = controller.isOnline.value;
-                      final mapDark = controller.isMapDark.value;
-                      final sat = controller.useSatelliteMap.value;
-                      final cacheStore = MapCacheManager.instance.cacheStore;
-
-                      if (isOnline) {
-                        // ── Online Mode: Show SELECTED style ──
-                        return fm.TileLayer(
-                          key: ValueKey('online_${sat}_$mapDark'),
-                          urlTemplate: sat
-                              ? ApiConstants.arcGisSatelliteUrl
-                              : (mapDark
-                                  ? ApiConstants.cartoDbDarkUrl
-                                  : ApiConstants.cartoDbLightUrl),
-                          subdomains: const ['a', 'b', 'c', 'd'],
-                          userAgentPackageName: 'com.example.locami',
-                          tileProvider: CachedTileProvider(store: cacheStore),
-                        );
-                      } else {
-                        // ── Offline Mode: Force Standard Light Map ──
-                        // This prevents flickering between different cached styles
-                        return fm.TileLayer(
-                          key: const ValueKey('offline_standard_light'),
-                          urlTemplate: ApiConstants.cartoDbLightUrl,
-                          subdomains: const ['a', 'b', 'c', 'd'],
-                          tileDisplay: const fm.TileDisplay.fadeIn(),
-                          tileProvider: CachedTileProvider(store: cacheStore),
-                        );
-                      }
-                    }),
-                    Obx(() {
-                      final isOnline = controller.isOnline.value;
-                      final sat = controller.useSatelliteMap.value;
-                      if (!sat && isOnline) return const SizedBox.shrink();
-                      
-                      return fm.TileLayer(
-                        urlTemplate: ApiConstants.cartoDbLabelsUrl,
-                        subdomains: const ['a', 'b', 'c', 'd'],
-                        tileDisplay: const fm.TileDisplay.fadeIn(),
-                        tileProvider: CachedTileProvider(
-                          store: MapCacheManager.instance.cacheStore,
-                        ),
-                      );
-                    }),
-                    Obx(() {
-                      if (controller.currentRoute.isEmpty) {
-                        return const SizedBox.shrink();
-                      }
-                      
-                      final traveledIndex = controller.traveledRouteIndex.value;
-                      final route = controller.currentRoute.toList();
-                      
-                      final safeIndex = (traveledIndex >= 0 && traveledIndex < route.length) 
-                          ? traveledIndex 
-                          : 0;
-                          
-                      final traversed = route.sublist(0, safeIndex + 1);
-                      final remaining = route.sublist(safeIndex);
-                      
-                      // Optimized polyline rendering with reduced point count
-                      // The route is already simplified by OptimizedRouteRenderer
-                      return fm.PolylineLayer(
-                        polylines: [
-                          if (traversed.length > 1) 
-                            fm.Polyline(
-                              points: traversed,
-                              color: isDark ? Colors.white.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.25),
-                              strokeWidth: 5,
-                              // Use optimized stroke cap/join for better performance
-                              strokeCap: StrokeCap.round,
-                              strokeJoin: StrokeJoin.round,
-                            ),
-                          if (remaining.length > 1)
-                            fm.Polyline(
-                              points: remaining,
-                              color: accentColor,
-                              strokeWidth: 5,
-                              strokeCap: StrokeCap.round,
-                              strokeJoin: StrokeJoin.round,
-                            ),
-                        ],
-                      );
-                    }),
-                    Obx(() {
-                      if (controller.destinationLatitude.value == null) {
-                        return const SizedBox.shrink();
-                      }
-                      return fm.CircleLayer(
-                        circles: [
-                          fm.CircleMarker(
-                            point: LatLng(
-                              controller.destinationLatitude.value!,
-                              controller.destinationLongitude.value!,
-                            ),
-                            color: accentColor.withValues(alpha: 0.12),
-                            borderColor: accentColor.withValues(alpha: 0.4),
-                            borderStrokeWidth: 2,
-                            useRadiusInMeter: true,
-                            radius: controller.alertDistance.value.toDouble(),
+                    );
+                  }),
+                  Obx(() {
+                    if (controller.currentRoute.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+                    
+                    final traveledIndex = controller.traveledRouteIndex.value;
+                    final route = controller.currentRoute.toList();
+                    
+                    final safeIndex = (traveledIndex >= 0 && traveledIndex < route.length) 
+                        ? traveledIndex 
+                        : 0;
+                        
+                    final traversed = route.sublist(0, safeIndex + 1);
+                    final remaining = route.sublist(safeIndex);
+                    
+                    return fm.PolylineLayer(
+                      polylines: [
+                        if (traversed.length > 1) 
+                          fm.Polyline(
+                            points: traversed,
+                            color: isDark ? Colors.white.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.25),
+                            strokeWidth: 5,
+                            strokeCap: StrokeCap.round,
+                            strokeJoin: StrokeJoin.round,
                           ),
-                        ],
-                      );
-                    }),
-                    Obx(() {
-                      if (controller.destinationLatitude.value == null) {
-                        return const SizedBox.shrink();
-                      }
-                      return fm.MarkerLayer(
-                        markers: [
-                          fm.Marker(
-                            point: LatLng(
-                              controller.destinationLatitude.value!,
-                              controller.destinationLongitude.value!,
-                            ),
-                            width: 44,
-                            height: 44,
-                            child: Center(
-                              child: Container(
-                                width: 26,
-                                height: 26,
-                                decoration: BoxDecoration(
-                                  color: Colors.black,
-                                  borderRadius: BorderRadius.circular(5),
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 2.2,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.4,
-                                      ),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 5),
-                                    ),
-                                  ],
-                                ),
-                                child: Center(
-                                  child: Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: const BoxDecoration(
-                                      color: Colors.white,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
+                        if (remaining.length > 1)
+                          fm.Polyline(
+                            points: remaining,
+                            color: accentColor,
+                            strokeWidth: 5,
+                            strokeCap: StrokeCap.round,
+                            strokeJoin: StrokeJoin.round,
                           ),
-                        ],
-                      );
-                    }),
-                    Obx(() {
-                      final locs = controller.savedLocations;
-                      if (locs.isEmpty) return const SizedBox.shrink();
-                      return fm.MarkerLayer(
-                        markers:
-                            locs.map((loc) {
-                              final pinColor = _getColorForSeed(loc.label);
-                              return fm.Marker(
-                                point: LatLng(loc.latitude, loc.longitude),
-                                width: 36,
-                                height: 36,
-                                child: GestureDetector(
-                                  onTap: () {
-                                    _showSavedLocationOptions(
-                                      loc,
-                                      isDark,
-                                      accentColor,
-                                    );
-                                  },
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: pinColor,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Colors.white,
-                                        width: 2,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(
-                                            alpha: 0.3,
-                                          ),
-                                          blurRadius: 6,
-                                          offset: const Offset(0, 3),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Center(
-                                      child: Icon(
-                                        loc.iconData,
-                                        size: 18,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                      );
-                    }),
-                    Obx(() {
-                      final pos = controller.currentPosition.value;
-                      if (pos == null) return const SizedBox.shrink();
-                      return fm.MarkerLayer(
-                        markers: [
-                          fm.Marker(
-                            point: LatLng(pos.latitude, pos.longitude),
-                            width: 80,
-                            height: 80,
-                            child: Obx(
-                              () => CustomPaint(
-                                size: const Size(80, 80),
-                                painter: NavigationArrowPainter(
-                                  heading: controller.currentHeading.value,
-                                ),
-                              ),
-                            ),
+                      ],
+                    );
+                  }),
+                  Obx(() {
+                    if (controller.destinationLatitude.value == null) {
+                      return const SizedBox.shrink();
+                    }
+                    return fm.CircleLayer(
+                      circles: [
+                        fm.CircleMarker(
+                          point: LatLng(
+                            controller.destinationLatitude.value!,
+                            controller.destinationLongitude.value!,
                           ),
-                        ],
-                      );
-                    }),
-                  ],
-                ),
-              ),
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: RadialGradient(
-                        center: Alignment.center,
-                        radius: 1.2,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.2),
-                          Colors.black.withValues(alpha: 0.6),
-                          Colors.black.withValues(alpha: 0.9),
-                        ],
-                        stops: const [0.0, 0.4, 0.7, 1.0],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                height: 400,
-                child: IgnorePointer(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
-                        colors: [
-                          Colors.black,
-                          Colors.black.withValues(alpha: 0.6),
-                          Colors.transparent,
-                        ],
-                        stops: const [0.0, 0.5, 1.0],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const Positioned(top: 0, left: 0, right: 0, child: TopHeader()),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child:
-                    controller.isPinSelectionMode.value
-                        ? MapCenterConfirmPanel(
-                          accentColor: accentColor,
-                          isDark: isDark,
-                        )
-                        : (isTracking
-                            ? const TripInfoDisplay()
-                            : SetupPanel(
-                              isDark: isDark,
-                              accentColor: accentColor,
-                              onSearchTap: _showLocationSearch,
-                            )),
-              ),
-              Positioned(
-                right: 20,
-                bottom: isTracking ? 500 : 360,
-                child: GhostFABGroup(accentColor: accentColor),
-              ),
-              Obx(() {
-                if (!controller.isTracking.value ||
-                    controller.isDestinationInView.value) {
-                  return const SizedBox.shrink();
-                }
-                final isTracking = controller.isTracking.value;
-                return Positioned(
-                  left: 20,
-                  bottom: isTracking ? 500 : 360,
-                  child: GestureDetector(
-                    onTap: controller.animateToDestination,
-                    child: Container(
-                      decoration: BoxDecoration(shape: BoxShape.circle),
-                      child: GlassContainer(
-                        width: 56,
-                        height: 56,
-                        blur: 20,
-                        opacity: 0.15,
-                        borderRadius: 28,
-                        color: Colors.black,
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.3),
-                          width: 1.5,
+                          color: accentColor.withValues(alpha: 0.12),
+                          borderColor: accentColor.withValues(alpha: 0.4),
+                          borderStrokeWidth: 2,
+                          useRadiusInMeter: true,
+                          radius: controller.alertDistance.value.toDouble(),
                         ),
-                        child: Center(
-                          child: Obx(() {
-                            // Bearing is geographical, subtract map rotation to get screen-relative angle
-                            final rotation = controller.mapRotation.value;
-                            final bearing = controller.bearingToDestination.value;
-                            final angle = (bearing - rotation) * (math.pi / 180);
-                            
-                            return Transform.rotate(
-                              angle: angle,
-                              child: Icon(
-                                SolarIconsBold.mapArrowUp,
-                                color: accentColor,
-                                size: 30,
-                              ),
-                            );
-                          }),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }),
-              if (!isTracking && controller.isPinSelectionMode.value)
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 40),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 34,
-                              height: 34,
+                      ],
+                    );
+                  }),
+                  Obx(() {
+                    if (controller.destinationLatitude.value == null) {
+                      return const SizedBox.shrink();
+                    }
+                    return fm.MarkerLayer(
+                      markers: [
+                        fm.Marker(
+                          point: LatLng(
+                            controller.destinationLatitude.value!,
+                            controller.destinationLongitude.value!,
+                          ),
+                          width: 44,
+                          height: 44,
+                          child: Center(
+                            child: Container(
+                              width: 26,
+                              height: 26,
                               decoration: BoxDecoration(
                                 color: Colors.black,
-                                shape: BoxShape.circle,
+                                borderRadius: BorderRadius.circular(5),
                                 border: Border.all(
                                   color: Colors.white,
-                                  width: 2.5,
+                                  width: 2.2,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.3),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
+                                    color: Colors.black.withValues(
+                                      alpha: 0.4,
+                                    ),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 5),
                                   ),
                                 ],
                               ),
@@ -558,36 +316,281 @@ class HomeView extends GetView<HomeController> {
                                 ),
                               ),
                             ),
-                            Container(
-                              width: 3,
-                              height: 12,
-                              decoration: const BoxDecoration(
-                                color: Colors.black,
-                                borderRadius: BorderRadius.vertical(
-                                  bottom: Radius.circular(2),
-                                ),
-                                border: Border(
-                                  left: BorderSide(
-                                    color: Colors.white,
-                                    width: 0.5,
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                  Obx(() {
+                    final locs = controller.savedLocations;
+                    if (locs.isEmpty) return const SizedBox.shrink();
+                    return fm.MarkerLayer(
+                      markers:
+                          locs.map((loc) {
+                            final pinColor = _getColorForSeed(loc.label);
+                            return fm.Marker(
+                              point: LatLng(loc.latitude, loc.longitude),
+                              width: 36,
+                              height: 36,
+                              child: GestureDetector(
+                                onTap: () {
+                                  _showSavedLocationOptions(
+                                    loc,
+                                    isDark,
+                                    accentColor,
+                                  );
+                                },
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: pinColor,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.3,
+                                        ),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
                                   ),
-                                  right: BorderSide(
-                                    color: Colors.white,
-                                    width: 0.5,
+                                  child: Center(
+                                    child: Icon(
+                                      loc.iconData,
+                                      size: 18,
+                                      color: Colors.white,
+                                    ),
                                   ),
                                 ),
                               ),
+                            );
+                          }).toList(),
+                    );
+                  }),
+                  Obx(() {
+                    final pos = controller.currentPosition.value;
+                    if (pos == null) return const SizedBox.shrink();
+                    return fm.MarkerLayer(
+                      markers: [
+                        fm.Marker(
+                          point: LatLng(pos.latitude, pos.longitude),
+                          width: 80,
+                          height: 80,
+                          child: Obx(
+                            () => CustomPaint(
+                              size: const Size(80, 80),
+                              painter: NavigationArrowPainter(
+                                heading: controller.currentHeading.value,
+                              ),
                             ),
-                          ],
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                ],
+              ),
+            ),
+            // ── Overlays: gradients, panels, etc. ──
+            // Only show UI overlays after initialization
+            Obx(() {
+              if (!controller.isInitialized.value) {
+                // Loading screen overlays the map while tiles load behind it
+                return Positioned.fill(
+                  child: LoadingScreen(isDark: isDark, accentColor: accentColor),
+                );
+              }
+
+              final isTracking = controller.isTracking.value;
+
+              return Positioned.fill(
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                    child: IgnorePointer(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: RadialGradient(
+                            center: Alignment.center,
+                            radius: 1.2,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withValues(alpha: 0.2),
+                              Colors.black.withValues(alpha: 0.6),
+                              Colors.black.withValues(alpha: 0.9),
+                            ],
+                            stops: const [0.0, 0.4, 0.7, 1.0],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-            ],
-          ),
-        );
-      }),
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: 400,
+                    child: IgnorePointer(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                            colors: [
+                              Colors.black,
+                              Colors.black.withValues(alpha: 0.6),
+                              Colors.transparent,
+                            ],
+                            stops: const [0.0, 0.5, 1.0],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const Positioned(top: 0, left: 0, right: 0, child: TopHeader()),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child:
+                        controller.isPinSelectionMode.value
+                            ? MapCenterConfirmPanel(
+                              accentColor: accentColor,
+                              isDark: isDark,
+                            )
+                            : (isTracking
+                                ? const TripInfoDisplay()
+                                : SetupPanel(
+                                  isDark: isDark,
+                                  accentColor: accentColor,
+                                  onSearchTap: _showLocationSearch,
+                                )),
+                  ),
+                  Positioned(
+                    right: 20,
+                    bottom: isTracking ? 500 : 360,
+                    child: GhostFABGroup(accentColor: accentColor),
+                  ),
+                  Obx(() {
+                    if (!controller.isTracking.value ||
+                        controller.isDestinationInView.value) {
+                      return const SizedBox.shrink();
+                    }
+                    final isTrackingNow = controller.isTracking.value;
+                    return Positioned(
+                      left: 20,
+                      bottom: isTrackingNow ? 500 : 360,
+                      child: GestureDetector(
+                        onTap: controller.animateToDestination,
+                        child: Container(
+                          decoration: const BoxDecoration(shape: BoxShape.circle),
+                          child: GlassContainer(
+                            width: 56,
+                            height: 56,
+                            blur: 20,
+                            opacity: 0.15,
+                            borderRadius: 28,
+                            color: Colors.black,
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.3),
+                              width: 1.5,
+                            ),
+                            child: Center(
+                              child: Obx(() {
+                                final rotation = controller.mapRotation.value;
+                                final bearing = controller.bearingToDestination.value;
+                                final angle = (bearing - rotation) * (math.pi / 180);
+                                
+                                return Transform.rotate(
+                                  angle: angle,
+                                  child: Icon(
+                                    SolarIconsBold.mapArrowUp,
+                                    color: accentColor,
+                                    size: 30,
+                                  ),
+                                );
+                              }),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                  if (!isTracking && controller.isPinSelectionMode.value)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 40),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 34,
+                                  height: 34,
+                                  decoration: BoxDecoration(
+                                    color: Colors.black,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2.5,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.3),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Center(
+                                    child: Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: const BoxDecoration(
+                                        color: Colors.white,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  width: 3,
+                                  height: 12,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.black,
+                                    borderRadius: BorderRadius.vertical(
+                                      bottom: Radius.circular(2),
+                                    ),
+                                    border: Border(
+                                      left: BorderSide(
+                                        color: Colors.white,
+                                        width: 0.5,
+                                      ),
+                                      right: BorderSide(
+                                        color: Colors.white,
+                                        width: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            );
+            }),
+          ],
+        ),
+      ),
     );
   }
 }

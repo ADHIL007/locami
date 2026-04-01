@@ -23,6 +23,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:locami/core/utils/location_utils.dart';
 import 'package:locami/core/utils/map_cache_manager.dart';
 import 'package:locami/db_manager/app_status_manager.dart';
+import 'package:locami/core/utils/background_service.dart';
 
 class HomeController extends GetxController {
   final fromController = TextEditingController();
@@ -80,7 +81,7 @@ class HomeController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    TripDetailsManager.instance.init();
+    // NOTE: TripDetailsManager.init() is deferred to _initAsync() to avoid blocking first frame
     fromAddress.value = fromController.text;
     toAddress.value = toController.text;
 
@@ -99,6 +100,7 @@ class HomeController extends GetxController {
     TripDetailsManager.instance.alertTriggeredNotifier.addListener(
       _onAlertTriggered,
     );
+    TripDetailsManager.instance.currentTripDetail.addListener(_onTripDetailUpdate);
 
     // Initialize optimized route renderer
     _routeRenderer = OptimizedRouteRenderer(
@@ -363,24 +365,37 @@ class HomeController extends GetxController {
 
   Future<void> _initAsync() async {
     try {
-      initStatus.value = 'Granting permissions...';
+      // Deferred heavy init — runs after first frame so no frame drops
+      debugPrint('INIT_TRACE: Initializing background service');
+      initStatus.value = 'Preparing...';
+      await initializeService();
+      await Future.delayed(Duration.zero); // Yield to let frame render
+
+      // Init trip manager (was in onInit, moved here to avoid blocking first frame)
+      TripDetailsManager.instance.init();
+      await Future.delayed(Duration.zero); // Yield
+
+      debugPrint('INIT_TRACE: Starting Permission Check');
+      initStatus.value = 'Checking GPS...';
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        initStatus.value = 'Please enable GPS';
-        while (!await Geolocator.isLocationServiceEnabled()) {
-          await Future.delayed(const Duration(seconds: 1));
+        initStatus.value = 'GPS is disabled';
+        await Future.delayed(const Duration(seconds: 2));
+        serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (!serviceEnabled) {
+             debugPrint('INIT_TRACE: GPS still disabled, proceeding anyway');
         }
       }
       
+      debugPrint('INIT_TRACE: Requesting Location Permission');
+      initStatus.value = 'Checking Permissions...';
       final permissionGranted = await _requestLocationPermission();
       if (!permissionGranted) {
-        initStatus.value = 'GPS permission needed';
-        while (!await _requestLocationPermission()) {
-          await Future.delayed(const Duration(seconds: 2));
-        }
+        initStatus.value = 'Permission needed';
+        debugPrint('INIT_TRACE: Permission not granted, but proceeding');
       }
       
-      initStatus.value = 'Locating...';
+      debugPrint('INIT_TRACE: Fetching Last Known Position');
       // 1. Get last known location immediately if available
       try {
         final lastKnown = await Geolocator.getLastKnownPosition();
@@ -394,18 +409,35 @@ class HomeController extends GetxController {
       _startLocationStream();
 
       // 3. Parallelize data loading to reduce wait time
-      initStatus.value = 'Preparing...';
+      debugPrint('INIT_TRACE: Starting Parallel Data Load');
+      initStatus.value = 'Preparing Data...';
       await Future.wait([
         // If we don't have a location, give GPS 3 seconds to find one
         if (currentPosition.value == null)
-          getInitialLocation().timeout(const Duration(seconds: 3)).catchError((_) => null),
+          getInitialLocation().timeout(const Duration(seconds: 3)).catchError((e) {
+            debugPrint('INIT_TRACE: getInitialLocation timed out or failed: $e');
+            return null;
+          }),
         
         // Critical data
-        checkTrackingStatus().timeout(const Duration(seconds: 3)).catchError((_) => null),
-        loadUserCountryFromProfile().timeout(const Duration(seconds: 2)).catchError((_) => null),
-        loadSavedLocations().timeout(const Duration(seconds: 2)).catchError((_) => null),
-      ]);
+        checkTrackingStatus().timeout(const Duration(seconds: 3)).catchError((e) {
+            debugPrint('INIT_TRACE: checkTrackingStatus timed out or failed: $e');
+            return null;
+        }),
+        loadUserCountryFromProfile().timeout(const Duration(seconds: 2)).catchError((e) {
+            debugPrint('INIT_TRACE: loadUserCountry timed out or failed: $e');
+            return null;
+        }),
+        loadSavedLocations().timeout(const Duration(seconds: 2)).catchError((e) {
+            debugPrint('INIT_TRACE: loadSavedLocations timed out or failed: $e');
+            return null;
+        }),
+      ]).timeout(const Duration(seconds: 10), onTimeout: () {
+         debugPrint('INIT_TRACE: Future.wait global timeout hit!');
+         return [];
+      });
       
+      debugPrint('INIT_TRACE: Initialization almost complete');
       // 4. Non-critical data (background)
       loadNearbyStreets();
       if (isOnline.value) {
@@ -617,8 +649,44 @@ class HomeController extends GetxController {
       }
       startTransmission();
       startSimulation();
+      if (currentPosition.value != null && destinationLatitude.value != null) {
+        _updateRouteIfNeeded(currentPosition.value!, force: true);
+      }
       if (user.isAlarmActive) showArrivalAlert(user.alertDistance ?? 0.0);
       _startDestTrackingTimer();
+    }
+  }
+
+  void _onTripDetailUpdate() {
+    final detail = TripDetailsManager.instance.currentTripDetail.value;
+    if (detail != null) {
+      final pos = Position(
+        latitude: detail.latitude,
+        longitude: detail.longitude,
+        timestamp: detail.timestamp,
+        accuracy: detail.accuracy,
+        altitude: detail.altitude,
+        heading: detail.heading,
+        speed: detail.speed,
+        speedAccuracy: 0.0,
+        altitudeAccuracy: 0.0,
+        headingAccuracy: 0.0,
+      );
+      
+      // Update UI observables
+      currentPosition.value = pos;
+      smoothedSpeed.value = detail.speed;
+      currentHeading.value = detail.heading;
+      
+      // Calculate bearing to destination if needed
+      if (destinationLatitude.value != null && destinationLongitude.value != null) {
+        bearingToDestination.value = Geolocator.bearingBetween(
+          pos.latitude, pos.longitude,
+          destinationLatitude.value!, destinationLongitude.value!,
+        );
+      }
+      
+      _checkAndPreloadMap(pos);
     }
   }
 
@@ -669,15 +737,13 @@ class HomeController extends GetxController {
   }
 
   void startSimulation() {
-    _simulationTimer?.cancel();
-    final themeProvider = ThemeProvider.instance;
-    if (themeProvider.enableTimerSimulation) {
-      FlutterBackgroundService().invoke('set_simulation_mode', {'enabled': true});
-      _simulationTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        if (isTracking.value && themeProvider.enableTimerSimulation) TripSimulator.simulateMoveTowards();
-        else stopSimulation();
-      });
-    }
+    // We now let the background service handle the simulation timer
+    // to ensure it works consistently in both forground and background.
+    // We only need to tell it to start if enabled in settings.
+    FlutterBackgroundService().invoke(
+      'set_simulation_mode', 
+      {'enabled': ThemeProvider.instance.enableSimulation}
+    );
   }
 
   void stopSimulation() {

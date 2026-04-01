@@ -15,7 +15,10 @@ class MapCacheManager {
   FileCacheStore? _cacheStore;
   Dio? _dio;
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
-  
+  bool _isPreloading = false;
+  bool get isPreloading => _isPreloading;
+  DateTime? _lastPreloadTime;
+
   FileCacheStore get cacheStore {
     if (_cacheStore == null) {
       throw Exception('MapCacheManager not initialized. Call init() first.');
@@ -64,59 +67,56 @@ class MapCacheManager {
 
   /// Preloads map tiles in an approx 10km grid for a given location, caching them directly.
   Future<void> preloadSurroundingMap(double lat, double lon, {bool isDark = true, bool isSatellite = false}) async {
-    if (_dio == null) return;
-    if (!ThemeProvider.instance.enableBackgroundMapDownload) return;
-
-    const int zoom = 14; 
-    const int tileRadius = 4;
-    final centerTile = _latLngToTile(lat, lon, zoom);
+    if (_dio == null || _isPreloading) return;
     
-    String urlTemplate = ApiConstants.cartoDbLightUrl;
-    bool isArcGis = false;
+    // Cooldown: Don't preload more than once every 15 seconds
+    if (_lastPreloadTime != null && DateTime.now().difference(_lastPreloadTime!).inSeconds < 15) return;
     
-    if (isSatellite) {
-      urlTemplate = ApiConstants.arcGisSatelliteUrl;
-      isArcGis = true;
-    } else if (isDark) {
-      urlTemplate = ApiConstants.cartoDbDarkUrl;
-    }
+    _isPreloading = true;
+    _lastPreloadTime = DateTime.now();
 
-    final subdomains = ['a', 'b', 'c', 'd'];
-    final futures = <Future>[];
-
-    for (int dx = -tileRadius; dx <= tileRadius; dx++) {
-      for (int dy = -tileRadius; dy <= tileRadius; dy++) {
-        final x = centerTile.x + dx;
-        final y = centerTile.y + dy;
-        final subdomain = subdomains[(x + y) % subdomains.length];
-        
-        String url;
-        if (isArcGis) {
-          // ArcGIS uses {z}/{y}/{x} pattern
-          url = urlTemplate
-              .replaceAll('{z}', zoom.toString())
-              .replaceAll('{x}', x.toString())
-              .replaceAll('{y}', y.toString());
-        } else {
-          // CartoDB uses {s}.basemaps.cartocdn.com/.../{z}/{x}/{y}{r}.png
-          url = urlTemplate
-              .replaceAll('{s}', subdomain)
-              .replaceAll('{z}', zoom.toString())
-              .replaceAll('{x}', x.toString())
-              .replaceAll('{y}', y.toString())
-              .replaceAll('{r}', '@2x');
-        }
-        
-        futures.add(_fetchTileSafely(url));
+    try {
+      const int zoom = 14; 
+      const int tileRadius = 3; // Reduced from 4 to 3 (49 tiles instead of 81)
+      final centerTile = _latLngToTile(lat, lon, zoom);
+      
+      String urlTemplate = ApiConstants.cartoDbLightUrl;
+      bool isArcGis = false;
+      
+      if (isSatellite) {
+        urlTemplate = ApiConstants.arcGisSatelliteUrl;
+        isArcGis = true;
+      } else if (isDark) {
+        urlTemplate = ApiConstants.cartoDbDarkUrl;
       }
-    }
-    
-    // Batch download
-    for (int i = 0; i < futures.length; i += 15) {
-      final end = (i + 15 < futures.length) ? i + 15 : futures.length;
-      await Future.wait(futures.sublist(i, end));
-      // Yield to main thread briefly to prevent UI frame drops
-      await Future.delayed(const Duration(milliseconds: 50));
+
+      final subdomains = ['a', 'b', 'c', 'd'];
+      final futures = <Future>[];
+
+      for (int dx = -tileRadius; dx <= tileRadius; dx++) {
+        for (int dy = -tileRadius; dy <= tileRadius; dy++) {
+          final x = centerTile.x + dx;
+          final y = centerTile.y + dy;
+          final subdomain = subdomains[(x + y) % subdomains.length];
+          
+          String url;
+          if (isArcGis) {
+            url = urlTemplate.replaceAll('{z}', zoom.toString()).replaceAll('{x}', x.toString()).replaceAll('{y}', y.toString());
+          } else {
+            url = urlTemplate.replaceAll('{s}', subdomain).replaceAll('{z}', zoom.toString()).replaceAll('{x}', x.toString()).replaceAll('{y}', y.toString()).replaceAll('{r}', '@2x');
+          }
+          futures.add(_fetchTileSafely(url));
+        }
+      }
+      
+      // Batch download
+      for (int i = 0; i < futures.length; i += 10) {
+        final end = (i + 10 < futures.length) ? i + 10 : futures.length;
+        await Future.wait(futures.sublist(i, end));
+        await Future.delayed(const Duration(milliseconds: 100)); // Increased delay to 100ms
+      }
+    } finally {
+      _isPreloading = false;
     }
   }
 

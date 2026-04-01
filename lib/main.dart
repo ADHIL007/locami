@@ -7,28 +7,28 @@ import 'package:locami/bindings/main_bindings.dart';
 import 'package:locami/modules/home/views/home_view.dart';
 import 'package:locami/theme/theme_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:locami/core/utils/background_service.dart';
 import 'package:locami/core/localization/app_translations.dart';
-
 import 'package:locami/core/utils/map_cache_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Force dark status bar / navigation bar globally
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.black,
-    statusBarIconBrightness: Brightness.light,
-    statusBarBrightness: Brightness.dark,
-    systemNavigationBarColor: Colors.black,
-    systemNavigationBarIconBrightness: Brightness.light,
-  ));
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.black,
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
+      systemNavigationBarColor: Colors.black,
+      systemNavigationBarIconBrightness: Brightness.light,
+    ),
+  );
 
+  // MapCacheManager must init before runApp since map renders immediately
   await MapCacheManager.instance.init();
-  await initializeService();
 
+  // Only load lightweight settings before runApp — defer heavy I/O
   final appStatus = await AppStatusManager.instance.status;
-
   ThemeProvider.instance.applyFromStatus(appStatus);
 
   runApp(
@@ -55,17 +55,20 @@ class _MainAppState extends State<MainApp> {
       PerformanceService.instance.startMonitoring();
     });
   }
+
   @override
   Widget build(BuildContext context) {
     debugPrint('[MAIN] MainApp.build called');
     // Re-apply on every rebuild to ensure it stays dark
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.black,
-      statusBarIconBrightness: Brightness.light,
-      statusBarBrightness: Brightness.dark,
-      systemNavigationBarColor: Colors.black,
-      systemNavigationBarIconBrightness: Brightness.light,
-    ));
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.black,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.black,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+    );
 
     final themeProvider = context.watch<ThemeProvider>();
 
@@ -77,9 +80,11 @@ class _MainAppState extends State<MainApp> {
       fallbackLocale: const Locale('en', 'US'),
       theme: themeProvider.themeData,
       darkTheme: themeProvider.themeData,
-      themeMode: (themeProvider.theme == AppThemeMode.dark ? ThemeMode.dark : ThemeMode.light),
+      themeMode:
+          (themeProvider.theme == AppThemeMode.dark
+              ? ThemeMode.dark
+              : ThemeMode.light),
       home: const HomeView(),
     );
   }
 }
-

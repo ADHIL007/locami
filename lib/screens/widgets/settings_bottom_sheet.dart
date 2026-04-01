@@ -34,10 +34,11 @@ class SettingsBottomSheet extends StatelessWidget {
               ? Colors.black
               : Colors.white,
       borderRadius: 24,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -269,7 +270,8 @@ class SettingsBottomSheet extends StatelessWidget {
             onTap: () => _showDeleteConfirmation(context),
           ),
           const SizedBox(height: 20),
-        ],
+          ],
+        ),
       ),
     );
   }

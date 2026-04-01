@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:locami/db_manager/trip_details_manager.dart';
+import 'package:locami/core/utils/trip_simulator.dart';
 
 const int notificationId = 888;
 
@@ -102,24 +103,30 @@ void onStart(ServiceInstance service) async {
     TripDetailsManager.instance.stopAlertSound();
   });
 
-  service.on('start_tracking').listen((event) {
-    _startTracking(service);
-  });
+  // Initialize notifications for the background isolate
+  final FlutterLocalNotificationsPlugin notifications = FlutterLocalNotificationsPlugin();
+  await notifications.initialize(
+    const InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+    ),
+  );
 
-  _startTracking(service);
+  service.on('start_tracking').listen((event) {
+    _startTracking(service, event);
+  });
 }
 
-void _startTracking(ServiceInstance service) async {
+void _startTracking(ServiceInstance service, Map<String, dynamic>? event) async {
   try {
     Timer.periodic(const Duration(seconds: 1), (timer) async {
-      if (service is AndroidServiceInstance) {
-        if (!(await service.isForegroundService())) {
-          return;
-        }
+      // Simulate movement if enabled
+      if (TripDetailsManager.instance.isSimulationMode && 
+          TripDetailsManager.instance.isTracking) {
+        TripSimulator.simulateMoveTowards();
       }
     });
 
-    await TripDetailsManager.instance.startBackgroundTracking(service);
+    await TripDetailsManager.instance.startBackgroundTracking(service, data: event);
   } catch (e) {
     if (kDebugMode) {
       print("Background tracking error: $e");
