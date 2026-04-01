@@ -15,6 +15,10 @@ class AppStatus {
   final bool showWaves;
   final bool enableSimulation;
   final bool enableTimerSimulation;
+  final String uiMode; // 'low', 'mid', 'high'
+  final String mapQuality; // 'low', 'mid', 'high'
+  final bool enableVibration;
+  final bool enableBackgroundMapDownload;
 
   const AppStatus({
     this.isFirstTimeUser = true,
@@ -33,6 +37,10 @@ class AppStatus {
     this.showWaves = true,
     this.enableSimulation = false,
     this.enableTimerSimulation = false,
+    this.uiMode = 'high',
+    this.mapQuality = 'mid',
+    this.enableVibration = true,
+    this.enableBackgroundMapDownload = true,
   });
 
   Map<String, dynamic> toJson() => {
@@ -52,6 +60,10 @@ class AppStatus {
     'showWaves': showWaves,
     'enableSimulation': enableSimulation,
     'enableTimerSimulation': enableTimerSimulation,
+    'uiMode': uiMode,
+    'mapQuality': mapQuality,
+    'enableVibration': enableVibration,
+    'enableBackgroundMapDownload': enableBackgroundMapDownload,
   };
 
   factory AppStatus.fromJson(Map<String, dynamic> json) => AppStatus(
@@ -71,6 +83,10 @@ class AppStatus {
     showWaves: json['showWaves'] ?? true,
     enableSimulation: json['enableSimulation'] ?? false,
     enableTimerSimulation: json['enableTimerSimulation'] ?? false,
+    uiMode: json['uiMode'] ?? 'high',
+    mapQuality: json['mapQuality'] ?? 'mid',
+    enableVibration: json['enableVibration'] ?? true,
+    enableBackgroundMapDownload: json['enableBackgroundMapDownload'] ?? true,
   );
 
   AppStatus copyWith({
@@ -90,6 +106,10 @@ class AppStatus {
     bool? showWaves,
     bool? enableSimulation,
     bool? enableTimerSimulation,
+    String? uiMode,
+    String? mapQuality,
+    bool? enableVibration,
+    bool? enableBackgroundMapDownload,
   }) => AppStatus(
     isFirstTimeUser: isFirstTimeUser ?? this.isFirstTimeUser,
     isTripStarted: isTripStarted ?? this.isTripStarted,
@@ -107,5 +127,9 @@ class AppStatus {
     showWaves: showWaves ?? this.showWaves,
     enableSimulation: enableSimulation ?? this.enableSimulation,
     enableTimerSimulation: enableTimerSimulation ?? this.enableTimerSimulation,
+    uiMode: uiMode ?? this.uiMode,
+    mapQuality: mapQuality ?? this.mapQuality,
+    enableVibration: enableVibration ?? this.enableVibration,
+    enableBackgroundMapDownload: enableBackgroundMapDownload ?? this.enableBackgroundMapDownload,
   );
 }

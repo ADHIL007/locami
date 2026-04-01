@@ -1,69 +1,139 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:solar_icons/solar_icons.dart';
+import 'package:flutter_map/flutter_map.dart' as fm;
+import 'package:latlong2/latlong.dart' hide Path;
 import 'package:get/get.dart';
-import 'package:locami/core/widgets/reflector_bg.dart';
-import 'package:locami/modules/home/controllers/home_controller.dart';
-import 'package:locami/screens/widgets/trip_info_display.dart';
-import 'package:locami/screens/widgets/home_header.dart';
-import 'package:locami/screens/widgets/home_input_card.dart';
-import 'package:locami/screens/widgets/home_distance_option.dart';
-import 'package:locami/screens/widgets/tracking_button.dart';
-import 'package:locami/screens/widgets/location_search_sheet.dart';
-import 'package:locami/screens/widgets/trip_history_card.dart';
-import 'package:locami/theme/theme_provider.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:locami/core/model/trip_details_model.dart';
-import 'package:locami/db_manager/trip_details_manager.dart';
-import 'package:locami/core/widgets/glass_container.dart';
-import 'dart:ui';
 import 'package:provider/provider.dart';
+import 'package:solar_icons/solar_icons.dart';
+
+import 'package:locami/modules/home/controllers/home_controller.dart';
+import 'package:locami/theme/theme_provider.dart';
+import 'package:locami/core/db_helper/saved_location_db.dart';
+import 'package:locami/screens/widgets/location_search_sheet.dart';
+import 'package:locami/screens/widgets/trip_info_display.dart';
+import 'package:locami/core/widgets/glass_container.dart';
+
+import 'package:locami/modules/home/views/widgets/loading_screen.dart';
+import 'package:locami/modules/home/views/widgets/setup_panel.dart';
+import 'package:locami/modules/home/views/widgets/top_header.dart';
+import 'package:locami/modules/home/views/widgets/map_center_confirm_panel.dart';
+import 'package:locami/modules/home/views/widgets/ghost_fab_group.dart';
+import 'package:locami/modules/home/views/widgets/navigation_arrow_painter.dart';
+import 'package:locami/core/constants/api_constants.dart';
+import 'package:locami/core/utils/map_cache_manager.dart';
 
 class HomeView extends GetView<HomeController> {
   const HomeView({super.key});
 
-  void _showLocationSearch(bool isFrom) {
+  Color _getColorForSeed(String seed) {
+    final colors = [
+      Colors.redAccent,
+      Colors.blueAccent,
+      Colors.greenAccent,
+      Colors.orangeAccent,
+      Colors.purpleAccent,
+      Colors.tealAccent,
+      Colors.pinkAccent,
+      Colors.indigoAccent,
+    ];
+    return colors[seed.hashCode.abs() % colors.length];
+  }
+
+  void _showLocationSearch() {
     Get.bottomSheet(
       LocationSearchSheet(
-        isFrom: isFrom,
-        initialValue:
-            isFrom
-                ? controller.fromController.text
-                : controller.toController.text,
+        isFrom: false,
+        initialValue: controller.toController.text,
         userCountry: controller.userCountry.value,
         currentPosition: controller.currentPosition.value,
-        onSelected: (address) {
-          if (isFrom) {
-            controller.fromController.text = address;
-          } else {
-            controller.toController.text = address;
-          }
-          controller.update();
+        onSelected: (address, {lat, lon}) {
+          controller.selectDestination(address, lat: lat, lon: lon);
         },
-        onTestNearby: isFrom ? null : controller.setNearbyTestLocation,
+        onTestNearby: controller.setNearbyTestLocation,
       ),
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
     );
   }
 
-  void _showAllHistory() {
+  void _showSavedLocationOptions(
+    SavedLocation loc,
+    bool isDark,
+    Color accentColor,
+  ) {
     Get.bottomSheet(
-      _HistoryBottomSheet(
-        history: controller.tripHistory,
-        onClear: () async {
-          await TripDetailsManager.instance.clearLogs();
-          controller.loadTripHistory();
-          Get.back();
-        },
-        onRestart: (TripDetailsModel trip) {
-          controller.fromController.text = trip.street ?? "";
-          controller.toController.text = trip.destination ?? "";
-          Get.back();
-          controller.toggleTracking();
-        },
+      Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(loc.iconData, size: 24, color: accentColor),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        loc.label,
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black87,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        loc.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: (isDark ? Colors.white : Colors.black)
+                              .withValues(alpha: 0.5),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            ListTile(
+              leading: Icon(Icons.navigation_rounded, color: accentColor),
+              title: const Text('Start Tracking Here'),
+              onTap: () {
+                Get.back();
+                controller.startTrackingToSaved(loc);
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.delete_outline,
+                color: Colors.redAccent,
+              ),
+              title: const Text('Delete Location'),
+              onTap: () {
+                Get.back();
+                controller.deleteSavedLocation(loc.id);
+                Get.snackbar(
+                  'Deleted',
+                  '${loc.label} removed from saved locations.',
+                  snackPosition: SnackPosition.BOTTOM,
+                  backgroundColor:
+                      isDark ? const Color(0xFF2A2A2A) : Colors.white,
+                  colorText: isDark ? Colors.white : Colors.black87,
+                );
+              },
+            ),
+          ],
+        ),
       ),
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
     );
   }
 
@@ -71,341 +141,515 @@ class HomeView extends GetView<HomeController> {
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
     final accentColor = themeProvider.accentColor;
+    final isDark = themeProvider.theme == AppThemeMode.dark;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: Stack(
-        children: [
-          if (themeProvider.showWaves)
-            ReflectionBackground(accentColor: accentColor, speed: 1.0),
-
-          Positioned.fill(
-            child:
-                themeProvider.showWaves
-                    ? BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Theme.of(
-                                context,
-                              ).scaffoldBackgroundColor.withValues(alpha: 0.5),
-                              accentColor.withValues(alpha: 0.04),
-                              Theme.of(
-                                context,
-                              ).scaffoldBackgroundColor.withValues(alpha: 0.6),
-                            ],
-                          ),
-                        ),
-                      ),
-                    )
-                    : Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Theme.of(
-                              context,
-                            ).scaffoldBackgroundColor.withValues(alpha: 0.2),
-                          ],
-                        ),
-                      ),
-                    ),
-          ),
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor:
+          isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF8F9FA),
+      body: SizedBox.expand(
+        child: Stack(
+          children: [
+            // ── MAP: Always rendered so tiles load during loading screen ──
+            Positioned.fill(
+              child: fm.FlutterMap(
+                mapController: controller.mapController,
+                options: fm.MapOptions(
+                  backgroundColor: isDark ? const Color(0xFF1A1B1E) : const Color(0xFFF2EFE9),
+                  initialCenter: controller.initialPosition.value ?? const LatLng(20.5937, 78.9629),
+                  initialZoom: controller.initialPosition.value != null ? 14.5 : 5.0,
+                  maxZoom: 22.0,
+                  interactionOptions: const fm.InteractionOptions(
+                    flags: fm.InteractiveFlag.all,
+                  ),
+                ),
                 children: [
-                  Obx(
-                    () => HomeHeader(
-                      isTracking: controller.isTracking.value,
-                      showLocami: controller.showLocami.value,
-                      accentColor: accentColor,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  Obx(
-                    () => HomeInputCard(
-                      controller: controller.fromController,
-                      label: "From",
-                      hint: "Select starting point",
-                      icon: SolarIconsBold.home,
-                      onTap:
-                          controller.isTracking.value
-                              ? null
-                              : () => _showLocationSearch(true),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Obx(
-                    () => HomeInputCard(
-                      controller: controller.toController,
-                      label: "To",
-                      hint: "Select destination",
-                      icon: SolarIconsBold.flag,
-                      iconColor: accentColor,
-                      onTap:
-                          controller.isTracking.value
-                              ? null
-                              : () => _showLocationSearch(false),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Text(
-                        "Alert Me",
-                        style: TextStyle(
-                          color: customColors().textPrimary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Obx(
-                        () => HomeDistanceOption(
-                          distance: "500m",
-                          isSelected: controller.alertDistance.value == 500,
-                          onTap:
-                              controller.isTracking.value
-                                  ? null
-                                  : () => controller.setAlertDistance(500),
-                        ),
-                      ),
-                      Obx(
-                        () => HomeDistanceOption(
-                          distance: "1km",
-                          isSelected: controller.alertDistance.value == 1000,
-                          onTap:
-                              controller.isTracking.value
-                                  ? null
-                                  : () => controller.setAlertDistance(1000),
-                        ),
-                      ),
-                      Obx(
-                        () => HomeDistanceOption(
-                          distance: "2km",
-                          isSelected: controller.alertDistance.value == 2000,
-                          onTap:
-                              controller.isTracking.value
-                                  ? null
-                                  : () => controller.setAlertDistance(2000),
-                        ),
-                      ),
-                      const Spacer(),
-                      Obx(
-                        () => TrackingButton(
-                          isTracking: controller.isTracking.value,
-                          isLoading: controller.isTrackingLoading.value,
-                          canStart: controller.validateIsTracking(),
-                          accentColor: accentColor,
-                          onPressed: controller.toggleTracking,
-                        ),
-                      ),
-                    ],
-                  ),
+                  // ── BASE PERSISTENT LAYER (Zoom 0-6) ──
                   Obx(() {
-                    if (controller.isTracking.value ||
-                        TripDetailsManager.instance.isTracking) {
-                      return Column(
-                        children: [
-                          const SizedBox(height: 32),
-                          const TripInfoDisplay(),
-                        ],
+                    final isOnline = controller.isOnline.value;
+                    final mapDark = controller.isMapDark.value;
+                    final sat = controller.useSatelliteMap.value;
+                    
+                    final url = sat 
+                        ? ApiConstants.esriSatelliteUrl 
+                        : (mapDark ? ApiConstants.cartoDbDarkUrl : ApiConstants.cartoDbLightUrl);
+
+                    final mapQuality = themeProvider.mapQuality;
+                    final useRetina = mapQuality == 'high';
+                    final tileDisplay = mapQuality == 'low' 
+                        ? const fm.TileDisplay.instantaneous() 
+                        : const fm.TileDisplay.fadeIn(duration: Duration(milliseconds: 200));
+
+                    return fm.TileLayer(
+                      key: ValueKey('base_overview_${sat}_${mapDark}_$mapQuality'),
+                      urlTemplate: url,
+                      subdomains: const ['a', 'b', 'c', 'd'],
+                      maxNativeZoom: 6,
+                      keepBuffer: 2,
+                      retinaMode: useRetina,
+                      tileDisplay: tileDisplay,
+                      tileProvider: MapCacheManager.instance.isInitialized
+                          ? (isOnline
+                              ? MapCacheManager.instance.getProvider(isDark: mapDark, isSatellite: sat)
+                              : MapCacheManager.instance.getOfflineProvider(isDark: mapDark, isSatellite: sat))
+                          : fm.NetworkTileProvider(),
+                    );
+                  }),
+                  Obx(() {
+                    final isOnline = controller.isOnline.value;
+                    final mapDark = controller.isMapDark.value;
+                    final sat = controller.useSatelliteMap.value;
+                    final mapQuality = themeProvider.mapQuality;
+                    final useRetina = mapQuality == 'high';
+                    final tileDisplay = mapQuality == 'low' 
+                        ? const fm.TileDisplay.instantaneous() 
+                        : const fm.TileDisplay.fadeIn(duration: Duration(milliseconds: 200));
+                    
+                    if (isOnline) {
+                      final onlineProvider = MapCacheManager.instance.isInitialized
+                          ? MapCacheManager.instance.getProvider(isDark: mapDark, isSatellite: sat)
+                          : fm.NetworkTileProvider();
+                          
+                      return fm.TileLayer(
+                        key: ValueKey('online_${sat}_${mapDark}_$mapQuality'),
+                        urlTemplate: sat
+                            ? ApiConstants.esriSatelliteUrl
+                            : (mapDark
+                                ? ApiConstants.cartoDbDarkUrl
+                                : ApiConstants.cartoDbLightUrl),
+                        subdomains: const ['a', 'b', 'c', 'd'],
+                        minZoom: 0,
+                        maxNativeZoom: 18,
+                        keepBuffer: 2,
+                        retinaMode: useRetina,
+                        tileDisplay: tileDisplay,
+                        userAgentPackageName: 'com.example.locami',
+                        tileProvider: onlineProvider,
                       );
                     } else {
-                      return Column(
-                        children: [
-                          const SizedBox(height: 32),
-                          if (controller.isLoadingHistory.value)
-                            const Center(child: CircularProgressIndicator())
-                          else if (controller.tripHistory.isNotEmpty) ...[
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  "Recent Trips",
-                                  style: TextStyle(
-                                    color: customColors().textPrimary,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                if (controller.tripHistory.length > 3)
-                                  TextButton(
-                                    onPressed: _showAllHistory,
-                                    child: const Text("Show More"),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Stack(
-                              children: [
-                                Column(
-                                  children:
-                                      controller.tripHistory
-                                          .take(3)
-                                          .map(
-                                            (
-                                              TripDetailsModel trip,
-                                            ) => TripHistoryCard(
-                                              trip: trip,
-                                              onRestart: () {
-                                                controller.fromController.text =
-                                                    trip.street ?? "";
-                                                controller.toController.text =
-                                                    trip.destination ?? "";
-                                                controller.toggleTracking();
-                                              },
-                                            ),
-                                          )
-                                          .toList(),
-                                ),
-                                ],
-                              ),
-                          ] else ...[
-                            const SizedBox(height: 20),
-                            Center(
-                              child: Column(
-                                children: [
-                                  SvgPicture.asset(
-                                    'assets/images/busTerminal.svg',
-                                    height: 240,
-                                  ),
-                                  const SizedBox(height: 24),
-                                  Text(
-                                    "No track history yet",
-                                    style: TextStyle(
-                                      color: customColors().textPrimary
-                                          .withValues(alpha: 0.5),
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
+                      final offlineProvider = MapCacheManager.instance.isInitialized
+                          ? MapCacheManager.instance.getOfflineProvider(isDark: mapDark, isSatellite: sat)
+                          : fm.NetworkTileProvider();
+                          
+                      final url = sat 
+                          ? ApiConstants.esriSatelliteUrl 
+                          : (mapDark ? ApiConstants.cartoDbDarkUrl : ApiConstants.cartoDbLightUrl);
+                          
+                      return fm.TileLayer(
+                        key: ValueKey('offline_${sat}_${mapDark}_$mapQuality'),
+                        urlTemplate: url,
+                        subdomains: const ['a', 'b', 'c', 'd'],
+                        maxNativeZoom: 18,
+                        keepBuffer: 2,
+                        retinaMode: useRetina,
+                        tileDisplay: tileDisplay,
+                        tileProvider: offlineProvider,
                       );
                     }
+                  }),
+                  Obx(() {
+                    final isOnline = controller.isOnline.value;
+                    final sat = controller.useSatelliteMap.value;
+                    final mapDark = controller.isMapDark.value;
+                    final mapQuality = themeProvider.mapQuality;
+                    final useRetina = mapQuality == 'high';
+                    final tileDisplay = mapQuality == 'low' 
+                        ? const fm.TileDisplay.instantaneous() 
+                        : const fm.TileDisplay.fadeIn(duration: Duration(milliseconds: 200));
+
+                    if (!sat && isOnline) return const SizedBox.shrink();
+
+                    final provider = MapCacheManager.instance.isInitialized
+                          ? (isOnline 
+                              ? MapCacheManager.instance.getProvider(isDark: mapDark, isSatellite: sat) 
+                              : MapCacheManager.instance.getOfflineProvider(isDark: mapDark, isSatellite: sat))
+                          : fm.NetworkTileProvider();
+                    
+                    return fm.TileLayer(
+                      key: ValueKey('labels_${sat}_${mapDark}_$mapQuality'),
+                      urlTemplate: ApiConstants.cartoDbLabelsUrl,
+                      subdomains: const ['a', 'b', 'c', 'd'],
+                      maxNativeZoom: 18,
+                      keepBuffer: 2,
+                      retinaMode: useRetina,
+                      tileDisplay: tileDisplay,
+                      tileProvider: provider,
+                    );
+                  }),
+                  Obx(() {
+                    if (controller.currentRoute.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+                    
+                    final traveledIndex = controller.traveledRouteIndex.value;
+                    final route = controller.currentRoute.toList();
+                    
+                    final safeIndex = (traveledIndex >= 0 && traveledIndex < route.length) 
+                        ? traveledIndex 
+                        : 0;
+                        
+                    final traversed = route.sublist(0, safeIndex + 1);
+                    final remaining = route.sublist(safeIndex);
+                    
+                    return fm.PolylineLayer(
+                      polylines: [
+                        if (traversed.length > 1) 
+                          fm.Polyline(
+                            points: traversed,
+                            color: isDark ? Colors.white.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.25),
+                            strokeWidth: 5,
+                            strokeCap: StrokeCap.round,
+                            strokeJoin: StrokeJoin.round,
+                          ),
+                        if (remaining.length > 1)
+                          fm.Polyline(
+                            points: remaining,
+                            color: accentColor,
+                            strokeWidth: 5,
+                            strokeCap: StrokeCap.round,
+                            strokeJoin: StrokeJoin.round,
+                          ),
+                      ],
+                    );
+                  }),
+                  Obx(() {
+                    if (controller.destinationLatitude.value == null) {
+                      return const SizedBox.shrink();
+                    }
+                    return fm.CircleLayer(
+                      circles: [
+                        fm.CircleMarker(
+                          point: LatLng(
+                            controller.destinationLatitude.value!,
+                            controller.destinationLongitude.value!,
+                          ),
+                          color: accentColor.withValues(alpha: 0.12),
+                          borderColor: accentColor.withValues(alpha: 0.4),
+                          borderStrokeWidth: 2,
+                          useRadiusInMeter: true,
+                          radius: controller.alertDistance.value.toDouble(),
+                        ),
+                      ],
+                    );
+                  }),
+                  Obx(() {
+                    if (controller.destinationLatitude.value == null) {
+                      return const SizedBox.shrink();
+                    }
+                    return fm.MarkerLayer(
+                      markers: [
+                        fm.Marker(
+                          point: LatLng(
+                            controller.destinationLatitude.value!,
+                            controller.destinationLongitude.value!,
+                          ),
+                          width: 44,
+                          height: 44,
+                          child: Center(
+                            child: Container(
+                              width: 26,
+                              height: 26,
+                              decoration: BoxDecoration(
+                                color: Colors.black,
+                                borderRadius: BorderRadius.circular(5),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2.2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(
+                                      alpha: 0.4,
+                                    ),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 5),
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                  Obx(() {
+                    final locs = controller.savedLocations;
+                    if (locs.isEmpty) return const SizedBox.shrink();
+                    return fm.MarkerLayer(
+                      markers:
+                          locs.map((loc) {
+                            final pinColor = _getColorForSeed(loc.label);
+                            return fm.Marker(
+                              point: LatLng(loc.latitude, loc.longitude),
+                              width: 36,
+                              height: 36,
+                              child: GestureDetector(
+                                onTap: () {
+                                  _showSavedLocationOptions(
+                                    loc,
+                                    isDark,
+                                    accentColor,
+                                  );
+                                },
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: pinColor,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.3,
+                                        ),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Center(
+                                    child: Icon(
+                                      loc.iconData,
+                                      size: 18,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                    );
+                  }),
+                  Obx(() {
+                    final pos = controller.currentPosition.value;
+                    if (pos == null) return const SizedBox.shrink();
+                    return fm.MarkerLayer(
+                      markers: [
+                        fm.Marker(
+                          point: LatLng(pos.latitude, pos.longitude),
+                          width: 80,
+                          height: 80,
+                          child: Obx(
+                            () => CustomPaint(
+                              size: const Size(80, 80),
+                              painter: NavigationArrowPainter(
+                                heading: controller.currentHeading.value,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
                   }),
                 ],
               ),
             ),
-          ),
-          Obx(() {
-            if (controller.tripHistory.length > 3 && !controller.isTracking.value) {
-              return Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                height: 60,
-                child: IgnorePointer(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0),
-                          Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.8),
-                          Theme.of(context).scaffoldBackgroundColor,
-                        ],
-                        stops: const [0.0, 0.4, 1.0],
+            // ── Overlays: gradients, panels, etc. ──
+            // Only show UI overlays after initialization
+            Obx(() {
+              if (!controller.isInitialized.value) {
+                // Loading screen overlays the map while tiles load behind it
+                return Positioned.fill(
+                  child: LoadingScreen(isDark: isDark, accentColor: accentColor),
+                );
+              }
+
+              final isTracking = controller.isTracking.value;
+
+              return Positioned.fill(
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                    child: IgnorePointer(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: RadialGradient(
+                            center: Alignment.center,
+                            radius: 1.2,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withValues(alpha: 0.2),
+                              Colors.black.withValues(alpha: 0.6),
+                              Colors.black.withValues(alpha: 0.9),
+                            ],
+                            stops: const [0.0, 0.4, 0.7, 1.0],
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              );
-            }
-            return const SizedBox.shrink();
-          }),
-        ],
-      ),
-    );
-  }
-}
-
-class _HistoryBottomSheet extends StatelessWidget {
-  final List<TripDetailsModel> history;
-  final VoidCallback onClear;
-  final Function(TripDetailsModel) onRestart;
-
-  const _HistoryBottomSheet({
-    required this.history,
-    required this.onClear,
-    required this.onRestart,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final themeProvider = context.watch<ThemeProvider>();
-    final isDark = themeProvider.theme == AppThemeMode.dark;
-
-    return GlassContainer(
-      height: MediaQuery.of(context).size.height * 0.7,
-      padding: const EdgeInsets.all(20),
-      opacity: isDark ? 0.15 : 0.7,
-      blur: 15,
-      color: isDark ? Colors.white : Colors.white.withValues(alpha: 0.9),
-      borderRadius: 24,
-      border: Border.all(
-        color: isDark 
-            ? Colors.white.withValues(alpha: 0.1) 
-            : Colors.white.withValues(alpha: 0.5),
-        width: 1.5,
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: customColors().textPrimary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "All Recent Trips",
-                style: TextStyle(
-                  color: customColors().textPrimary,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: 400,
+                    child: IgnorePointer(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                            colors: [
+                              Colors.black,
+                              Colors.black.withValues(alpha: 0.6),
+                              Colors.transparent,
+                            ],
+                            stops: const [0.0, 0.5, 1.0],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const Positioned(top: 0, left: 0, right: 0, child: TopHeader()),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child:
+                        controller.isPinSelectionMode.value
+                            ? MapCenterConfirmPanel(
+                              accentColor: accentColor,
+                              isDark: isDark,
+                            )
+                            : (isTracking
+                                ? const TripInfoDisplay()
+                                : SetupPanel(
+                                  isDark: isDark,
+                                  accentColor: accentColor,
+                                  onSearchTap: _showLocationSearch,
+                                )),
+                  ),
+                  Positioned(
+                    right: 20,
+                    bottom: isTracking ? 500 : 360,
+                    child: GhostFABGroup(accentColor: accentColor),
+                  ),
+                  Obx(() {
+                    if (!controller.isTracking.value ||
+                        controller.isDestinationInView.value) {
+                      return const SizedBox.shrink();
+                    }
+                    final isTrackingNow = controller.isTracking.value;
+                    return Positioned(
+                      left: 20,
+                      bottom: isTrackingNow ? 500 : 360,
+                      child: GestureDetector(
+                        onTap: controller.animateToDestination,
+                        child: Container(
+                          decoration: const BoxDecoration(shape: BoxShape.circle),
+                          child: GlassContainer(
+                            width: 56,
+                            height: 56,
+                            blur: 20,
+                            opacity: 0.15,
+                            borderRadius: 28,
+                            color: Colors.black,
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.3),
+                              width: 1.5,
+                            ),
+                            child: Center(
+                              child: Obx(() {
+                                final rotation = controller.mapRotation.value;
+                                final bearing = controller.bearingToDestination.value;
+                                final angle = (bearing - rotation) * (math.pi / 180);
+                                
+                                return Transform.rotate(
+                                  angle: angle,
+                                  child: Icon(
+                                    SolarIconsBold.mapArrowUp,
+                                    color: accentColor,
+                                    size: 30,
+                                  ),
+                                );
+                              }),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                  if (!isTracking && controller.isPinSelectionMode.value)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 40),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 34,
+                                  height: 34,
+                                  decoration: BoxDecoration(
+                                    color: Colors.black,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2.5,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.3),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Center(
+                                    child: Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: const BoxDecoration(
+                                        color: Colors.white,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  width: 3,
+                                  height: 12,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.black,
+                                    borderRadius: BorderRadius.vertical(
+                                      bottom: Radius.circular(2),
+                                    ),
+                                    border: Border(
+                                      left: BorderSide(
+                                        color: Colors.white,
+                                        width: 0.5,
+                                      ),
+                                      right: BorderSide(
+                                        color: Colors.white,
+                                        width: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
-              TextButton(
-                onPressed: onClear,
-                child: const Text(
-                  "Clear All",
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: ListView.builder(
-              itemCount: history.length,
-              itemBuilder: (context, index) {
-                return TripHistoryCard(
-                  trip: history[index],
-                  onRestart: () => onRestart(history[index]),
-                );
-              },
-            ),
-          ),
-        ],
+            );
+            }),
+          ],
+        ),
       ),
     );
   }

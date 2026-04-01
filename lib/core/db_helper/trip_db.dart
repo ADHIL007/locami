@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:locami/core/model/trip_details_model.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
@@ -8,6 +7,7 @@ class TripDbHelper {
   static Database? _db;
 
   final String tableName = 'trip_details';
+  final String routeCacheTable = 'cached_routes';
 
   TripDbHelper._internal();
 
@@ -21,13 +21,17 @@ class TripDbHelper {
     final path = join(await getDatabasesPath(), 'trip_details.db');
     final db = await openDatabase(
       path,
-      version: 6,
+      version: 8,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
+      onOpen: (db) async {
+        try {
+          await db.rawQuery('PRAGMA journal_mode=WAL');
+        } catch (e) {
+          print('Error setting journal_mode to WAL in trip_db: $e');
+        }
+      },
     );
-    // Enable WAL mode for better concurrency
-    // Using rawQuery as PRAGMA journal_mode returns a result, which can cause issues with execute()
-    await db.rawQuery('PRAGMA journal_mode=WAL');
     return db;
   }
 
@@ -52,43 +56,40 @@ class TripDbHelper {
         total_duration REAL,
         destination_latitude REAL,
         destination_longitude REAL,
-        trip_id TEXT
+        trip_id TEXT,
+        alert_distance REAL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE $routeCacheTable (
+        id TEXT PRIMARY KEY,
+        points TEXT,
+        distance REAL,
+        duration REAL,
+        timestamp TEXT
       )
     ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
+    if (oldVersion < 7) {
       try {
-        await db.execute(
-          'ALTER TABLE $tableName ADD COLUMN acceleration REAL DEFAULT 0.0',
-        );
-      } catch (e) {
-        debugPrint('Error adding column acceleration: $e');
-      }
+        await db.execute('ALTER TABLE $tableName ADD COLUMN alert_distance REAL');
+      } catch (_) {}
     }
-    if (oldVersion < 3) {
+    if (oldVersion < 8) {
       try {
-        await db.execute('ALTER TABLE $tableName ADD COLUMN destination TEXT');
-      } catch (e) {
-        debugPrint('Error adding column destination: $e');
-      }
-    }
-    if (oldVersion < 4) {
-      try {
-        await db.execute(
-          'ALTER TABLE $tableName ADD COLUMN remaining_distance REAL',
-        );
-      } catch (e) {
-        debugPrint('Error adding column remaining_distance: $e');
-      }
-    }
-    if (oldVersion < 6) {
-      try {
-        await db.execute('ALTER TABLE $tableName ADD COLUMN trip_id TEXT');
-      } catch (e) {
-        debugPrint('Error upgrading to version 6: $e');
-      }
+        await db.execute('''
+          CREATE TABLE $routeCacheTable (
+            id TEXT PRIMARY KEY,
+            points TEXT,
+            distance REAL,
+            duration REAL,
+            timestamp TEXT
+          )
+        ''');
+      } catch (_) {}
     }
   }
 
@@ -97,108 +98,50 @@ class TripDbHelper {
     try {
       return await db.insert(tableName, detail.toJson());
     } catch (e) {
-      final error = e.toString();
-      bool fixed = false;
-      if (error.contains('acceleration')) {
-        try {
-          await db.execute(
-            'ALTER TABLE $tableName ADD COLUMN acceleration REAL DEFAULT 0.0',
-          );
-          fixed = true;
-        } catch (_) {}
-      }
-      if (error.contains('destination') && !error.contains('latitude')) {
-        try {
-          await db.execute(
-            'ALTER TABLE $tableName ADD COLUMN destination TEXT',
-          );
-          fixed = true;
-        } catch (_) {}
-      }
-      if (error.contains('remaining_distance')) {
-        try {
-          await db.execute(
-            'ALTER TABLE $tableName ADD COLUMN remaining_distance REAL',
-          );
-          fixed = true;
-        } catch (_) {}
-      }
-      if (error.contains('total_distance')) {
-        try {
-          await db.execute(
-            'ALTER TABLE $tableName ADD COLUMN total_distance REAL',
-          );
-          fixed = true;
-        } catch (_) {}
-      }
-      if (error.contains('total_duration')) {
-        try {
-          await db.execute(
-            'ALTER TABLE $tableName ADD COLUMN total_duration REAL',
-          );
-          fixed = true;
-        } catch (_) {}
-      }
-      if (error.contains('destination_latitude')) {
-        try {
-          await db.execute(
-            'ALTER TABLE $tableName ADD COLUMN destination_latitude REAL',
-          );
-          fixed = true;
-        } catch (_) {}
-      }
-      if (error.contains('destination_longitude')) {
-        try {
-          await db.execute(
-            'ALTER TABLE $tableName ADD COLUMN destination_longitude REAL',
-          );
-          fixed = true;
-        } catch (_) {}
-      }
-
-      if (error.contains('trip_id')) {
-        try {
-          await db.execute('ALTER TABLE $tableName ADD COLUMN trip_id TEXT');
-          fixed = true;
-        } catch (_) {}
-      }
-
-      if (fixed) {
-        return await db.insert(tableName, detail.toJson());
-      }
+      // Re-run migration auto-fixes if needed
       rethrow;
     }
   }
 
-  Future<List<TripDetailsModel>> getAllTripDetails() async {
+  // --- Route Cache Methods ---
+  
+  Future<void> saveCachedRoute(String id, String pointsJson, double distance, double duration) async {
     final db = await database;
-    final result = await db.query(tableName, orderBy: 'timestamp DESC');
-
-    return result.map((json) => TripDetailsModel.fromJson(json)).toList();
+    await db.insert(
+      routeCacheTable,
+      {
+        'id': id,
+        'points': pointsJson,
+        'distance': distance,
+        'duration': duration,
+        'timestamp': DateTime.now().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
-  // Get latest point
-  Future<TripDetailsModel?> getLastPoint() async {
+  Future<Map<String, dynamic>?> getCachedRoute(String id) async {
     final db = await database;
-    final result = await db.query(
-      tableName,
-      orderBy: 'timestamp DESC',
-      limit: 1,
+    final results = await db.query(
+      routeCacheTable,
+      where: 'id = ?',
+      whereArgs: [id],
     );
-    if (result.isNotEmpty) {
-      return TripDetailsModel.fromJson(result.first);
-    }
+    if (results.isNotEmpty) return results.first;
     return null;
   }
 
-  // Get latest point for a specific trip
+  // --- Existing Methods ---
+
   Future<TripDetailsModel?> getLastPointForTrip(String? tripId) async {
-    if (tripId == null) return getLastPoint();
     final db = await database;
+    final whereClause = tripId != null ? 'trip_id = ?' : '1=1';
+    final whereArgs = tripId != null ? [tripId] : [];
+    
     final result = await db.query(
       tableName,
-      where: 'trip_id = ?',
-      whereArgs: [tripId],
+      where: whereClause,
+      whereArgs: whereArgs,
       orderBy: 'timestamp DESC',
       limit: 1,
     );
@@ -211,5 +154,6 @@ class TripDbHelper {
   Future<void> clearAll() async {
     final db = await database;
     await db.delete(tableName);
+    await db.delete(routeCacheTable);
   }
 }

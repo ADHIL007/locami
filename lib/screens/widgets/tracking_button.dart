@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:solar_icons/solar_icons.dart';
 
 class TrackingButton extends StatelessWidget {
@@ -8,12 +9,14 @@ class TrackingButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   final bool isLoading;
+  final String? textOverride;
 
   const TrackingButton({
     super.key,
     required this.isTracking,
     this.canStart = true,
     this.isLoading = false,
+    this.textOverride,
     required this.accentColor,
     required this.onPressed,
   });
@@ -25,27 +28,37 @@ class TrackingButton extends StatelessWidget {
       child: AbsorbPointer(
         absorbing: (!isTracking && !canStart) || isLoading,
         child: Container(
+          height: 56,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(28),
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors:
+                  isTracking
+                      ? [const Color(0xFFE53935), const Color(0xFFB71C1C)]
+                      : [accentColor, accentColor.withValues(alpha: 0.8)],
+            ),
             boxShadow: [
               BoxShadow(
-                color: accentColor.withValues(alpha: 0.3),
-                blurRadius: 15,
-                offset: const Offset(0, 5),
+                color: (isTracking ? Colors.red : accentColor).withValues(
+                  alpha: 0.4,
+                ),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
           child: ElevatedButton(
             onPressed: isLoading ? null : onPressed,
             style: ElevatedButton.styleFrom(
-              backgroundColor: accentColor,
+              backgroundColor: Colors.transparent,
+              shadowColor: Colors.transparent,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(28),
               ),
               elevation: 0,
-              minimumSize: const Size(140, 52),
             ),
             child:
                 isLoading
@@ -58,20 +71,23 @@ class TrackingButton extends StatelessWidget {
                       ),
                     )
                     : Row(
-                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          isTracking ? SolarIconsBold.stop : SolarIconsBold.play,
-                          size: 22,
+                          isTracking
+                              ? SolarIconsBold.alarmTurnOff
+                              : SolarIconsBold.alarmAdd,
+                          size: 20,
                           color: Colors.white,
                         ),
                         const SizedBox(width: 10),
                         Text(
-                          isTracking ? "Stop Tracking" : "Start Tracking",
+                          textOverride ??
+                              (isTracking ? "stop_alert".tr : "start_alert".tr),
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ],

@@ -20,9 +20,16 @@ class UserDbHelper {
     final path = join(await getDatabasesPath(), 'user_model.db');
     return openDatabase(
       path,
-      version: 4,
+      version: 6,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
+      onOpen: (db) async {
+        try {
+          await db.rawQuery('PRAGMA journal_mode=WAL');
+        } catch (e) {
+          print('Error setting journal_mode to WAL in user_db: $e');
+        }
+      },
     );
   }
 
@@ -44,7 +51,10 @@ class UserDbHelper {
         travel_mode TEXT,
         alert_distance REAL,
         current_trip_id TEXT,
-        is_alarm_active INTEGER NOT NULL DEFAULT 0 CHECK (is_alarm_active IN (0,1))
+        is_alarm_active INTEGER NOT NULL DEFAULT 0 CHECK (is_alarm_active IN (0,1)),
+        total_trip_distance REAL,
+        distance_ratio REAL DEFAULT 1.0,
+        enable_vibration INTEGER NOT NULL DEFAULT 1 CHECK (enable_vibration IN (0,1))
       )
     ''');
 
@@ -53,25 +63,22 @@ class UserDbHelper {
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
-      await db.execute(
-        'ALTER TABLE $tableName ADD COLUMN destination_latitude REAL',
-      );
-      await db.execute(
-        'ALTER TABLE $tableName ADD COLUMN destination_longitude REAL',
-      );
+      await db.execute('ALTER TABLE $tableName ADD COLUMN destination_latitude REAL');
+      await db.execute('ALTER TABLE $tableName ADD COLUMN destination_longitude REAL');
     }
     if (oldVersion < 3) {
-      await db.execute(
-        'ALTER TABLE $tableName ADD COLUMN alert_distance REAL',
-      );
-      await db.execute(
-        'ALTER TABLE $tableName ADD COLUMN current_trip_id TEXT',
-      );
+      await db.execute('ALTER TABLE $tableName ADD COLUMN alert_distance REAL');
+      await db.execute('ALTER TABLE $tableName ADD COLUMN current_trip_id TEXT');
     }
     if (oldVersion < 4) {
-      await db.execute(
-        'ALTER TABLE $tableName ADD COLUMN is_alarm_active INTEGER NOT NULL DEFAULT 0 CHECK (is_alarm_active IN (0,1))',
-      );
+      await db.execute('ALTER TABLE $tableName ADD COLUMN is_alarm_active INTEGER NOT NULL DEFAULT 0 CHECK (is_alarm_active IN (0,1))');
+    }
+    if (oldVersion < 5) {
+      await db.execute('ALTER TABLE $tableName ADD COLUMN total_trip_distance REAL');
+      await db.execute('ALTER TABLE $tableName ADD COLUMN distance_ratio REAL DEFAULT 1.0');
+    }
+    if (oldVersion < 6) {
+      await db.execute('ALTER TABLE $tableName ADD COLUMN enable_vibration INTEGER NOT NULL DEFAULT 1 CHECK (enable_vibration IN (0,1))');
     }
   }
 
@@ -87,18 +94,9 @@ class UserDbHelper {
       country: row['country'] as String? ?? '',
       isTravelStarted: (row['is_travel_started'] as int? ?? 0) == 1,
       isTravelEnded: (row['is_travel_ended'] as int? ?? 0) == 1,
-      startTime:
-          row['start_time'] != null
-              ? DateTime.parse(row['start_time'] as String)
-              : null,
-      endTime:
-          row['end_time'] != null
-              ? DateTime.parse(row['end_time'] as String)
-              : null,
-      totalTravel:
-          row['total_travel'] != null
-              ? Duration(seconds: row['total_travel'] as int)
-              : null,
+      startTime: row['start_time'] != null ? DateTime.parse(row['start_time'] as String) : null,
+      endTime: row['end_time'] != null ? DateTime.parse(row['end_time'] as String) : null,
+      totalTravel: row['total_travel'] != null ? Duration(seconds: row['total_travel'] as int) : null,
       fromStreet: row['from_street'] as String?,
       destinationStreet: row['destination_street'] as String?,
       destinationLatitude: row['destination_latitude'] as double?,
@@ -107,6 +105,9 @@ class UserDbHelper {
       alertDistance: row['alert_distance'] as double?,
       currentTripId: row['current_trip_id'] as String?,
       isAlarmActive: (row['is_alarm_active'] as int? ?? 0) == 1,
+      totalTripDistance: row['total_trip_distance'] as double?,
+      distanceRatio: row['distance_ratio'] as double? ?? 1.0,
+      enableVibration: (row['enable_vibration'] as int? ?? 1) == 1,
     );
   }
 
@@ -130,6 +131,9 @@ class UserDbHelper {
       'alert_distance': user.alertDistance,
       'current_trip_id': user.currentTripId,
       'is_alarm_active': user.isAlarmActive ? 1 : 0,
+      'total_trip_distance': user.totalTripDistance,
+      'distance_ratio': user.distanceRatio,
+      'enable_vibration': user.enableVibration ? 1 : 0,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
