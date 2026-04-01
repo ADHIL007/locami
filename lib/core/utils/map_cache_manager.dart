@@ -1,289 +1,505 @@
-import 'dart:math' as math;
-import 'package:dio/dio.dart';
-import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
-import 'package:dio_cache_interceptor_file_store/dio_cache_interceptor_file_store.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:locami/core/constants/api_constants.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_map/flutter_map.dart' as fm;
+import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:locami/core/constants/api_constants.dart';
 import 'package:locami/theme/theme_provider.dart';
+import 'package:http/http.dart' as http;
 
 class MapCacheManager {
   MapCacheManager._();
   static final MapCacheManager instance = MapCacheManager._();
 
-  FileCacheStore? _cacheStore;
-  Dio? _dio;
-  final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
+  static const int _maxStoreLength = 50000;
+
+  final FlutterLocalNotificationsPlugin _notificationsPlugin =
+      FlutterLocalNotificationsPlugin();
   bool _isPreloading = false;
   bool get isPreloading => _isPreloading;
   DateTime? _lastPreloadTime;
 
-  FileCacheStore get cacheStore {
-    if (_cacheStore == null) {
-      throw Exception('MapCacheManager not initialized. Call init() first.');
+  late final http.Client _httpClient;
+
+  bool _initialized = false;
+  bool get isInitialized => _initialized;
+
+  final Map<String, FMTCTileProvider> _providers = {};
+
+  String _getStoreName(bool isRoute, bool isDark, bool isSatellite) {
+    final quality = ThemeProvider.instance.mapQuality;
+    final suffix = quality == 'high' ? '_hq' : '';
+    
+    if (isRoute) {
+      if (isSatellite) return 'routeSat$suffix';
+      return isDark ? 'routeDark$suffix' : 'routeLight$suffix';
+    } else {
+      if (isSatellite) return 'mainSat$suffix';
+      return isDark ? 'mainDark$suffix' : 'mainLight$suffix';
     }
-    return _cacheStore!;
+  }
+
+  Future<void> _initStore(String name) async {
+    final store = FMTCStore(name);
+    if (!await store.manage.ready) {
+      await store.manage.create(maxLength: _maxStoreLength);
+    } else {
+      await store.manage.setMaxLength(_maxStoreLength);
+    }
   }
 
   Future<void> init() async {
-    if (_cacheStore != null) return;
-    
-    // Initialize notifications for background progress
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-    await _notificationsPlugin.initialize(const InitializationSettings(android: androidInit));
+    if (_initialized) return;
 
-    final directory = await getApplicationDocumentsDirectory();
-    final path = '${directory.path}/map_cache_v2'; // Changed from map_cache to avoid old corrupted strings
-    _cacheStore = FileCacheStore(path);
-    
-    _dio = Dio(
-      BaseOptions(
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 10),
-      ),
-    )
-      ..interceptors.add(
-        DioCacheInterceptor(
-          options: CacheOptions(
-            store: _cacheStore,
-            policy: CachePolicy.request,
-            hitCacheOnErrorExcept: [401, 403, 408],
-            maxStale: const Duration(days: 30),
-            priority: CachePriority.high,
-          ),
-        ),
+    try {
+      await FMTCObjectBoxBackend().initialise();
+
+      final storeNames = [
+        'mainLight',
+        'mainDark',
+        'mainSat',
+        'routeLight',
+        'routeDark',
+        'routeSat',
+        'mainLight_hq',
+        'mainDark_hq',
+        'mainSat_hq',
+        'routeLight_hq',
+        'routeDark_hq',
+        'routeSat_hq',
+      ];
+      
+      for (final name in storeNames) {
+        await _initStore(name);
+      }
+
+      _httpClient = http.Client();
+
+      const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+      await _notificationsPlugin.initialize(
+        const InitializationSettings(android: androidInit),
       );
+
+      _initialized = true;
+      debugPrint('[MapCacheManager] FMTC initialized successfully with separate theme stores');
+    } catch (e) {
+      debugPrint('[MapCacheManager] FMTC init error: $e');
+
+      rethrow;
+    }
   }
 
-  /// Calculates the tile coordinates for a given latitude and longitude.
-  math.Point<int> _latLngToTile(double lat, double lon, int zoom) {
-    final latRad = lat * math.pi / 180.0;
-    final n = math.pow(2.0, zoom).toDouble();
-    final x = ((lon + 180.0) / 360.0 * n).floor();
-    final y = ((1.0 - math.log(math.tan(latRad) + 1.0 / math.cos(latRad)) / math.pi) / 2.0 * n).floor();
-    return math.Point<int>(x, y);
+  void _ensureInitialized() {
+    if (!_initialized) {
+      throw StateError('MapCacheManager not initialized. Call init() first.');
+    }
   }
 
-  /// Preloads map tiles in an approx 10km grid for a given location, caching them directly.
-  Future<void> preloadSurroundingMap(double lat, double lon, {bool isDark = true, bool isSatellite = false}) async {
-    if (_dio == null || _isPreloading) return;
+  FMTCTileProvider getProvider({bool isDark = false, bool isSatellite = false}) {
+    _ensureInitialized();
+    final quality = ThemeProvider.instance.mapQuality;
+    final name = _getStoreName(false, isDark, isSatellite);
+    final key = 'main_${name}_$quality';
     
-    // Cooldown: Don't preload more than once every 15 seconds
-    if (_lastPreloadTime != null && DateTime.now().difference(_lastPreloadTime!).inSeconds < 15) return;
+    if (!_providers.containsKey(key)) {
+      _providers[key] = FMTCTileProvider(
+        stores: {name: BrowseStoreStrategy.readUpdateCreate},
+        loadingStrategy: BrowseLoadingStrategy.cacheFirst,
+        useOtherStoresAsFallbackOnly: false,
+        recordHitsAndMisses: false,
+        httpClient: _httpClient,
+        headers: {'User-Agent': 'com.example.locami'},
+      );
+    }
+    return _providers[key]!;
+  }
+
+  FMTCTileProvider getRouteProvider({bool isDark = false, bool isSatellite = false}) {
+    _ensureInitialized();
+    final quality = ThemeProvider.instance.mapQuality;
+    final routeName = _getStoreName(true, isDark, isSatellite);
+    final mainName = _getStoreName(false, isDark, isSatellite);
+    final key = 'route_${routeName}_$quality';
     
+    if (!_providers.containsKey(key)) {
+      _providers[key] = FMTCTileProvider(
+        stores: {
+          routeName: BrowseStoreStrategy.readUpdateCreate,
+          mainName: BrowseStoreStrategy.read,
+        },
+        loadingStrategy: BrowseLoadingStrategy.cacheFirst,
+        useOtherStoresAsFallbackOnly: false,
+        recordHitsAndMisses: false,
+        httpClient: _httpClient,
+        headers: {'User-Agent': 'com.example.locami'},
+      );
+    }
+    return _providers[key]!;
+  }
+
+  FMTCTileProvider getOfflineProvider({bool isDark = false, bool isSatellite = false}) {
+    _ensureInitialized();
+    final quality = ThemeProvider.instance.mapQuality;
+    final name = _getStoreName(false, isDark, isSatellite);
+    final key = 'offline_${name}_$quality';
+    
+    if (!_providers.containsKey(key)) {
+      _providers[key] = FMTCTileProvider(
+        stores: {name: BrowseStoreStrategy.read},
+        otherStoresStrategy: BrowseStoreStrategy.read,
+        loadingStrategy: BrowseLoadingStrategy.cacheOnly,
+        useOtherStoresAsFallbackOnly: true,
+        recordHitsAndMisses: false,
+      );
+    }
+    return _providers[key]!;
+  }
+
+  Future<void> preloadSurroundingMap(
+    double lat,
+    double lon, {
+    bool isDark = true,
+    bool isSatellite = false,
+  }) async {
+    if (!_initialized || _isPreloading) return;
+
+    if (_lastPreloadTime != null &&
+        DateTime.now().difference(_lastPreloadTime!).inSeconds < 15) {
+      return;
+    }
+
     _isPreloading = true;
     _lastPreloadTime = DateTime.now();
 
     try {
-      const int zoom = 14; 
-      const int tileRadius = 3; // Reduced from 4 to 3 (49 tiles instead of 81)
-      final centerTile = _latLngToTile(lat, lon, zoom);
-      
-      String urlTemplate = ApiConstants.cartoDbLightUrl;
-      bool isArcGis = false;
-      
+      String urlTemplate;
       if (isSatellite) {
-        urlTemplate = ApiConstants.arcGisSatelliteUrl;
-        isArcGis = true;
+        urlTemplate = ApiConstants.esriSatelliteUrl;
       } else if (isDark) {
         urlTemplate = ApiConstants.cartoDbDarkUrl;
+      } else {
+        urlTemplate = ApiConstants.cartoDbLightUrl;
       }
 
-      final subdomains = ['a', 'b', 'c', 'd'];
-      final futures = <Future>[];
+      final region = CircleRegion(LatLng(lat, lon), 5.0);
 
-      for (int dx = -tileRadius; dx <= tileRadius; dx++) {
-        for (int dy = -tileRadius; dy <= tileRadius; dy++) {
-          final x = centerTile.x + dx;
-          final y = centerTile.y + dy;
-          final subdomain = subdomains[(x + y) % subdomains.length];
-          
-          String url;
-          if (isArcGis) {
-            url = urlTemplate.replaceAll('{z}', zoom.toString()).replaceAll('{x}', x.toString()).replaceAll('{y}', y.toString());
-          } else {
-            url = urlTemplate.replaceAll('{s}', subdomain).replaceAll('{z}', zoom.toString()).replaceAll('{x}', x.toString()).replaceAll('{y}', y.toString()).replaceAll('{r}', '@2x');
-          }
-          futures.add(_fetchTileSafely(url));
-        }
+      final downloadable = region.toDownloadable(
+        minZoom: 12,
+        maxZoom: 15,
+        options: fm.TileLayer(
+          urlTemplate: urlTemplate,
+          subdomains: const ['a', 'b', 'c', 'd'],
+          retinaMode: ThemeProvider.instance.mapQuality == 'high',
+          userAgentPackageName: 'com.example.locami',
+        ),
+      );
+
+      final storeName = _getStoreName(false, isDark, isSatellite);
+
+      final (:tileEvents, :downloadProgress) = FMTCStore(storeName)
+        .download
+        .startForeground(
+        region: downloadable,
+        parallelThreads: 6,
+        maxBufferLength: 100,
+        skipExistingTiles: true,
+        skipSeaTiles: true,
+        rateLimit: 50,
+        disableRecovery: true,
+        instanceId: 'surrounding_$storeName',
+      );
+
+      final subscription = tileEvents.listen((event) {
+        // debugPrint('[MapCacheManager] [$storeName - 6 Thread Activity] $event');
+      }, onError: (e) {
+        debugPrint('[MapCacheManager] [$storeName] TileEvent Error: $e');
+      });
+
+      int downloaded = 0;
+      await for (final progress in downloadProgress) {
+        downloaded = progress.attemptedTilesCount;
+        debugPrint('[MapCacheManager] [$storeName Progress] ${progress.percentageProgress.toStringAsFixed(2)}% | Tiles: ${progress.attemptedTilesCount}');
+        if (progress.percentageProgress >= 100) break;
       }
       
-      // Batch download
-      for (int i = 0; i < futures.length; i += 10) {
-        final end = (i + 10 < futures.length) ? i + 10 : futures.length;
-        await Future.wait(futures.sublist(i, end));
-        await Future.delayed(const Duration(milliseconds: 100)); // Increased delay to 100ms
-      }
+      await subscription.cancel();
+
+      debugPrint('[MapCacheManager] Preloaded $downloaded surrounding tiles ($storeName)');
+    } catch (e) {
+      debugPrint('[MapCacheManager] Preload surrounding error: $e');
     } finally {
       _isPreloading = false;
     }
   }
 
-  /// Fast preload for zoom 0-3 to ensure basic map is visible immediately.
-  Future<void> preloadInitialOverview() async {
-    if (_dio == null) return;
-    const zooms = [0, 1, 2, 3];
-    final futures = <Future>[];
-    for (final zoom in zooms) {
-      final n = math.pow(2.0, zoom).toInt();
-      for (int x = 0; x < n; x++) {
-        for (int y = 0; y < n; y++) {
-          final subdomain = ['a', 'b', 'c', 'd'][(x + y) % 4];
-          String url = ApiConstants.cartoDbLightUrl
-              .replaceAll('{s}', subdomain)
-              .replaceAll('{z}', zoom.toString())
-              .replaceAll('{x}', x.toString())
-              .replaceAll('{y}', y.toString())
-              .replaceAll('{r}', '');
-          futures.add(_fetchTileSafely(url));
-        }
-      }
-    }
-    // Zoom 0-3 is 1+4+16+64 = 85 tiles. Download in batches.
-    for (int i = 0; i < futures.length; i += 25) {
-      final end = (i + 25 < futures.length) ? i + 25 : futures.length;
-      await Future.wait(futures.sublist(i, end));
-    }
-  }
-
-  /// Continues preloading world map to deeper levels zoomed out.
-  Future<void> preloadWorldMap() async {
-    if (_dio == null) return;
-    
-    // First ensures 0-3 are ready
-    await preloadInitialOverview();
-
-    // Then background the rest without blocking much
-    const zooms = [4, 5];
-    final futures = <Future>[];
-    for (final zoom in zooms) {
-      final n = math.pow(2.0, zoom).toInt();
-      for (int x = 0; x < n; x++) {
-        for (int y = 0; y < n; y++) {
-          final subdomain = ['a', 'b', 'c', 'd'][(x + y) % 4];
-          String url = ApiConstants.cartoDbLightUrl
-              .replaceAll('{s}', subdomain)
-              .replaceAll('{z}', zoom.toString())
-              .replaceAll('{x}', x.toString())
-              .replaceAll('{y}', y.toString())
-              .replaceAll('{r}', '');
-          futures.add(_fetchTileSafely(url));
-        }
-      }
-    }
-    for (int i = 0; i < futures.length; i += 20) {
-      final end = (i + 20 < futures.length) ? i + 20 : futures.length;
-      await Future.wait(futures.sublist(i, end));
-      await Future.delayed(const Duration(milliseconds: 100));
-    }
-  }
-
-  /// Preloads tiles along a route polyline with progress notification.
-  Future<void> preloadRouteTiles(List<dynamic> points) async {
-    if (_dio == null || points.isEmpty) return;
+  Future<void> preloadRouteTiles(
+    List<dynamic> points, {
+    bool isDark = true,
+    bool isSatellite = false,
+  }) async {
+    if (!_initialized || points.isEmpty) return;
     if (!ThemeProvider.instance.enableBackgroundMapDownload) return;
-    
-    final List<int> zooms = [14, 15]; 
-    final Set<String> tileKeys = {};
-    final futures = <Future>[];
 
-    for (int i = 0; i < points.length; i += 5) {
-      final p = points[i];
-      final double lat = p.latitude;
-      final double lon = p.longitude;
+    try {
+      final routePoints = <LatLng>[];
+      for (int i = 0; i < points.length; i += 5) {
+         final p = points[i];
+         routePoints.add(LatLng(p.latitude, p.longitude));
+      }
 
-      for (final zoom in zooms) {
-        final tile = _latLngToTile(lat, lon, zoom);
-        for (int dx = -1; dx <= 1; dx++) {
-          for (int dy = -1; dy <= 1; dy++) {
-            final x = tile.x + dx;
-            final y = tile.y + dy;
-            final key = '$zoom/$x/$y';
-            
-            if (!tileKeys.contains(key)) {
-              tileKeys.add(key);
-              final subdomain = ['a', 'b', 'c', 'd'][(x + y) % 4];
-              String url = ApiConstants.cartoDbLightUrl
-                  .replaceAll('{s}', subdomain)
-                  .replaceAll('{z}', zoom.toString())
-                  .replaceAll('{x}', x.toString())
-                  .replaceAll('{y}', y.toString())
-                  .replaceAll('{r}', '');
-              futures.add(_fetchTileSafely(url));
-            }
-          }
+      if (points.isNotEmpty) {
+        final last = points.last;
+        final lastLatLng = LatLng(last.latitude, last.longitude);
+        if (routePoints.isEmpty || routePoints.last != lastLatLng) {
+          routePoints.add(lastLatLng);
         }
       }
-    }
 
-    if (futures.isEmpty) return;
+      if (routePoints.length < 2) return;
 
-    // Show initial notification
-    const int notificationId = 999;
-    await _notificationsPlugin.show(
-      notificationId,
-      'Map Preparation',
-      'Downloading map tiles for your route...',
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'map_download_channel',
-          'Map Downloads',
-          channelDescription: 'Showing progress of offline map caching',
-          importance: Importance.low,
-          priority: Priority.low,
-          onlyAlertOnce: true,
-          showProgress: true,
-          maxProgress: 100,
-          progress: 0,
+      final region = LineRegion(routePoints, 0.5);
+
+      String urlTemplate;
+      if (isSatellite) {
+        urlTemplate = ApiConstants.esriSatelliteUrl;
+      } else if (isDark) {
+        urlTemplate = ApiConstants.cartoDbDarkUrl;
+      } else {
+        urlTemplate = ApiConstants.cartoDbLightUrl;
+      }
+
+      final downloadable = region.toDownloadable(
+        minZoom: 13,
+        maxZoom: 16,
+        options: fm.TileLayer(
+          urlTemplate: urlTemplate,
+          subdomains: const ['a', 'b', 'c', 'd'],
+          retinaMode: ThemeProvider.instance.mapQuality == 'high',
+          userAgentPackageName: 'com.example.locami',
         ),
-      ),
-    );
+      );
 
-    // Batch download with progress updates
-    final int total = futures.length;
-    for (int i = 0; i < total; i += 15) {
-      final end = (i + 15 < total) ? i + 15 : total;
-      await Future.wait(futures.sublist(i, end));
-      
-      // Update notification every batch
-      final progress = ((i / total) * 100).toInt();
+      final routeStoreName = _getStoreName(true, isDark, isSatellite);
+
+      final tileCount = await FMTCStore(routeStoreName).download.countTiles(downloadable);
+
+      debugPrint('[MapCacheManager] Route caching: $tileCount tiles in $routeStoreName');
+
+      const int notificationId = 999;
       await _notificationsPlugin.show(
         notificationId,
         'Map Preparation',
-        'Cached $i of $total tiles...',
-        NotificationDetails(
+        'Downloading $tileCount map tiles for your route...',
+        const NotificationDetails(
           android: AndroidNotificationDetails(
             'map_download_channel',
             'Map Downloads',
+            channelDescription: 'Showing progress of offline map caching',
             importance: Importance.low,
             priority: Priority.low,
             onlyAlertOnce: true,
             showProgress: true,
             maxProgress: 100,
-            progress: progress,
+            progress: 0,
           ),
         ),
       );
+
+      final (:tileEvents, :downloadProgress) = FMTCStore(routeStoreName)
+        .download
+        .startForeground(
+        region: downloadable,
+        parallelThreads: 6,
+        maxBufferLength: 200,
+        skipExistingTiles: true,
+        skipSeaTiles: true,
+        rateLimit: 80,
+        disableRecovery: true,
+        instanceId: 'route_$routeStoreName',
+      );
+
+      final subscription = tileEvents.listen((event) {
+        // debugPrint('[MapCacheManager] [$routeStoreName - 6 Thread Activity] $event');
+      }, onError: (e) {
+        debugPrint('[MapCacheManager] [$routeStoreName] TileEvent Error: $e');
+      });
+
+      await for (final progress in downloadProgress) {
+        final pct = progress.percentageProgress.toInt().clamp(0, 100);
+        debugPrint('[MapCacheManager] [$routeStoreName Progress] $pct% | Tiles attempted: ${progress.attemptedTilesCount} / $tileCount');
+        await _notificationsPlugin.show(
+          notificationId,
+          'Map Preparation',
+          'Cached ${progress.attemptedTilesCount} of $tileCount tiles...',
+          NotificationDetails(
+            android: AndroidNotificationDetails(
+              'map_download_channel',
+              'Map Downloads',
+              importance: Importance.low,
+              priority: Priority.low,
+              onlyAlertOnce: true,
+              showProgress: true,
+              maxProgress: 100,
+              progress: pct,
+            ),
+          ),
+        );
+        if (progress.percentageProgress >= 100) break;
+      }
+      
+      await subscription.cancel();
+
+      await Future.delayed(const Duration(seconds: 2));
+      await _notificationsPlugin.cancel(notificationId);
+      debugPrint('[MapCacheManager] Finished preloading route tiles for $routeStoreName.');
+    } catch (e) {
+      debugPrint('[MapCacheManager] Route preload error: $e');
+
+      await _notificationsPlugin.cancel(999);
     }
-    
-    // Hide notification after a short delay
-    await Future.delayed(const Duration(seconds: 2));
-    await _notificationsPlugin.cancel(notificationId);
-    debugPrint('[MapCacheManager] Finished preloading route tiles.');
   }
-  
-  Future<void> _fetchTileSafely(String url) async {
+
+  Future<void> preloadWorldMap({
+    bool isDark = true,
+    bool isSatellite = false,
+  }) async {
+    if (!_initialized) return;
+
     try {
-      await _dio!.get(
-        url,
-        options: Options(
-          responseType: ResponseType.bytes, // FIX: Avoids Utf8 decoding crash for images
-          headers: {'User-Agent': 'com.example.locami'},
+      final region = RectangleRegion(
+        fm.LatLngBounds(const LatLng(-60, -180), const LatLng(80, 180)),
+      );
+
+      String urlTemplate;
+      if (isSatellite) {
+        urlTemplate = ApiConstants.esriSatelliteUrl;
+      } else if (isDark) {
+        urlTemplate = ApiConstants.cartoDbDarkUrl;
+      } else {
+        urlTemplate = ApiConstants.cartoDbLightUrl;
+      }
+
+      final downloadable = region.toDownloadable(
+        minZoom: 0,
+        maxZoom: 3,
+        options: fm.TileLayer(
+          urlTemplate: urlTemplate,
+          subdomains: const ['a', 'b', 'c', 'd'],
+          retinaMode: ThemeProvider.instance.mapQuality == 'high',
+          userAgentPackageName: 'com.example.locami',
         ),
       );
+
+      final storeName = _getStoreName(false, isDark, isSatellite);
+
+      final (:tileEvents, :downloadProgress) = FMTCStore(storeName)
+        .download
+        .startForeground(
+        region: downloadable,
+        parallelThreads: 6,
+        maxBufferLength: 100,
+        skipExistingTiles: true,
+        skipSeaTiles: false,
+        rateLimit: 100,
+        disableRecovery: true,
+        instanceId: 'world_$storeName',
+      );
+
+      final subscription = tileEvents.listen((event) {
+        // debugPrint('[MapCacheManager] [$storeName - 6 Thread Activity] $event');
+      }, onError: (e) {
+        debugPrint('[MapCacheManager] [$storeName] TileEvent Error: $e');
+      });
+
+      await for (final progress in downloadProgress) {
+        debugPrint('[MapCacheManager] [$storeName Progress] ${progress.percentageProgress.toStringAsFixed(2)}% | Tiles: ${progress.attemptedTilesCount}');
+        if (progress.percentageProgress >= 100) break;
+      }
+      
+      await subscription.cancel();
+
+      debugPrint('[MapCacheManager] World overview tiles cached for $storeName');
     } catch (e) {
-      // Skip failed tiles
+      debugPrint('[MapCacheManager] World preload error: $e');
     }
   }
+
+  Future<Map<String, dynamic>> getCacheStats() async {
+    if (!_initialized) return {};
+
+    try {
+      final storeNames = [
+        'mainLight', 'mainDark', 'mainSat',
+        'routeLight', 'routeDark', 'routeSat'
+      ];
+      
+      double totalSize = 0;
+      int totalTiles = 0;
+      
+      for (final name in storeNames) {
+         final stats = FMTCStore(name).stats;
+         totalSize += await stats.size;
+         totalTiles += await stats.length;
+      }
+
+      return {
+        'totalTiles': totalTiles,
+        'totalSizeKB': totalSize,
+      };
+    } catch (e) {
+      debugPrint('[MapCacheManager] Stats error: $e');
+      return {};
+    }
+  }
+
+  Future<void> evictOldTiles({
+    Duration maxAge = const Duration(days: 30),
+  }) async {
+    if (!_initialized) return;
+
+    try {
+      final expiry = DateTime.now().subtract(maxAge);
+      final storeNames = [
+        'mainLight', 'mainDark', 'mainSat',
+        'routeLight', 'routeDark', 'routeSat'
+      ];
+      
+      for (final name in storeNames) {
+        await FMTCStore(name).manage.removeTilesOlderThan(expiry: expiry);
+      }
+      debugPrint('[MapCacheManager] Evicted tiles older than $maxAge');
+    } catch (e) {
+      debugPrint('[MapCacheManager] Eviction error: $e');
+    }
+  }
+
+  Future<void> resetAllCaches() async {
+    if (!_initialized) return;
+
+    try {
+      final storeNames = [
+        'mainLight', 'mainDark', 'mainSat',
+        'routeLight', 'routeDark', 'routeSat'
+      ];
+      for (final name in storeNames) {
+        await FMTCStore(name).manage.reset();
+      }
+      debugPrint('[MapCacheManager] All caches reset');
+    } catch (e) {
+      debugPrint('[MapCacheManager] Reset error: $e');
+    }
+  }
+
+  Future<void> cancelDownload() async {
+    try {
+      final storeNames = [
+        'mainLight', 'mainDark', 'mainSat',
+        'routeLight', 'routeDark', 'routeSat'
+      ];
+      for (final name in storeNames) {
+        await FMTCStore(name).download.cancel();
+      }
+    } catch (_) {}
+  }
 }
+

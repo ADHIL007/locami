@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 
 /// Route simplification utility using Douglas-Peucker algorithm
@@ -146,12 +145,7 @@ class RouteSimplifier {
   }) {
     if (points.length < 100) return points;
 
-    // Estimate route length (rough calculation)
-    double totalDistance = 0;
-    for (int i = 1; i < points.length && i < 100; i++) {
-      totalDistance += _haversineDistance(points[i - 1], points[i]);
-    }
-    
+    // Estimate route length implicitly by scaling points
     // Scale factor based on estimated length
     final scaleFactor = points.length / 100.0;
     final tolerance = baseTolerance * math.sqrt(scaleFactor);
@@ -159,17 +153,4 @@ class RouteSimplifier {
     return simplifyDouglasPeucker(points, tolerance: tolerance.clamp(0.0001, 0.001));
   }
 
-  static double _haversineDistance(LatLng p1, LatLng p2) {
-    const earthRadius = 6371000; // meters
-    final dLat = _toRadians(p2.latitude - p1.latitude);
-    final dLon = _toRadians(p2.longitude - p1.longitude);
-    final lat1 = _toRadians(p1.latitude);
-    final lat2 = _toRadians(p2.latitude);
-
-    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
-              math.sin(dLon / 2) * math.sin(dLon / 2) * math.cos(lat1) * math.cos(lat2);
-    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-    
-    return earthRadius * c;
-  }
 }

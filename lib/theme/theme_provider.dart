@@ -35,6 +35,7 @@ class ThemeProvider extends ChangeNotifier {
   bool enableSimulation = false;
   bool enableTimerSimulation = false;
   String uiMode = 'high'; // 'low', 'mid', 'high'
+  String mapQuality = 'mid'; // 'low', 'mid', 'high'
   bool enableVibration = true;
   bool enableBackgroundMapDownload = true;
 
@@ -151,7 +152,9 @@ class ThemeProvider extends ChangeNotifier {
     } else {
       enableSimulation = value;
     }
-    FlutterBackgroundService().invoke('set_simulation_mode', {'enabled': enableSimulation});
+    FlutterBackgroundService().invoke('set_simulation_mode', {
+      'enabled': enableSimulation,
+    });
     _saveStatus();
     notifyListeners();
   }
@@ -168,6 +171,12 @@ class ThemeProvider extends ChangeNotifier {
 
   void setUiMode(String mode) {
     uiMode = mode;
+    _saveStatus();
+    notifyListeners();
+  }
+
+  void setMapQuality(String mode) {
+    mapQuality = mode;
     _saveStatus();
     notifyListeners();
   }
@@ -202,6 +211,7 @@ class ThemeProvider extends ChangeNotifier {
         enableSimulation: enableSimulation,
         enableTimerSimulation: enableTimerSimulation,
         uiMode: uiMode,
+        mapQuality: mapQuality,
         enableVibration: enableVibration,
         enableBackgroundMapDownload: enableBackgroundMapDownload,
       ),
@@ -228,6 +238,7 @@ class ThemeProvider extends ChangeNotifier {
     enableTimerSimulation =
         EnvironmentConfig.isDevelopment && status.enableTimerSimulation;
     uiMode = status.uiMode;
+    mapQuality = status.mapQuality;
     enableVibration = status.enableVibration;
     enableBackgroundMapDownload = status.enableBackgroundMapDownload;
     notifyListeners();

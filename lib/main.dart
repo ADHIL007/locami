@@ -13,7 +13,6 @@ import 'package:locami/core/utils/map_cache_manager.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Force dark status bar / navigation bar globally
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.black,
@@ -24,10 +23,14 @@ void main() async {
     ),
   );
 
-  // MapCacheManager must init before runApp since map renders immediately
-  await MapCacheManager.instance.init();
+  try {
+    await MapCacheManager.instance.init();
 
-  // Only load lightweight settings before runApp — defer heavy I/O
+    MapCacheManager.instance.evictOldTiles();
+  } catch (e) {
+    debugPrint('MapCacheManager init failed: $e');
+  }
+
   final appStatus = await AppStatusManager.instance.status;
   ThemeProvider.instance.applyFromStatus(appStatus);
 
@@ -50,7 +53,7 @@ class _MainAppState extends State<MainApp> {
   @override
   void initState() {
     super.initState();
-    // Start monitoring performance to auto-adjust GPU load
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       PerformanceService.instance.startMonitoring();
     });
@@ -59,7 +62,7 @@ class _MainAppState extends State<MainApp> {
   @override
   Widget build(BuildContext context) {
     debugPrint('[MAIN] MainApp.build called');
-    // Re-apply on every rebuild to ensure it stays dark
+
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.black,

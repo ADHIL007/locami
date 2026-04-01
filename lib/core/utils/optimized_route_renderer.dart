@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 import 'route_simplifier.dart';
 import 'route_lod_manager.dart';
@@ -38,7 +37,6 @@ class OptimizedRouteRenderer {
   final Map<String, List<LatLng>> _simplifiedCache = {};
   
   static const Duration _debounceDuration = Duration(milliseconds: 100);
-  static const Duration _throttleDuration = Duration(milliseconds: 300);
 
   OptimizedRouteRenderer({
     required Function(List<LatLng>) onRouteUpdated,

@@ -14,6 +14,26 @@ class StreetManager {
   RxList<String> locations = <String>[].obs;
   RxBool isLoading = false.obs;
   static const _baseUrl = 'https://${ApiConstants.nominatimDomain}';
+  int _totalLocationRequests = 0;
+  int _apiCallsMade = 0;
+  int _cacheHits = 0;
+  Map<String, String>? _cachedLocationDetails;
+  List<double>? _cachedBoundingBox;
+
+  bool _isWithinBoundingBox(double lat, double lon) {
+    if (_cachedBoundingBox == null || _cachedBoundingBox!.length != 4)
+      return false;
+      
+    // Add ~20 meters of GPS jitter padding (0.0002 degrees)
+    const double padding = 0.0002;
+    
+    final minLat = _cachedBoundingBox![0] - padding;
+    final maxLat = _cachedBoundingBox![1] + padding;
+    final minLon = _cachedBoundingBox![2] - padding;
+    final maxLon = _cachedBoundingBox![3] + padding;
+    
+    return lat >= minLat && lat <= maxLat && lon >= minLon && lon <= maxLon;
+  }
 
   Future<Position> _getCurrentLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -43,29 +63,83 @@ class StreetManager {
     return null;
   }
 
-  Future<Map<String, String>?> getLocationDetailsAt(double lat, double lon) async {
-    try {
-      final url = Uri.parse(
-        '$_baseUrl/reverse?lat=$lat&lon=$lon&format=json',
-      );
+  bool _isFetchingLocation = false;
 
-      final response = await http.get(
-        url,
-        headers: {'User-Agent': 'locami-app'},
-      );
+  Future<Map<String, String>?> getLocationDetailsAt(
+    double lat,
+    double lon,
+  ) async {
+    _totalLocationRequests++;
+
+    if (_isWithinBoundingBox(lat, lon) && _cachedLocationDetails != null) {
+      _cacheHits++;
+      debugPrint("GEO: ✅ CACHE HIT ($lat, $lon)");
+      return _cachedLocationDetails;
+    }
+
+    if (_isFetchingLocation) {
+      debugPrint("GEO: ⚡ Skipped request, another is already in flight ($lat, $lon)");
+      return _cachedLocationDetails;
+    }
+
+    _isFetchingLocation = true;
+    _apiCallsMade++;
+    debugPrint("GEO: 🔄 API CALL ($lat, $lon)");
+
+    try {
+      final url = Uri.parse('$_baseUrl/reverse?lat=$lat&lon=$lon&format=json');
+
+      final response = await http
+          .get(url, headers: {'User-Agent': 'locami-app'})
+          .timeout(const Duration(seconds: 4));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final address = data['address'] ?? {};
 
-        return {
+        final bboxRaw = data['boundingbox'] as List?;
+        if (bboxRaw != null && bboxRaw.length == 4) {
+          _cachedBoundingBox =
+              bboxRaw.map((e) => double.tryParse(e.toString()) ?? 0.0).toList();
+        }
+
+        final details = {
           'address': _formatDisplayName(data),
+          'suburb':
+              address['suburb']?.toString() ??
+              address['village']?.toString() ??
+              address['town']?.toString() ??
+              '',
           'countryCode': address['country_code']?.toString() ?? '',
         };
+
+        _cachedLocationDetails = details;
+
+        return details;
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint("GEO ERROR: $e");
+    } finally {
+      _isFetchingLocation = false;
+    }
 
     return null;
+  }
+
+  void printMetrics() {
+    if (_totalLocationRequests == 0) return;
+
+    final hitRate = (_cacheHits / _totalLocationRequests * 100).toStringAsFixed(
+      1,
+    );
+
+    debugPrint('════════════════════════════════════');
+    debugPrint(' STREET MANAGER METRICS');
+    debugPrint('Total Requests: $_totalLocationRequests');
+    debugPrint('API Calls: $_apiCallsMade');
+    debugPrint('Cache Hits: $_cacheHits');
+    debugPrint('Hit Rate: $hitRate%');
+    debugPrint('════════════════════════════════════');
   }
 
   Future<List<String>> getNearbyStreets() async {
@@ -97,7 +171,6 @@ class StreetManager {
     isLoading.value = true;
 
     try {
-      // ── Step 1: Check cache first ──
       final cachedResults = await LocationCacheDb.instance.searchCache(
         query: query,
         userLat: lat,
@@ -105,18 +178,15 @@ class StreetManager {
         limit: limit,
       );
 
-      final cachedNames = cachedResults
-          .map((r) => r['display_name'] as String)
-          .toList();
+      final cachedNames =
+          cachedResults.map((r) => r['display_name'] as String).toList();
 
-      // ── Step 2: If cache has enough results, return immediately ──
       if (cachedNames.length >= 3) {
         locations.assignAll(cachedNames);
         isLoading.value = false;
         return cachedNames;
       }
 
-      // ── Step 3: Fetch from Photon (cache miss or too few results) ──
       final networkResults = await _fetchFromPhoton(
         query,
         countryCode: countryCode,
@@ -125,7 +195,6 @@ class StreetManager {
         lon: lon,
       );
 
-      // ── Step 4: Cache all network results for future use ──
       if (networkResults.isNotEmpty) {
         await LocationCacheDb.instance.cacheResults(
           searchQuery: query,
@@ -133,10 +202,8 @@ class StreetManager {
         );
       }
 
-      // ── Step 5: Merge — cached first (user favorites), then network ──
-      final networkNames = networkResults
-          .map((r) => r['display_name'] as String)
-          .toList();
+      final networkNames =
+          networkResults.map((r) => r['display_name'] as String).toList();
 
       final merged = <String>[...cachedNames];
       for (final name in networkNames) {
@@ -150,7 +217,6 @@ class StreetManager {
       return finalResults;
     } catch (e) {
       debugPrint('Search error: $e');
-      // On error, still try to return cached results
       final fallback = await LocationCacheDb.instance.searchCache(
         query: query,
         userLat: lat,
@@ -186,7 +252,11 @@ class StreetManager {
         params['lon'] = '$lon';
       }
 
-      final url = Uri.https(ApiConstants.photonSearchDomain, ApiConstants.photonSearchPath, params);
+      final url = Uri.https(
+        ApiConstants.photonSearchDomain,
+        ApiConstants.photonSearchPath,
+        params,
+      );
 
       final response = await http
           .get(url, headers: {'User-Agent': 'locami-app'})
@@ -196,35 +266,54 @@ class StreetManager {
         final data = json.decode(response.body);
         final features = data['features'] as List? ?? [];
 
-        return features.map<Map<String, dynamic>>((f) {
-          final props = f['properties'] ?? {};
-          final coords = f['geometry']?['coordinates'] as List?;
+        return features
+            .map<Map<String, dynamic>>((f) {
+              final props = f['properties'] ?? {};
+              final coords = f['geometry']?['coordinates'] as List?;
 
-          // Filter by country if specified
-          final itemCountry = (props['country'] ?? '').toString().toLowerCase();
-          final countryName = _countryCodeToName(countryCode);
-          if (countryCode != null && countryName != null &&
-              itemCountry.isNotEmpty && !itemCountry.contains(countryName)) {
-            return <String, dynamic>{};
-          }
+              // Filter by country if specified
+              final itemCountry =
+                  (props['country'] ?? '').toString().toLowerCase();
+              final countryName = _countryCodeToName(countryCode);
+              if (countryCode != null &&
+                  countryName != null &&
+                  itemCountry.isNotEmpty &&
+                  !itemCountry.contains(countryName)) {
+                return <String, dynamic>{};
+              }
 
-          return {
-            'display_name': _formatPhotonResult(props),
-            'latitude': coords != null && coords.length >= 2
-                ? (coords[1] as num).toDouble()
-                : null,
-            'longitude': coords != null && coords.length >= 2
-                ? (coords[0] as num).toDouble()
-                : null,
-          };
-        }).where((r) => r.isNotEmpty && r['display_name'] != null && (r['display_name'] as String).isNotEmpty).toList();
+              return {
+                'display_name': _formatPhotonResult(props),
+                'latitude':
+                    coords != null && coords.length >= 2
+                        ? (coords[1] as num).toDouble()
+                        : null,
+                'longitude':
+                    coords != null && coords.length >= 2
+                        ? (coords[0] as num).toDouble()
+                        : null,
+              };
+            })
+            .where(
+              (r) =>
+                  r.isNotEmpty &&
+                  r['display_name'] != null &&
+                  (r['display_name'] as String).isNotEmpty,
+            )
+            .toList();
       }
     } catch (e) {
       debugPrint('Photon search error: $e');
     }
 
     // Fallback to Nominatim
-    return _fetchFromNominatim(query, countryCode: countryCode, limit: limit, lat: lat, lon: lon);
+    return _fetchFromNominatim(
+      query,
+      countryCode: countryCode,
+      limit: limit,
+      lat: lat,
+      lon: lon,
+    );
   }
 
   /// Fallback: Nominatim search
@@ -252,7 +341,11 @@ class StreetManager {
       params['bounded'] = '0';
     }
 
-    final url = Uri.https(ApiConstants.nominatimDomain, ApiConstants.nominatimSearchPath, params);
+    final url = Uri.https(
+      ApiConstants.nominatimDomain,
+      ApiConstants.nominatimSearchPath,
+      params,
+    );
 
     final response = await http
         .get(url, headers: {'User-Agent': 'locami-app'})
@@ -260,11 +353,15 @@ class StreetManager {
 
     if (response.statusCode == 200) {
       final List data = json.decode(response.body);
-      return data.map<Map<String, dynamic>>((e) => {
-        'display_name': _formatDisplayName(e),
-        'latitude': double.tryParse(e['lat']?.toString() ?? ''),
-        'longitude': double.tryParse(e['lon']?.toString() ?? ''),
-      }).toList();
+      return data
+          .map<Map<String, dynamic>>(
+            (e) => {
+              'display_name': _formatDisplayName(e),
+              'latitude': double.tryParse(e['lat']?.toString() ?? ''),
+              'longitude': double.tryParse(e['lon']?.toString() ?? ''),
+            },
+          )
+          .toList();
     }
 
     return [];
@@ -274,7 +371,11 @@ class StreetManager {
   String _formatPhotonResult(Map props) {
     final name = props['name']?.toString() ?? '';
     final street = props['street']?.toString() ?? '';
-    final city = props['city']?.toString() ?? props['town']?.toString() ?? props['village']?.toString() ?? '';
+    final city =
+        props['city']?.toString() ??
+        props['town']?.toString() ??
+        props['village']?.toString() ??
+        '';
     final state = props['state']?.toString() ?? '';
 
     final parts = <String>[];
@@ -292,10 +393,18 @@ class StreetManager {
   String? _countryCodeToName(String? code) {
     if (code == null) return null;
     const map = {
-      'IN': 'india', 'US': 'united states', 'GB': 'united kingdom',
-      'AE': 'united arab emirates', 'SA': 'saudi arabia', 'QA': 'qatar',
-      'SG': 'singapore', 'MY': 'malaysia', 'AU': 'australia',
-      'CA': 'canada', 'DE': 'germany', 'FR': 'france',
+      'IN': 'india',
+      'US': 'united states',
+      'GB': 'united kingdom',
+      'AE': 'united arab emirates',
+      'SA': 'saudi arabia',
+      'QA': 'qatar',
+      'SG': 'singapore',
+      'MY': 'malaysia',
+      'AU': 'australia',
+      'CA': 'canada',
+      'DE': 'germany',
+      'FR': 'france',
     };
     return map[code.toUpperCase()];
   }
@@ -306,7 +415,10 @@ class StreetManager {
 
     // ── Step 1: Check Local Cache FIRST (especially if offline) ──
     try {
-      final cached = await LocationCacheDb.instance.searchCache(query: query, limit: 1);
+      final cached = await LocationCacheDb.instance.searchCache(
+        query: query,
+        limit: 1,
+      );
       if (cached.isNotEmpty) {
         final double? lat = cached[0]['latitude'] as double?;
         final double? lon = cached[0]['longitude'] as double?;
@@ -324,11 +436,11 @@ class StreetManager {
 
     // Try Photon first (faster, better autocomplete)
     try {
-      final url = Uri.https(ApiConstants.photonSearchDomain, ApiConstants.photonSearchPath, {
-        'q': query,
-        'limit': '1',
-        'lang': 'en',
-      });
+      final url = Uri.https(
+        ApiConstants.photonSearchDomain,
+        ApiConstants.photonSearchPath,
+        {'q': query, 'limit': '1', 'lang': 'en'},
+      );
 
       final response = await http
           .get(url, headers: {'User-Agent': 'locami-app'})
@@ -357,7 +469,11 @@ class StreetManager {
       'accept-language': 'en',
     };
 
-    final url = Uri.https(ApiConstants.nominatimDomain, ApiConstants.nominatimSearchPath, params);
+    final url = Uri.https(
+      ApiConstants.nominatimDomain,
+      ApiConstants.nominatimSearchPath,
+      params,
+    );
 
     try {
       final response = await http
@@ -380,7 +496,11 @@ class StreetManager {
   }
 
   /// Cache a user-selected destination (bumps hit_count for ranking).
-  Future<void> cacheSelectedLocation(String displayName, {double? lat, double? lon}) async {
+  Future<void> cacheSelectedLocation(
+    String displayName, {
+    double? lat,
+    double? lon,
+  }) async {
     await LocationCacheDb.instance.cacheLocation(
       displayName: displayName,
       searchQuery: displayName.toLowerCase(),

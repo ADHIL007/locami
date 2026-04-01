@@ -7,9 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:locami/db_manager/app_status_manager.dart';
 import 'package:locami/core/model/appstatus_model.dart';
 import 'package:locami/core/db_helper/trip_db.dart';
-import 'package:flutter/foundation.dart';
 import 'package:locami/core/utils/polyline_decoder.dart';
-import 'package:locami/core/utils/route_simplifier.dart';
 
 class SingleRoute {
   final List<LatLng> points;
@@ -242,7 +240,6 @@ class RoutingService {
     _routeCache.clear();
   }
 
-  @override
   void close() {
     _debounceTimer?.cancel();
     clearCache();

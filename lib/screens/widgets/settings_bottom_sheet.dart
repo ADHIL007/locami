@@ -200,6 +200,39 @@ class SettingsBottomSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
+          _buildSectionTitleWithTooltip(
+            "Map Quality",
+            "Low quality increases performance and saves data. High quality uses retina-mode for crisp visuals but uses more data.",
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _buildMapQualityOption(
+                context,
+                "Low",
+                SolarIconsOutline.batteryLow,
+                'low',
+                themeProvider.mapQuality == 'low',
+              ),
+              const SizedBox(width: 10),
+              _buildMapQualityOption(
+                context,
+                "Mid",
+                SolarIconsOutline.lightning,
+                'mid',
+                themeProvider.mapQuality == 'mid',
+              ),
+              const SizedBox(width: 10),
+              _buildMapQualityOption(
+                context,
+                "High",
+                SolarIconsOutline.star,
+                'high',
+                themeProvider.mapQuality == 'high',
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
           _buildSectionTitle("Appearance Details"),
           const SizedBox(height: 8),
           Row(
@@ -502,6 +535,30 @@ class SettingsBottomSheet extends StatelessWidget {
     );
   }
 
+  Widget _buildSectionTitleWithTooltip(String title, String tooltipMessage) {
+    return Row(
+      children: [
+        Text(
+          title,
+          style: TextStyle(color: customColors().textSecondary, fontSize: 14),
+        ),
+        const SizedBox(width: 6),
+        Tooltip(
+          message: tooltipMessage,
+          margin: const EdgeInsets.symmetric(horizontal: 40),
+          padding: const EdgeInsets.all(12),
+          showDuration: const Duration(seconds: 4),
+          triggerMode: TooltipTriggerMode.tap,
+          child: Icon(
+            SolarIconsOutline.infoCircle,
+            size: 16,
+            color: customColors().textSecondary.withValues(alpha: 0.7),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildThemeOption(
     BuildContext context,
     String label,
@@ -593,6 +650,53 @@ class SettingsBottomSheet extends StatelessWidget {
                       isSelected
                           ? customColors().textPrimary
                           : customColors().textSecondary,
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMapQualityOption(
+    BuildContext context,
+    String label,
+    IconData icon,
+    String mode,
+    bool isSelected,
+  ) {
+    final themeProvider = context.read<ThemeProvider>();
+    final accentColor = themeProvider.accentColor;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => themeProvider.setMapQuality(mode),
+        child: GlassContainer(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          opacity: isSelected ? 0.2 : 0.05,
+          blur: 10,
+          borderRadius: 12,
+          border: Border.all(
+            color: isSelected ? accentColor : Colors.transparent,
+            width: 1.5,
+          ),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                color: isSelected ? accentColor : customColors().textSecondary,
+                size: 20,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected
+                      ? customColors().textPrimary
+                      : customColors().textSecondary,
                   fontSize: 12,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),

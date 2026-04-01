@@ -16,6 +16,7 @@ class AppStatus {
   final bool enableSimulation;
   final bool enableTimerSimulation;
   final String uiMode; // 'low', 'mid', 'high'
+  final String mapQuality; // 'low', 'mid', 'high'
   final bool enableVibration;
   final bool enableBackgroundMapDownload;
 
@@ -37,6 +38,7 @@ class AppStatus {
     this.enableSimulation = false,
     this.enableTimerSimulation = false,
     this.uiMode = 'high',
+    this.mapQuality = 'mid',
     this.enableVibration = true,
     this.enableBackgroundMapDownload = true,
   });
@@ -59,6 +61,7 @@ class AppStatus {
     'enableSimulation': enableSimulation,
     'enableTimerSimulation': enableTimerSimulation,
     'uiMode': uiMode,
+    'mapQuality': mapQuality,
     'enableVibration': enableVibration,
     'enableBackgroundMapDownload': enableBackgroundMapDownload,
   };
@@ -81,6 +84,7 @@ class AppStatus {
     enableSimulation: json['enableSimulation'] ?? false,
     enableTimerSimulation: json['enableTimerSimulation'] ?? false,
     uiMode: json['uiMode'] ?? 'high',
+    mapQuality: json['mapQuality'] ?? 'mid',
     enableVibration: json['enableVibration'] ?? true,
     enableBackgroundMapDownload: json['enableBackgroundMapDownload'] ?? true,
   );
@@ -103,6 +107,7 @@ class AppStatus {
     bool? enableSimulation,
     bool? enableTimerSimulation,
     String? uiMode,
+    String? mapQuality,
     bool? enableVibration,
     bool? enableBackgroundMapDownload,
   }) => AppStatus(
@@ -123,6 +128,7 @@ class AppStatus {
     enableSimulation: enableSimulation ?? this.enableSimulation,
     enableTimerSimulation: enableTimerSimulation ?? this.enableTimerSimulation,
     uiMode: uiMode ?? this.uiMode,
+    mapQuality: mapQuality ?? this.mapQuality,
     enableVibration: enableVibration ?? this.enableVibration,
     enableBackgroundMapDownload: enableBackgroundMapDownload ?? this.enableBackgroundMapDownload,
   );

@@ -20,7 +20,6 @@ import 'package:locami/modules/home/views/widgets/map_center_confirm_panel.dart'
 import 'package:locami/modules/home/views/widgets/ghost_fab_group.dart';
 import 'package:locami/modules/home/views/widgets/navigation_arrow_painter.dart';
 import 'package:locami/core/constants/api_constants.dart';
-import 'package:flutter_map_cache/flutter_map_cache.dart';
 import 'package:locami/core/utils/map_cache_manager.dart';
 
 class HomeView extends GetView<HomeController> {
@@ -158,61 +157,122 @@ class HomeView extends GetView<HomeController> {
                   backgroundColor: isDark ? const Color(0xFF1A1B1E) : const Color(0xFFF2EFE9),
                   initialCenter: controller.initialPosition.value ?? const LatLng(20.5937, 78.9629),
                   initialZoom: controller.initialPosition.value != null ? 14.5 : 5.0,
+                  maxZoom: 22.0,
                   interactionOptions: const fm.InteractionOptions(
                     flags: fm.InteractiveFlag.all,
                   ),
                 ),
                 children: [
                   // ── BASE PERSISTENT LAYER (Zoom 0-6) ──
-                  fm.TileLayer(
-                    key: const ValueKey('base_overview_layer'),
-                    urlTemplate: ApiConstants.cartoDbLightUrl,
-                    subdomains: const ['a', 'b', 'c', 'd'],
-                    maxNativeZoom: 6,
-                    tileProvider: CachedTileProvider(
-                      store: MapCacheManager.instance.cacheStore,
-                    ),
-                  ),
                   Obx(() {
                     final isOnline = controller.isOnline.value;
                     final mapDark = controller.isMapDark.value;
                     final sat = controller.useSatelliteMap.value;
-                    final cacheStore = MapCacheManager.instance.cacheStore;
+                    
+                    final url = sat 
+                        ? ApiConstants.esriSatelliteUrl 
+                        : (mapDark ? ApiConstants.cartoDbDarkUrl : ApiConstants.cartoDbLightUrl);
 
+                    final mapQuality = themeProvider.mapQuality;
+                    final useRetina = mapQuality == 'high';
+                    final tileDisplay = mapQuality == 'low' 
+                        ? const fm.TileDisplay.instantaneous() 
+                        : const fm.TileDisplay.fadeIn(duration: Duration(milliseconds: 200));
+
+                    return fm.TileLayer(
+                      key: ValueKey('base_overview_${sat}_${mapDark}_$mapQuality'),
+                      urlTemplate: url,
+                      subdomains: const ['a', 'b', 'c', 'd'],
+                      maxNativeZoom: 6,
+                      keepBuffer: 2,
+                      retinaMode: useRetina,
+                      tileDisplay: tileDisplay,
+                      tileProvider: MapCacheManager.instance.isInitialized
+                          ? (isOnline
+                              ? MapCacheManager.instance.getProvider(isDark: mapDark, isSatellite: sat)
+                              : MapCacheManager.instance.getOfflineProvider(isDark: mapDark, isSatellite: sat))
+                          : fm.NetworkTileProvider(),
+                    );
+                  }),
+                  Obx(() {
+                    final isOnline = controller.isOnline.value;
+                    final mapDark = controller.isMapDark.value;
+                    final sat = controller.useSatelliteMap.value;
+                    final mapQuality = themeProvider.mapQuality;
+                    final useRetina = mapQuality == 'high';
+                    final tileDisplay = mapQuality == 'low' 
+                        ? const fm.TileDisplay.instantaneous() 
+                        : const fm.TileDisplay.fadeIn(duration: Duration(milliseconds: 200));
+                    
                     if (isOnline) {
+                      final onlineProvider = MapCacheManager.instance.isInitialized
+                          ? MapCacheManager.instance.getProvider(isDark: mapDark, isSatellite: sat)
+                          : fm.NetworkTileProvider();
+                          
                       return fm.TileLayer(
-                        key: ValueKey('online_${sat}_$mapDark'),
+                        key: ValueKey('online_${sat}_${mapDark}_$mapQuality'),
                         urlTemplate: sat
-                            ? ApiConstants.arcGisSatelliteUrl
+                            ? ApiConstants.esriSatelliteUrl
                             : (mapDark
                                 ? ApiConstants.cartoDbDarkUrl
                                 : ApiConstants.cartoDbLightUrl),
                         subdomains: const ['a', 'b', 'c', 'd'],
+                        minZoom: 0,
+                        maxNativeZoom: 18,
+                        keepBuffer: 2,
+                        retinaMode: useRetina,
+                        tileDisplay: tileDisplay,
                         userAgentPackageName: 'com.example.locami',
-                        tileProvider: CachedTileProvider(store: cacheStore),
+                        tileProvider: onlineProvider,
                       );
                     } else {
+                      final offlineProvider = MapCacheManager.instance.isInitialized
+                          ? MapCacheManager.instance.getOfflineProvider(isDark: mapDark, isSatellite: sat)
+                          : fm.NetworkTileProvider();
+                          
+                      final url = sat 
+                          ? ApiConstants.esriSatelliteUrl 
+                          : (mapDark ? ApiConstants.cartoDbDarkUrl : ApiConstants.cartoDbLightUrl);
+                          
                       return fm.TileLayer(
-                        key: const ValueKey('offline_standard_light'),
-                        urlTemplate: ApiConstants.cartoDbLightUrl,
+                        key: ValueKey('offline_${sat}_${mapDark}_$mapQuality'),
+                        urlTemplate: url,
                         subdomains: const ['a', 'b', 'c', 'd'],
-                        tileDisplay: const fm.TileDisplay.fadeIn(),
-                        tileProvider: CachedTileProvider(store: cacheStore),
+                        maxNativeZoom: 18,
+                        keepBuffer: 2,
+                        retinaMode: useRetina,
+                        tileDisplay: tileDisplay,
+                        tileProvider: offlineProvider,
                       );
                     }
                   }),
                   Obx(() {
                     final isOnline = controller.isOnline.value;
                     final sat = controller.useSatelliteMap.value;
+                    final mapDark = controller.isMapDark.value;
+                    final mapQuality = themeProvider.mapQuality;
+                    final useRetina = mapQuality == 'high';
+                    final tileDisplay = mapQuality == 'low' 
+                        ? const fm.TileDisplay.instantaneous() 
+                        : const fm.TileDisplay.fadeIn(duration: Duration(milliseconds: 200));
+
                     if (!sat && isOnline) return const SizedBox.shrink();
+
+                    final provider = MapCacheManager.instance.isInitialized
+                          ? (isOnline 
+                              ? MapCacheManager.instance.getProvider(isDark: mapDark, isSatellite: sat) 
+                              : MapCacheManager.instance.getOfflineProvider(isDark: mapDark, isSatellite: sat))
+                          : fm.NetworkTileProvider();
                     
                     return fm.TileLayer(
+                      key: ValueKey('labels_${sat}_${mapDark}_$mapQuality'),
                       urlTemplate: ApiConstants.cartoDbLabelsUrl,
                       subdomains: const ['a', 'b', 'c', 'd'],
-                      tileDisplay: const fm.TileDisplay.fadeIn(),
-                      tileProvider: CachedTileProvider(
-                        store: MapCacheManager.instance.cacheStore,
-                      ),
+                      maxNativeZoom: 18,
+                      keepBuffer: 2,
+                      retinaMode: useRetina,
+                      tileDisplay: tileDisplay,
+                      tileProvider: provider,
                     );
                   }),
                   Obx(() {
