@@ -1,52 +1,101 @@
 import 'dart:async';
-import 'dart:ui';
+import 'dart:isolate';
+import 'package:get/get.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:locami/core/db_helper/trip_db.dart';
-import 'package:locami/core/geo_location_manager/street_manager.dart';
 import 'package:locami/core/model/trip_details_model.dart';
-import 'package:locami/core/model/user_model.dart';
+import 'package:locami/core/db_helper/trip_db.dart';
 import 'package:locami/db_manager/user_model_manager.dart';
-
-import 'dart:math';
-import 'package:sensors_plus/sensors_plus.dart';
+import 'package:locami/core/model/user_model.dart';
+import 'package:locami/core/geo_location_manager/street_manager.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:locami/core/utils/routing_service.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter/material.dart';
+import 'package:locami/core/utils/widget_helper.dart';
+import 'package:vibration/vibration.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:flutter/services.dart';
+import 'package:locami/db_manager/app_status_manager.dart';
+import 'package:locami/core/db_helper/app_status.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 class TripDetailsManager {
   TripDetailsManager._internal();
   static final TripDetailsManager instance = TripDetailsManager._internal();
+  static const _alarmChannel = MethodChannel("com.example.locami/alarm");
+
+  bool _isInitialized = false;
+
+  // Cached settings for background isolate performance
+  double? _cachedAlertDistance;
+  bool _cachedVibrationEnabled = true;
+  String? _cachedDestinationStreet;
 
   void init() {
     if (_isInitialized) return;
     _isInitialized = true;
     _listenToBackgroundService();
     _checkAndResumeTracking();
+    _initOnlineStatusListener();
+  }
+
+  void _initOnlineStatusListener() {
+    AppStatusManager.instance.isOnlineNotifier.addListener(_onOnlineStatusChange);
+  }
+
+  void _onOnlineStatusChange() async {
+    final bool isOnline = AppStatusManager.instance.isOnlineNotifier.value;
+    if (isOnline && _isTracking && _destinationLat != null && _destinationLon != null) {
+      _updateRoadDistanceRatio();
+    }
+  }
+
+  Future<void> _updateRoadDistanceRatio() async {
+    try {
+      Position? pos;
+      try {
+        pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium, timeLimit: Duration(seconds: 5)),
+        );
+      } catch (_) {
+        pos = await Geolocator.getLastKnownPosition();
+      }
+      if (pos == null) return;
+      final haversine = Geolocator.distanceBetween(pos.latitude, pos.longitude, _destinationLat!, _destinationLon!);
+      final routeData = await RoutingService.instance.getRoute(LatLng(pos.latitude, pos.longitude), LatLng(_destinationLat!, _destinationLon!));
+      if (haversine > 0) {
+        _distanceRatio = routeData.distance / haversine;
+        _totalTripDistance = routeData.distance + (currentTripDetail.value?.distanceTraveled ?? 0);
+      }
+    } catch (_) {}
   }
 
   Future<void> _checkAndResumeTracking() async {
     final user = await UserModelManager.instance.user;
     if (user.isTravelStarted) {
-      debugPrint('QWERTYUIOP: Resuming tracking state in main isolate');
       _isTracking = true;
       isTrackingNotifier.value = true;
       _destinationLat = user.destinationLatitude;
       _destinationLon = user.destinationLongitude;
-      _alertDistance = user.alertDistance;
+      _cachedAlertDistance = user.alertDistance;
+      _cachedVibrationEnabled = user.enableVibration;
+      _cachedDestinationStreet = user.destinationStreet;
       _currentTripId = user.currentTripId;
+      _totalTripDistance = user.totalTripDistance;
+      _distanceRatio = user.distanceRatio;
+      
+      final status = await AppStatusDbHelper.instance.getStatus();
+      _isSimulationMode = status.enableTimerSimulation;
+
+      if (user.isAlarmActive) _setLockScreenFlags(true);
     }
   }
 
   StreamSubscription<Position>? _positionStreamSubscription;
-  StreamSubscription<UserAccelerometerEvent>? _accelStreamSubscription;
-
-  final ValueNotifier<TripDetailsModel?> currentTripDetail = ValueNotifier(
-    null,
-  );
-
+  final ValueNotifier<TripDetailsModel?> currentTripDetail = ValueNotifier(null);
   final ValueNotifier<bool> isTrackingNotifier = ValueNotifier(false);
   final ValueNotifier<double?> alertTriggeredNotifier = ValueNotifier(null);
 
@@ -55,190 +104,108 @@ class TripDetailsManager {
 
   String? _lastKnownCountry;
   String? _lastKnownStreet;
-  double _currentAcceleration = 0.0;
   double? _destinationLat;
   double? _destinationLon;
-  double? _sourceLat;
-  double? _sourceLon;
   double? _totalTripDistance;
+  double _distanceRatio = 1.0;
   String? _currentTripId;
   ServiceInstance? _backgroundService;
-  bool _isInitialized = false;
   bool _isListeningToBackground = false;
-
-  double? get alertDistance => _alertDistance;
+  double? get alertDistance => _cachedAlertDistance;
   double? get totalTripDistance => _totalTripDistance;
-
-  double? _alertDistance;
   bool _alertTriggered = false;
   bool _isSimulationMode = false;
+  bool get isSimulationMode => _isSimulationMode;
+  final AudioPlayer _bgAudioPlayer = AudioPlayer();
 
   void setSimulationMode(bool value) {
+    debugPrint("SIMULATION: Mode changed to $value in Isolate: ${Isolate.current.debugName}");
     _isSimulationMode = value;
-    debugPrint("QWERTYUIOP: Simulation mode set to $value");
   }
 
   Future<void> startTracking({double alertDistance = 500.0}) async {
     if (_isTracking) return;
-
     if (await Permission.notification.isDenied) {
       final status = await Permission.notification.request();
-      if (!status.isGranted) {
-        throw Exception(
-          'Notification permission is required to track your trip in the background.',
-        );
+      if (!status.isGranted) throw Exception('Notification permission required');
+    }
+
+    UserModel user = await UserModelManager.instance.user;
+    if (user.destinationStreet != null && user.destinationStreet!.isNotEmpty) {
+      if (user.destinationLatitude == null || user.destinationLongitude == null) {
+        final coords = await StreetManager.instance.getCoordinates(user.destinationStreet!);
+        if (coords != null) {
+          _destinationLat = coords['lat'];
+          _destinationLon = coords['lon'];
+        }
+      } else {
+        _destinationLat = user.destinationLatitude;
+        _destinationLon = user.destinationLongitude;
       }
     }
 
     _isTracking = true;
     isTrackingNotifier.value = true;
     _currentTripId = DateTime.now().millisecondsSinceEpoch.toString();
-
-    currentTripDetail.value = null;
-
-    _alertDistance = alertDistance;
+    _cachedAlertDistance = alertDistance;
+    _cachedVibrationEnabled = user.enableVibration;
+    _cachedDestinationStreet = user.destinationStreet;
     _alertTriggered = false;
     alertTriggeredNotifier.value = null;
 
-    _sourceLat = null;
-    _sourceLon = null;
-    _destinationLat = null;
-    _destinationLon = null;
-    _totalTripDistance = null;
+    currentTripDetail.value = TripDetailsModel(
+      latitude: _destinationLat ?? 0.0, longitude: _destinationLon ?? 0.0,
+      timestamp: DateTime.now(), destination: user.destinationStreet ?? 'destination_placeholder'.tr,
+      tripId: _currentTripId, destinationLatitude: _destinationLat, destinationLongitude: _destinationLon,
+      alertDistance: _cachedAlertDistance,
+    );
 
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
+    if (!(await Geolocator.isLocationServiceEnabled())) {
       _isTracking = false;
+      isTrackingNotifier.value = false;
+      currentTripDetail.value = null;
       throw Exception('Location services are disabled.');
     }
 
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        _isTracking = false;
-        throw Exception('Location permissions are denied');
-      }
-    }
+    if (!(await FlutterBackgroundService().isRunning())) await FlutterBackgroundService().startService();
+    _initializeTripAsync(user);
+    _listenToBackgroundService();
+    // Pass essential data directly to avoid background isolate DB lag
+    FlutterBackgroundService().invoke('start_tracking', {
+      'destinationLatitude': _destinationLat,
+      'destinationLongitude': _destinationLon,
+      'alertDistance': _cachedAlertDistance,
+      'tripId': _currentTripId,
+      'destinationStreet': _cachedDestinationStreet,
+    });
+  }
 
-    if (permission == LocationPermission.deniedForever) {
-      _isTracking = false;
-      throw Exception(
-        'Location permissions are permanently denied, we cannot request permissions.',
-      );
-    }
-
-    UserModel user = await UserModelManager.instance.user;
-    debugPrint('QWERTYUIOP: startTracking');
-    debugPrint('QWERTYUIOP: fromStreet: ${user.fromStreet}');
-    debugPrint('QWERTYUIOP: destinationStreet: ${user.destinationStreet}');
-
-    if (user.fromStreet != null && user.fromStreet!.isNotEmpty) {
-      final sourceCoords = await StreetManager.instance.getCoordinates(
-        user.fromStreet!,
-      );
-      if (sourceCoords != null) {
-        _sourceLat = sourceCoords['lat'];
-        _sourceLon = sourceCoords['lon'];
-        debugPrint(
-          'QWERTYUIOP: Source Geocoded - lat: $_sourceLat, lon: $_sourceLon',
-        );
-      }
-    }
-
-    if (user.destinationStreet != null && user.destinationStreet!.isNotEmpty) {
-      if (user.destinationLatitude == null ||
-          user.destinationLongitude == null) {
-        debugPrint('QWERTYUIOP: Geocoding destination address...');
-        final coords = await StreetManager.instance.getCoordinates(
-          user.destinationStreet!,
-        );
-        if (coords != null) {
-          _destinationLat = coords['lat'];
-          _destinationLon = coords['lon'];
-          debugPrint(
-            'QWERTYUIOP: Destination Geocoded - lat: $_destinationLat, lon: $_destinationLon',
-          );
-
-          await UserModelManager.instance.patchUser(
-            destinationLatitude: _destinationLat,
-            destinationLongitude: _destinationLon,
-          );
-        } else {
-          debugPrint('QWERTYUIOP: Destination geocoding failed');
-        }
-      } else {
-        _destinationLat = user.destinationLatitude;
-        _destinationLon = user.destinationLongitude;
-        debugPrint(
-          'QWERTYUIOP: Using existing destination coords - lat: $_destinationLat, lon: $_destinationLon',
-        );
-      }
-    }
-
-    if (_sourceLat != null &&
-        _sourceLon != null &&
-        _destinationLat != null &&
-        _destinationLon != null) {
-      _totalTripDistance = Geolocator.distanceBetween(
-        _sourceLat!,
-        _sourceLon!,
-        _destinationLat!,
-        _destinationLon!,
-      );
-      debugPrint(
-        'QWERTYUIOP: Total Trip Distance calculated: $_totalTripDistance meters',
-      );
-    }
-
-    // Initial address cache using current device position
+  Future<void> _initializeTripAsync(UserModel user) async {
     try {
-      final details = await StreetManager.instance.getCurrentLocationDetails();
-      if (details != null) {
-        _lastKnownCountry = details['countryCode'];
-        _lastKnownStreet = details['address'];
+      Position? startPos;
+      try {
+        startPos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium, timeLimit: Duration(seconds: 4)),
+        );
+      } catch (_) { startPos = await Geolocator.getLastKnownPosition(); }
+
+      if (startPos != null && _destinationLat != null && _destinationLon != null) {
+        final haversine = Geolocator.distanceBetween(startPos.latitude, startPos.longitude, _destinationLat!, _destinationLon!);
+        final routeData = await RoutingService.instance.getRoute(LatLng(startPos.latitude, startPos.longitude), LatLng(_destinationLat!, _destinationLon!), destinationName: user.destinationStreet);
+        _totalTripDistance = routeData.distance;
+        if (haversine > 0) _distanceRatio = _totalTripDistance! / haversine;
+        if (currentTripDetail.value != null) {
+          currentTripDetail.value = currentTripDetail.value!.copyWith(totalDistance: _totalTripDistance, remainingDistance: _totalTripDistance);
+        }
       }
     } catch (_) {}
 
-    if (!(await FlutterBackgroundService().isRunning())) {
-      try {
-        await FlutterBackgroundService().startService();
-        await Future.delayed(const Duration(milliseconds: 500));
-      } catch (e) {
-        debugPrint("Error starting background service: $e");
-      }
-    }
-
-    /* 
-    The main isolate should NOT start its own position stream if the background service is used.
-    The UI will receive updates via the on('on_position_update') listener in _listenToBackgroundService().
-    */
-    /*
-    _positionStreamSubscription = Geolocator.getPositionStream(
-      locationSettings: locationSettings,
-    ).listen((Position position) {
-      _handlePositionUpdate(position);
-    });
-
-    _accelStreamSubscription = userAccelerometerEventStream(
-      samplingPeriod: SensorInterval.gameInterval,
-    ).listen((event) {
-      _currentAcceleration = sqrt(
-        event.x * event.x + event.y * event.y + event.z * event.z,
-      );
-    });
-    */
-
     await UserModelManager.instance.patchUser(
-      isTravelStarted: true,
-      isTravelEnded: false,
-      startTime: DateTime.now(),
-      alertDistance: _alertDistance,
-      currentTripId: _currentTripId,
+      isTravelStarted: true, isTravelEnded: false, startTime: DateTime.now(),
+      alertDistance: _cachedAlertDistance, currentTripId: _currentTripId,
+      totalTripDistance: _totalTripDistance, distanceRatio: _distanceRatio,
+      destinationLatitude: _destinationLat, destinationLongitude: _destinationLon,
     );
-
-    _listenToBackgroundService();
-    FlutterBackgroundService().invoke('start_tracking');
   }
 
   void _listenToBackgroundService() {
@@ -251,6 +218,11 @@ class TripDetailsManager {
         currentTripDetail.value = detail;
         _isTracking = true;
         isTrackingNotifier.value = true;
+        _totalTripDistance = detail.totalDistance;
+        _destinationLat = detail.destinationLatitude;
+        _destinationLon = detail.destinationLongitude;
+        _cachedAlertDistance = detail.alertDistance;
+        _currentTripId = detail.tripId;
       }
     });
 
@@ -258,133 +230,82 @@ class TripDetailsManager {
       if (data != null) {
         final double? distance = (data['distance'] as num?)?.toDouble();
         alertTriggeredNotifier.value = distance;
+        _setLockScreenFlags(true);
       }
     });
   }
 
   Future<void> stopTracking() async {
+    if (!_isTracking && !isTrackingNotifier.value) return;
     await _positionStreamSubscription?.cancel();
     _positionStreamSubscription = null;
-
-    await _accelStreamSubscription?.cancel();
-    _accelStreamSubscription = null;
-
-    FlutterBackgroundService().invoke("stopService");
-
     _isTracking = false;
     isTrackingNotifier.value = false;
     _destinationLat = null;
     _destinationLon = null;
     _alertTriggered = false;
     alertTriggeredNotifier.value = null;
-
-    await UserModelManager.instance.patchUser(
-      isTravelStarted: false,
-      isTravelEnded: true,
-      endTime: DateTime.now(),
-      currentTripId: null,
-    );
+    await WidgetHelper.resetWidget();
+    if (await FlutterBackgroundService().isRunning()) FlutterBackgroundService().invoke("stopService");
+    await UserModelManager.instance.patchUser(isTravelStarted: false, isTravelEnded: true, endTime: DateTime.now(), currentTripId: null, clearDestination: true);
   }
 
   Future<void> simulateLocationUpdate(Position position) async {
     if (!_isTracking) return;
-
-    if (_backgroundService == null &&
-        await FlutterBackgroundService().isRunning()) {
+    if (_backgroundService == null && await FlutterBackgroundService().isRunning()) {
       FlutterBackgroundService().invoke('simulate_location', {
-        'latitude': position.latitude,
-        'longitude': position.longitude,
-        'speed': position.speed,
-        'heading': position.heading,
-        'altitude': position.altitude,
-        'accuracy': position.accuracy,
+        'latitude': position.latitude, 'longitude': position.longitude,
+        'speed': position.speed, 'heading': position.heading,
+        'altitude': position.altitude, 'accuracy': position.accuracy,
       });
       return;
     }
-
     await _handlePositionUpdate(position);
   }
 
   void handleSimulatedPosition(Map<String, dynamic> data) {
-    final position = Position(
-      latitude: (data['latitude'] as num).toDouble(),
-      longitude: (data['longitude'] as num).toDouble(),
-      timestamp: DateTime.now(),
-      accuracy: (data['accuracy'] as num? ?? 0.0).toDouble(),
-      altitude: (data['altitude'] as num? ?? 0.0).toDouble(),
-      heading: (data['heading'] as num? ?? 0.0).toDouble(),
-      speed: (data['speed'] as num? ?? 0.0).toDouble(),
-      speedAccuracy: 0.0,
-      altitudeAccuracy: 0.0,
-      headingAccuracy: 0.0,
-    );
-    _handlePositionUpdate(position);
+    _handlePositionUpdate(Position(
+      latitude: (data['latitude'] as num).toDouble(), longitude: (data['longitude'] as num).toDouble(),
+      timestamp: DateTime.now(), accuracy: (data['accuracy'] as num? ?? 0.0).toDouble(),
+      altitude: (data['altitude'] as num? ?? 0.0).toDouble(), heading: (data['heading'] as num? ?? 0.0).toDouble(),
+      speed: (data['speed'] as num? ?? 0.0).toDouble(), speedAccuracy: 0.0, altitudeAccuracy: 0.0, headingAccuracy: 0.0,
+    ));
   }
 
   Future<void> _handlePositionUpdate(Position position) async {
     double distance = 0.0;
-
-    final lastPoint = await TripDbHelper.instance.getLastPointForTrip(
-      _currentTripId,
-    );
+    final lastPoint = await TripDbHelper.instance.getLastPointForTrip(_currentTripId);
     if (lastPoint != null) {
-      distance = Geolocator.distanceBetween(
-        lastPoint.latitude,
-        lastPoint.longitude,
-        position.latitude,
-        position.longitude,
-      );
+      distance = Geolocator.distanceBetween(lastPoint.latitude, lastPoint.longitude, position.latitude, position.longitude);
     }
-
-    // Update street name using the tracked position (not device GPS)
-    // Update every 100m or on first position
     if (_lastKnownStreet == null || (lastPoint != null && distance > 100)) {
-      await _updateAddressCacheAt(position.latitude, position.longitude);
+       _updateAddressCacheAt(position.latitude, position.longitude);
     }
-
-    final user = await UserModelManager.instance.user;
-    final destination = user.destinationStreet;
 
     double? remainingDist;
     if (_destinationLat != null && _destinationLon != null) {
-      remainingDist = Geolocator.distanceBetween(
-        position.latitude,
-        position.longitude,
-        _destinationLat!,
-        _destinationLon!,
-      );
+      final rawHaversine = Geolocator.distanceBetween(position.latitude, position.longitude, _destinationLat!, _destinationLon!);
+      remainingDist = rawHaversine * _distanceRatio;
+      if (_totalTripDistance == null || _totalTripDistance == 0) _totalTripDistance = remainingDist;
 
-      if (!_alertTriggered &&
-          _alertDistance != null &&
-          remainingDist <= _alertDistance!) {
-        _alertTriggered = true;
-        _triggerAlert(remainingDist);
+      // Log comparison for debugging
+      if (_isSimulationMode) {
+        debugPrint("SIMULATION_TRACE: Dist: ${rawHaversine.toInt()}m, Target: ${_cachedAlertDistance?.toInt()}m, Alerted: $_alertTriggered");
       }
-    } else {
-      debugPrint(
-        'QWERTYUIOP: Remaining distance NOT calculated - destLat: $_destinationLat, destLon: $_destinationLon',
-      );
+
+      if (!_alertTriggered && _cachedAlertDistance != null && rawHaversine <= _cachedAlertDistance!) {
+        _alertTriggered = true;
+        _triggerAlert(rawHaversine);
+      }
     }
 
     final newDetail = TripDetailsModel(
-      latitude: position.latitude,
-      longitude: position.longitude,
-      timestamp: DateTime.now(),
-      speed: position.speed,
-      heading: position.heading,
-      altitude: position.altitude,
-      accuracy: position.accuracy,
-      distanceTraveled: (lastPoint?.distanceTraveled ?? 0) + distance,
-      country: _lastKnownCountry,
-      street: _lastKnownStreet,
-      acceleration: _currentAcceleration,
-      destination: destination,
-      remainingDistance: remainingDist,
-      totalDistance: _totalTripDistance,
-      totalDuration: lastPoint?.totalDuration,
-      destinationLatitude: _destinationLat,
-      destinationLongitude: _destinationLon,
-      tripId: _currentTripId,
+      latitude: position.latitude, longitude: position.longitude, timestamp: DateTime.now(),
+      speed: position.speed, heading: position.heading, altitude: position.altitude, accuracy: position.accuracy,
+      distanceTraveled: (lastPoint?.distanceTraveled ?? 0) + distance, country: _lastKnownCountry, street: _lastKnownStreet,
+      acceleration: 0.0, destination: _cachedDestinationStreet, remainingDistance: remainingDist,
+      totalDistance: _totalTripDistance, totalDuration: (lastPoint?.totalDuration ?? 0.0) + (lastPoint != null ? DateTime.now().difference(lastPoint.timestamp).inSeconds.toDouble() : 0.0),
+      destinationLatitude: _destinationLat, destinationLongitude: _destinationLon, tripId: _currentTripId, alertDistance: _cachedAlertDistance,
     );
 
     await TripDbHelper.instance.insertTripDetail(newDetail);
@@ -392,289 +313,127 @@ class TripDetailsManager {
 
     if (_backgroundService != null) {
       _backgroundService!.invoke('on_position_update', newDetail.toJson());
-    }
-
-    if (_backgroundService != null) {
       _updateForegroundNotification(newDetail);
     }
   }
 
   void _updateForegroundNotification(TripDetailsModel details) async {
+    if (!_isTracking) return;
     final remaining = details.remainingDistance ?? 0.0;
     final traveled = details.distanceTraveled ?? 0.0;
     final totalDist = _totalTripDistance ?? (traveled + remaining);
-
-    double progressDouble = totalDist > 0 ? (traveled / totalDist) * 100 : 0.0;
-    int progress = progressDouble.clamp(0, 100).toInt();
-
+    int progress = totalDist > 0 ? ((traveled / totalDist) * 100).toInt().clamp(0, 100) : 0;
     final remainingKm = (remaining / 1000).toStringAsFixed(1);
-    String formatPlaceName(String name) {
-      final beforeComma = name.split(',').first.trim();
-      if (beforeComma.length > 20) {
-        return '${beforeComma.substring(0, 17)}...';
-      }
-      return beforeComma;
-    }
-
-    final fromStr = formatPlaceName(details.street ?? "Current Location");
-    final toStr = formatPlaceName(details.destination ?? "Destination");
-
-    final speedKmh = details.speed * 3.6;
-    String timeStr = "";
-    if (speedKmh > 1.0 && remainingKm != "0.0") {
-      final hoursRaw = (remaining / 1000) / speedKmh;
-      int h = hoursRaw.floor();
-      int m = ((hoursRaw - h) * 60).round();
-      timeStr = h > 0 ? " • ${h}h ${m}m elapsed" : " • ${m}m elapsed";
-    }
-
-    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-        FlutterLocalNotificationsPlugin();
-
+    String formatPlace(String name) => name.split(',').first.trim().length > 20 ? '${name.split(',').first.trim().substring(0, 17)}...' : name.split(',').first.trim();
+    final fromStr = formatPlace(details.street ?? "Current Location");
+    final toStr = formatPlace(details.destination ?? "Destination");
+    
     AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'locami_tracking_channel',
-      'Locami Tracking Service',
-      channelDescription: 'Ongoing notification for location tracking',
-      importance: Importance.low,
-      priority: Priority.low,
-      ongoing: true,
-      autoCancel: false,
-      silent: true,
-      showProgress: true,
-      maxProgress: 100,
-      progress: progress,
-      icon: '@mipmap/ic_launcher',
-      category: AndroidNotificationCategory.service,
-
-      color: const Color(0xFF16171B),
-      colorized: true,
-
-      actions: <AndroidNotificationAction>[
-        const AndroidNotificationAction(
-          'view_trip_action',
-          'VIEW TRIP',
-          showsUserInterface: true,
-        ),
-      ],
-
-      showWhen: false,
+      'locami_tracking_channel', 'Locami Tracking Service',
+      importance: Importance.low, priority: Priority.low, ongoing: true, autoCancel: false, silent: true,
+      showProgress: true, maxProgress: 100, progress: progress, icon: '@mipmap/ic_launcher', color: const Color(0xFF16171B), colorized: true,
     );
-
-    NotificationDetails notificationDetails = NotificationDetails(
-      android: androidDetails,
-    );
-
-    await flutterLocalNotificationsPlugin.show(
-      888,
-      '$fromStr → $toStr',
-      '$remainingKm km$timeStr',
-      notificationDetails,
-    );
+    await FlutterLocalNotificationsPlugin().show(888, '$fromStr → $toStr', '$remainingKm km remaining', NotificationDetails(android: androidDetails));
+    
+    double speed = details.speed;
+    String statusInfo = "Moving | ~ ${_formatEta(remaining / (speed > 0.5 ? speed : 1))}";
+    WidgetHelper.updateWidget(remainingDistance: remaining / 1000, isTracking: true, currentLoc: fromStr, destName: toStr, progress: progress, statusInfo: statusInfo, alertDist: "${_cachedAlertDistance?.toInt() ?? 500}m", speed: (speed * 3.6).round());
   }
 
-  void _triggerAlert(double distance) {
-    debugPrint(
-      'QWERTYUIOP: ALERT TRIGGERED! Distance remaining: $distance meters',
-    );
+  String _formatEta(double etaSeconds) {
+    if (etaSeconds < 60) return 'Arrival Soon';
+    if (etaSeconds < 3600) return '${(etaSeconds / 60).ceil()} mins';
+    return '${(etaSeconds / 3600).floor()} hr';
+  }
+
+  void _triggerAlert(double distance) async {
+    debugPrint("ALERT: Triggering alert at distance: $distance");
     alertTriggeredNotifier.value = distance;
-    
-    // Persist alarm state
     UserModelManager.instance.patchUser(isAlarmActive: true);
-
-    if (_backgroundService != null) {
-      _backgroundService!.invoke('on_alert_triggered', {'distance': distance});
-
-      try {
-        FlutterRingtonePlayer().playAlarm(looping: true);
-      } catch (e) {
-        debugPrint("Error playing alarm in background: $e");
+    if (_backgroundService != null) _backgroundService!.invoke('on_alert_triggered', {'distance': distance});
+    _showFullScreenAlert(distance);
+    try {
+      final status = await AppStatusDbHelper.instance.getStatus();
+      debugPrint("ALERT: Playing sound: ${status.alertSound}");
+      if (status.isCustomSound && status.customSoundPath != null) {
+        await _bgAudioPlayer.play(DeviceFileSource(status.customSoundPath!));
+        if (status.loopAlarm) _bgAudioPlayer.setReleaseMode(ReleaseMode.loop);
+      } else {
+        if (status.alertSound == 'alarm') FlutterRingtonePlayer().playAlarm(looping: status.loopAlarm);
+        else if (status.alertSound == 'ringtone') FlutterRingtonePlayer().playRingtone(looping: status.loopAlarm);
+        else FlutterRingtonePlayer().playNotification(looping: status.loopAlarm);
       }
-
-      _showFullScreenAlert(distance);
+      if (_cachedVibrationEnabled) Vibration.vibrate(pattern: [500, 1000, 500, 1000], repeat: 0);
+    } catch (e) {
+      debugPrint("ALERT: Error playing sound: $e");
+      FlutterRingtonePlayer().playAlarm(looping: true);
     }
   }
 
   void stopAlertSound() {
     FlutterRingtonePlayer().stop();
-    final FlutterLocalNotificationsPlugin notifications =
-        FlutterLocalNotificationsPlugin();
-    notifications.cancel(999);
-    
-    // Clear persisted alarm state
+    _bgAudioPlayer.stop();
+    Vibration.cancel();
+    _alertTriggered = false;
+    FlutterLocalNotificationsPlugin().cancel(999);
     UserModelManager.instance.patchUser(isAlarmActive: false);
-
-    if (_backgroundService != null) {
-      _backgroundService!.invoke('stop_alarm');
-    }
+    _setLockScreenFlags(false);
+    if (_backgroundService != null) _backgroundService!.invoke('stop_alarm');
   }
 
   void _showFullScreenAlert(double distance) async {
-    final FlutterLocalNotificationsPlugin notifications =
-        FlutterLocalNotificationsPlugin();
-
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'locami_alarm_channel_v2',
-      'Locami Alarm',
-      channelDescription: 'Alarm notification when destination is reached',
-      importance: Importance.max,
-      priority: Priority.max,
-      fullScreenIntent: true,
-      category: AndroidNotificationCategory.alarm,
-      visibility: NotificationVisibility.public,
-      ongoing: true,
-      autoCancel: false,
-      audioAttributesUsage: AudioAttributesUsage.alarm,
+    const androidDetails = AndroidNotificationDetails(
+      'locami_alarm_channel_v2', 'Locami Alarm', importance: Importance.max, priority: Priority.max,
+      fullScreenIntent: true, category: AndroidNotificationCategory.alarm, ongoing: true, autoCancel: false,
     );
-
-    const NotificationDetails notificationDetails = NotificationDetails(
-      android: androidDetails,
-    );
-
-    await notifications.show(
-      999,
-      'Destination Reached!',
-      "You've arrived at your destination.",
-      notificationDetails,
-    );
+    await FlutterLocalNotificationsPlugin().show(999, 'Destination Reached!', "You've arrived at your destination.", const NotificationDetails(android: androidDetails));
   }
 
-  Future<void> _updateAddressCacheAt(double lat, double lon) async {
+  void _updateAddressCacheAt(double lat, double lon) async {
     try {
       final details = await StreetManager.instance.getLocationDetailsAt(lat, lon);
       if (details != null) {
         _lastKnownCountry = details['countryCode'];
         _lastKnownStreet = details['address'];
       }
-    } catch (e) {
-      debugPrint('Error updating address cache: $e');
-    }
+    } catch (_) {}
   }
 
-  Future<List<TripDetailsModel>> getLogs() async {
-    final allLogs = await TripDbHelper.instance.getAllTripDetails();
-    if (allLogs.isEmpty) return [];
-
-    Map<String, List<TripDetailsModel>> groups = {};
-    List<TripDetailsModel> untrackedLogs = [];
-
-    for (var log in allLogs) {
-      if (log.tripId != null) {
-        groups.putIfAbsent(log.tripId!, () => []).add(log);
-      } else {
-        untrackedLogs.add(log);
-      }
-    }
-
-    List<TripDetailsModel> distinctTrips = [];
-
-    groups.forEach((tripId, points) {
-      if (points.isNotEmpty) {
-        points.sort((a, b) => a.timestamp.compareTo(b.timestamp));
-        final latest = points.last;
-        final earliest = points.first;
-
-        distinctTrips.add(
-          latest.copyWith(
-            street: earliest.street ?? "Unknown Location",
-            timestamp: earliest.timestamp,
-          ),
-        );
-      }
-    });
-
-    if (untrackedLogs.isNotEmpty) {
-      untrackedLogs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-      TripDetailsModel currentTripLatest = untrackedLogs.first;
-      TripDetailsModel currentTripEarliest = untrackedLogs.first;
-      String? firstKnownStreet = untrackedLogs.first.street;
-
-      for (int i = 1; i < untrackedLogs.length; i++) {
-        final log = untrackedLogs[i];
-        final timeGap =
-            currentTripEarliest.timestamp.difference(log.timestamp).abs();
-
-        if (log.destination != currentTripLatest.destination ||
-            timeGap.inMinutes > 30) {
-          distinctTrips.add(
-            currentTripLatest.copyWith(
-              street:
-                  firstKnownStreet ??
-                  currentTripEarliest.street ??
-                  "Unknown Location",
-              timestamp: currentTripEarliest.timestamp,
-            ),
-          );
-          currentTripLatest = log;
-          currentTripEarliest = log;
-          firstKnownStreet = log.street;
-        } else {
-          currentTripEarliest = log;
-          if (log.street != null) firstKnownStreet = log.street;
-        }
-      }
-      distinctTrips.add(
-        currentTripLatest.copyWith(
-          street:
-              firstKnownStreet ??
-              currentTripEarliest.street ??
-              "Unknown Location",
-          timestamp: currentTripEarliest.timestamp,
-        ),
-      );
-    }
-
-    distinctTrips.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-
-    return distinctTrips;
+  void _setLockScreenFlags(bool show) {
+    try {
+      if (kIsWeb) return;
+      _alarmChannel.invokeMethod('toggleLockScreenFlags', {'show': show});
+    } catch (e) { debugPrint("ALARM_FLAGS: Error toggling flags: $e"); }
   }
 
-  Future<void> clearLogs() async {
-    await TripDbHelper.instance.clearAll();
-    currentTripDetail.value = null;
-  }
-
-  Future<void> startBackgroundTracking(ServiceInstance service) async {
+  Future<void> startBackgroundTracking(ServiceInstance service, {Map<String, dynamic>? data}) async {
     _backgroundService = service;
     _isTracking = true;
     isTrackingNotifier.value = true;
+    
+    if (data != null) {
+      _destinationLat = data['destinationLatitude'];
+      _destinationLon = data['destinationLongitude'];
+      _cachedAlertDistance = (data['alertDistance'] as num?)?.toDouble();
+      _currentTripId = data['tripId'];
+      _cachedDestinationStreet = data['destinationStreet'];
+    }
 
     UserModel user = await UserModelManager.instance.user;
     if (user.isTravelStarted) {
       await _positionStreamSubscription?.cancel();
-      await _accelStreamSubscription?.cancel();
-
-      _destinationLat = user.destinationLatitude;
-      _destinationLon = user.destinationLongitude;
-      _alertDistance = user.alertDistance ?? 500.0;
-      _currentTripId = user.currentTripId;
-
-      if (_currentTripId == null) {
-        final lastLogs = await TripDbHelper.instance.getAllTripDetails();
-        if (lastLogs.isNotEmpty) {
-          _currentTripId = lastLogs.last.tripId;
-        }
-      }
-
-      const LocationSettings locationSettings = LocationSettings(
-        accuracy: LocationAccuracy.best,
-        distanceFilter: 5,
-      );
-
+      _destinationLat ??= user.destinationLatitude;
+      _destinationLon ??= user.destinationLongitude;
+      _cachedAlertDistance ??= user.alertDistance ?? 500.0;
+      _currentTripId ??= user.currentTripId;
+      _totalTripDistance = user.totalTripDistance;
+      _distanceRatio = user.distanceRatio;
+      _cachedVibrationEnabled = user.enableVibration;
+      _cachedDestinationStreet ??= user.destinationStreet;
+      
       _positionStreamSubscription = Geolocator.getPositionStream(
-        locationSettings: locationSettings,
-      ).listen((Position position) {
-        if (_isSimulationMode) return;
-        debugPrint('QWERTYUIOP: Background Position: ${position.latitude}, ${position.longitude}');
-        _handlePositionUpdate(position);
-      });
-
-      _accelStreamSubscription = userAccelerometerEventStream(
-        samplingPeriod: SensorInterval.gameInterval,
-      ).listen((event) {
-        _currentAcceleration = sqrt(
-          event.x * event.x + event.y * event.y + event.z * event.z,
-        );
-      });
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.bestForNavigation, distanceFilter: 0),
+      ).listen((pos) { if (!_isSimulationMode) _handlePositionUpdate(pos); });
     }
   }
 }

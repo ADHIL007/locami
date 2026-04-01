@@ -1,15 +1,20 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:solar_icons/solar_icons.dart';
-import 'package:locami/db_manager/app_status_manager.dart';
-import 'package:locami/db_manager/trip_details_manager.dart';
+import 'package:locami/modules/home/controllers/home_controller.dart';
+import 'package:locami/core/db_helper/trip_db.dart';
+import 'package:locami/core/db_helper/saved_location_db.dart';
+import 'package:locami/core/db_helper/location_cache_db.dart';
 import 'package:locami/db_manager/user_model_manager.dart';
-import 'package:locami/theme/theme_provider.dart';
+import 'package:locami/db_manager/app_status_manager.dart';
+import 'package:locami/modules/home/views/home_view.dart';
 import 'package:locami/core/widgets/glass_container.dart';
+import 'package:locami/theme/theme_provider.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:locami/navigation/main_nav.dart';
 import 'package:locami/core/utils/environment.dart';
 
 class SettingsBottomSheet extends StatelessWidget {
@@ -22,20 +27,18 @@ class SettingsBottomSheet extends StatelessWidget {
 
     return GlassContainer(
       padding: const EdgeInsets.all(24),
-      opacity: themeProvider.theme == AppThemeMode.dark ? 0.15 : 0.7,
-      blur: 25,
-      color: themeProvider.theme == AppThemeMode.dark ? Colors.white : Colors.white.withValues(alpha: 0.9),
+      opacity: themeProvider.theme == AppThemeMode.dark ? 0.25 : 0.65,
+      blur: 40,
+      color:
+          themeProvider.theme == AppThemeMode.dark
+              ? Colors.black
+              : Colors.white,
       borderRadius: 24,
-      border: Border.all(
-        color: themeProvider.theme == AppThemeMode.dark 
-            ? Colors.white.withValues(alpha: 0.1) 
-            : Colors.white.withValues(alpha: 0.5),
-        width: 1.5,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -49,7 +52,10 @@ class SettingsBottomSheet extends StatelessWidget {
               ),
               IconButton(
                 onPressed: () => Navigator.pop(context),
-                icon: Icon(SolarIconsOutline.closeCircle, color: customColors().textSecondary),
+                icon: Icon(
+                  SolarIconsOutline.closeCircle,
+                  color: customColors().textSecondary,
+                ),
               ),
             ],
           ),
@@ -92,12 +98,12 @@ class SettingsBottomSheet extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children:
                 [
-                  const Color(0xFFE53935),
-                  const Color(0xFFD81B60),
-                  const Color(0xFF8E24AA),
-                  const Color(0xFF1E88E5),
-                  const Color(0xFF00897B),
-                  const Color(0xFFFFB300),
+                  Color(0xFFDC2626), // Refined Red (not too harsh)
+                  Color(0xFF10B981), // Emerald Green
+                  Color(0xFF7C3AED), // Premium Purple
+                  Color(0xFF2563EB), // Rich Blue
+                  Color(0xFF0891B2), // Cyan Teal
+                  Color(0xFFF59E0B), // Amber Gold
                 ].map((color) {
                   final isSelected = accentColor.toARGB32() == color.toARGB32();
                   return GestureDetector(
@@ -119,10 +125,7 @@ class SettingsBottomSheet extends StatelessWidget {
           const SizedBox(height: 24),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: Icon(
-               SolarIconsOutline.bell,
-               color: accentColor,
-            ),
+            leading: Icon(SolarIconsOutline.bell, color: accentColor),
             title: Text(
               "Alert Sound",
               style: TextStyle(color: customColors().textPrimary),
@@ -135,8 +138,8 @@ class SettingsBottomSheet extends StatelessWidget {
               ),
             ),
             trailing: Icon(
-               SolarIconsOutline.altArrowRight,
-               color: customColors().textSecondary,
+              SolarIconsOutline.altArrowRight,
+              color: customColors().textSecondary,
             ),
             onTap: () => _showSoundPicker(context),
           ),
@@ -165,6 +168,99 @@ class SettingsBottomSheet extends StatelessWidget {
               activeColor: accentColor,
               onChanged: (val) => themeProvider.setShowWaves(val),
             ),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(SolarIconsOutline.smartphone, color: accentColor),
+            title: Text(
+              "Vibrate on Arrival",
+              style: TextStyle(color: customColors().textPrimary),
+            ),
+            trailing: Switch(
+              value: themeProvider.enableVibration,
+              activeColor: accentColor,
+              onChanged: (val) {
+                themeProvider.setEnableVibration(val);
+                // Also update user model for background consistency
+                UserModelManager.instance.patchUser(enableVibration: val);
+              },
+            ),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(SolarIconsOutline.mapPoint, color: accentColor),
+            title: Text(
+              "Background Map Download",
+              style: TextStyle(color: customColors().textPrimary),
+            ),
+            trailing: Switch(
+              value: themeProvider.enableBackgroundMapDownload,
+              activeColor: accentColor,
+              onChanged: (val) => themeProvider.setEnableBackgroundMapDownload(val),
+            ),
+          ),
+          const SizedBox(height: 24),
+          _buildSectionTitleWithTooltip(
+            "Map Quality",
+            "Low quality increases performance and saves data. High quality uses retina-mode for crisp visuals but uses more data.",
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _buildMapQualityOption(
+                context,
+                "Low",
+                SolarIconsOutline.batteryLow,
+                'low',
+                themeProvider.mapQuality == 'low',
+              ),
+              const SizedBox(width: 10),
+              _buildMapQualityOption(
+                context,
+                "Mid",
+                SolarIconsOutline.lightning,
+                'mid',
+                themeProvider.mapQuality == 'mid',
+              ),
+              const SizedBox(width: 10),
+              _buildMapQualityOption(
+                context,
+                "High",
+                SolarIconsOutline.star,
+                'high',
+                themeProvider.mapQuality == 'high',
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _buildSectionTitle("Appearance Details"),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _buildPerformanceOption(
+                context,
+                "Low",
+                SolarIconsOutline.batteryLow,
+                'low',
+                themeProvider.uiMode == 'low',
+              ),
+              const SizedBox(width: 10),
+              _buildPerformanceOption(
+                context,
+                "Mid",
+                SolarIconsOutline.lightning,
+                'mid',
+                themeProvider.uiMode == 'mid',
+              ),
+              const SizedBox(width: 10),
+              _buildPerformanceOption(
+                context,
+                "High",
+                SolarIconsOutline.star,
+                'high',
+                themeProvider.uiMode == 'high',
+              ),
+            ],
           ),
           if (EnvironmentConfig.isDevelopment) ...[
             const SizedBox(height: 24),
@@ -199,10 +295,7 @@ class SettingsBottomSheet extends StatelessWidget {
           const SizedBox(height: 12),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: Icon(
-               SolarIconsOutline.trashBinTrash,
-              color: Colors.red,
-            ),
+            leading: Icon(SolarIconsOutline.trashBinTrash, color: Colors.red),
             title: const Text(
               "Delete All Data",
               style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
@@ -210,7 +303,8 @@ class SettingsBottomSheet extends StatelessWidget {
             onTap: () => _showDeleteConfirmation(context),
           ),
           const SizedBox(height: 20),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -227,14 +321,18 @@ class SettingsBottomSheet extends StatelessWidget {
       builder:
           (context) => GlassContainer(
             padding: const EdgeInsets.all(24),
-            opacity: themeProvider.theme == AppThemeMode.dark ? 0.15 : 0.7,
-            blur: 25,
-            color: themeProvider.theme == AppThemeMode.dark ? Colors.white : Colors.white.withValues(alpha: 0.9),
+            opacity: themeProvider.theme == AppThemeMode.dark ? 0.3 : 0.7,
+            blur: 30,
+            color:
+                themeProvider.theme == AppThemeMode.dark
+                    ? Colors.black
+                    : Colors.white,
             borderRadius: 24,
             border: Border.all(
-              color: themeProvider.theme == AppThemeMode.dark 
-                  ? Colors.white.withValues(alpha: 0.1) 
-                  : Colors.white.withValues(alpha: 0.5),
+              color: (themeProvider.theme == AppThemeMode.dark
+                      ? Colors.white
+                      : Colors.black)
+                  .withOpacity(0.08),
               width: 1.5,
             ),
             child: Column(
@@ -274,7 +372,7 @@ class SettingsBottomSheet extends StatelessWidget {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(
-                     SolarIconsOutline.musicLibrary,
+                    SolarIconsOutline.musicLibrary,
                     color: accentColor,
                   ),
                   title: Text(
@@ -337,8 +435,8 @@ class SettingsBottomSheet extends StatelessWidget {
           isSelected
               ? Icon(SolarIconsBold.checkCircle, color: accentColor)
               : Icon(
-                 SolarIconsOutline.closeCircle,
-                 color: customColors().textSecondary,
+                SolarIconsOutline.closeCircle,
+                color: customColors().textSecondary,
               ),
       onTap: () {
         provider.setAlertSound(key, name);
@@ -402,14 +500,20 @@ class SettingsBottomSheet extends StatelessWidget {
               TextButton(
                 onPressed: () async {
                   // Clear data
-                  await TripDetailsManager.instance.clearLogs();
+                  await TripDbHelper.instance.clearAll();
                   await UserModelManager.instance.clear();
                   await AppStatusManager.instance.reset();
+                  await SavedLocationDb.instance.clearAll();
+                  await LocationCacheDb.instance.clearAll();
+
+                  // Reset the controller state to show loading screen and rebuild everything
+                  final controller = Get.find<HomeController>();
+                  unawaited(controller.reInitialize());
 
                   if (context.mounted) {
                     Navigator.pushAndRemoveUntil(
                       context,
-                      MaterialPageRoute(builder: (_) => const MainNav()),
+                      MaterialPageRoute(builder: (_) => const HomeView()),
                       (route) => false,
                     );
                   }
@@ -428,6 +532,30 @@ class SettingsBottomSheet extends StatelessWidget {
     return Text(
       title,
       style: TextStyle(color: customColors().textSecondary, fontSize: 14),
+    );
+  }
+
+  Widget _buildSectionTitleWithTooltip(String title, String tooltipMessage) {
+    return Row(
+      children: [
+        Text(
+          title,
+          style: TextStyle(color: customColors().textSecondary, fontSize: 14),
+        ),
+        const SizedBox(width: 6),
+        Tooltip(
+          message: tooltipMessage,
+          margin: const EdgeInsets.symmetric(horizontal: 40),
+          padding: const EdgeInsets.all(12),
+          showDuration: const Duration(seconds: 4),
+          triggerMode: TooltipTriggerMode.tap,
+          child: Icon(
+            SolarIconsOutline.infoCircle,
+            size: 16,
+            color: customColors().textSecondary.withValues(alpha: 0.7),
+          ),
+        ),
+      ],
     );
   }
 
@@ -474,6 +602,101 @@ class SettingsBottomSheet extends StatelessWidget {
                       isSelected
                           ? customColors().textPrimary
                           : customColors().textSecondary,
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPerformanceOption(
+    BuildContext context,
+    String label,
+    IconData icon,
+    String mode,
+    bool isSelected,
+  ) {
+    final themeProvider = context.read<ThemeProvider>();
+    final accentColor = themeProvider.accentColor;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => themeProvider.setUiMode(mode),
+        child: GlassContainer(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          opacity: isSelected ? 0.2 : 0.05,
+          blur: 10,
+          borderRadius: 12,
+          border: Border.all(
+            color: isSelected ? accentColor : Colors.transparent,
+            width: 1.5,
+          ),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                color: isSelected ? accentColor : customColors().textSecondary,
+                size: 20,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color:
+                      isSelected
+                          ? customColors().textPrimary
+                          : customColors().textSecondary,
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMapQualityOption(
+    BuildContext context,
+    String label,
+    IconData icon,
+    String mode,
+    bool isSelected,
+  ) {
+    final themeProvider = context.read<ThemeProvider>();
+    final accentColor = themeProvider.accentColor;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => themeProvider.setMapQuality(mode),
+        child: GlassContainer(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          opacity: isSelected ? 0.2 : 0.05,
+          blur: 10,
+          borderRadius: 12,
+          border: Border.all(
+            color: isSelected ? accentColor : Colors.transparent,
+            width: 1.5,
+          ),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                color: isSelected ? accentColor : customColors().textSecondary,
+                size: 20,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected
+                      ? customColors().textPrimary
+                      : customColors().textSecondary,
                   fontSize: 12,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),

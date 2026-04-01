@@ -3,6 +3,7 @@ import 'package:locami/core/db_helper/app_status.dart';
 import 'package:locami/core/model/appstatus_model.dart';
 import 'package:locami/theme/app_theme.dart';
 import 'package:locami/core/utils/environment.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 
 enum AppThemeMode { light, dark }
 
@@ -33,6 +34,10 @@ class ThemeProvider extends ChangeNotifier {
   bool showWaves = true;
   bool enableSimulation = false;
   bool enableTimerSimulation = false;
+  String uiMode = 'high'; // 'low', 'mid', 'high'
+  String mapQuality = 'mid'; // 'low', 'mid', 'high'
+  bool enableVibration = true;
+  bool enableBackgroundMapDownload = true;
 
   void _applyTheme() {
     if (isMatchWithSystem) {
@@ -147,6 +152,9 @@ class ThemeProvider extends ChangeNotifier {
     } else {
       enableSimulation = value;
     }
+    FlutterBackgroundService().invoke('set_simulation_mode', {
+      'enabled': enableSimulation,
+    });
     _saveStatus();
     notifyListeners();
   }
@@ -157,6 +165,30 @@ class ThemeProvider extends ChangeNotifier {
     } else {
       enableTimerSimulation = value;
     }
+    _saveStatus();
+    notifyListeners();
+  }
+
+  void setUiMode(String mode) {
+    uiMode = mode;
+    _saveStatus();
+    notifyListeners();
+  }
+
+  void setMapQuality(String mode) {
+    mapQuality = mode;
+    _saveStatus();
+    notifyListeners();
+  }
+
+  void setEnableVibration(bool value) {
+    enableVibration = value;
+    _saveStatus();
+    notifyListeners();
+  }
+
+  void setEnableBackgroundMapDownload(bool value) {
+    enableBackgroundMapDownload = value;
     _saveStatus();
     notifyListeners();
   }
@@ -178,6 +210,10 @@ class ThemeProvider extends ChangeNotifier {
         showWaves: showWaves,
         enableSimulation: enableSimulation,
         enableTimerSimulation: enableTimerSimulation,
+        uiMode: uiMode,
+        mapQuality: mapQuality,
+        enableVibration: enableVibration,
+        enableBackgroundMapDownload: enableBackgroundMapDownload,
       ),
     );
   }
@@ -201,6 +237,10 @@ class ThemeProvider extends ChangeNotifier {
         EnvironmentConfig.isDevelopment && status.enableSimulation;
     enableTimerSimulation =
         EnvironmentConfig.isDevelopment && status.enableTimerSimulation;
+    uiMode = status.uiMode;
+    mapQuality = status.mapQuality;
+    enableVibration = status.enableVibration;
+    enableBackgroundMapDownload = status.enableBackgroundMapDownload;
     notifyListeners();
   }
 }

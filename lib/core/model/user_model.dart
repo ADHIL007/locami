@@ -14,6 +14,9 @@ class UserModel {
   final double? alertDistance;
   final String? currentTripId;
   final bool isAlarmActive;
+  final double? totalTripDistance;
+  final double distanceRatio;
+  final bool enableVibration;
 
 
   const UserModel({
@@ -32,6 +35,9 @@ class UserModel {
     this.alertDistance,
     this.currentTripId,
     this.isAlarmActive = false,
+    this.totalTripDistance,
+    this.distanceRatio = 1.0,
+    this.enableVibration = true,
   });
 
   Map<String, dynamic> toJson() => {
@@ -48,8 +54,11 @@ class UserModel {
     'destination_longitude': destinationLongitude,
     'travelMode': travelMode,
     'alertDistance': alertDistance,
-    'currentTripId': currentTripId,
+    'current_trip_id': currentTripId,
     'isAlarmActive': isAlarmActive,
+    'totalTripDistance': totalTripDistance,
+    'distance_ratio': distanceRatio,
+    'enable_vibration': enableVibration,
   };
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -70,8 +79,11 @@ class UserModel {
     destinationLongitude: (json['destination_longitude'] as num?)?.toDouble(),
     travelMode: json['travelMode'],
     alertDistance: (json['alertDistance'] as num?)?.toDouble(),
-    currentTripId: json['currentTripId'],
+    currentTripId: json['current_trip_id'],
     isAlarmActive: json['isAlarmActive'] ?? false,
+    totalTripDistance: (json['totalTripDistance'] as num?)?.toDouble(),
+    distanceRatio: (json['distance_ratio'] as num?)?.toDouble() ?? 1.0,
+    enableVibration: json['enable_vibration'] ?? true,
   );
 
   UserModel copyWith({
@@ -90,6 +102,9 @@ class UserModel {
     double? alertDistance,
     String? currentTripId,
     bool? isAlarmActive,
+    double? totalTripDistance,
+    double? distanceRatio,
+    bool? enableVibration,
   }) {
     return UserModel(
       username: username ?? this.username,
@@ -107,6 +122,9 @@ class UserModel {
       alertDistance: alertDistance ?? this.alertDistance,
       currentTripId: currentTripId ?? this.currentTripId,
       isAlarmActive: isAlarmActive ?? this.isAlarmActive,
+      totalTripDistance: totalTripDistance ?? this.totalTripDistance,
+      distanceRatio: distanceRatio ?? this.distanceRatio,
+      enableVibration: enableVibration ?? this.enableVibration,
     );
   }
 }

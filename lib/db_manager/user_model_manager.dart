@@ -8,6 +8,7 @@ class UserModelManager {
   UserModel? _currentUser;
 
   Future<UserModel> get user async {
+    if (_currentUser != null) return _currentUser!;
     _currentUser = await UserDbHelper.instance.getUser();
     return _currentUser!;
   }
@@ -33,6 +34,10 @@ class UserModelManager {
     double? alertDistance,
     String? currentTripId,
     bool? isAlarmActive,
+    double? totalTripDistance,
+    double? distanceRatio,
+    bool? enableVibration,
+    bool clearDestination = false,
   }) async {
     final current = await user;
     final bool streetChanged = destinationStreet != null && destinationStreet != current.destinationStreet;
@@ -46,13 +51,16 @@ class UserModelManager {
       endTime: endTime ?? current.endTime,
       totalTravel: totalTravel ?? current.totalTravel,
       fromStreet: fromStreet ?? current.fromStreet,
-      destinationStreet: destinationStreet ?? current.destinationStreet,
-      destinationLatitude: destinationLatitude ?? (streetChanged ? null : current.destinationLatitude),
-      destinationLongitude: destinationLongitude ?? (streetChanged ? null : current.destinationLongitude),
+      destinationStreet: clearDestination ? null : (destinationStreet ?? current.destinationStreet),
+      destinationLatitude: clearDestination ? null : (destinationLatitude ?? (streetChanged ? null : current.destinationLatitude)),
+      destinationLongitude: clearDestination ? null : (destinationLongitude ?? (streetChanged ? null : current.destinationLongitude)),
       travelMode: travelMode ?? current.travelMode,
       alertDistance: alertDistance ?? current.alertDistance,
       currentTripId: currentTripId ?? current.currentTripId,
       isAlarmActive: isAlarmActive ?? current.isAlarmActive,
+      totalTripDistance: clearDestination ? null : (totalTripDistance ?? current.totalTripDistance),
+      distanceRatio: distanceRatio ?? current.distanceRatio,
+      enableVibration: enableVibration ?? current.enableVibration,
     );
 
     await updateUser(updated);

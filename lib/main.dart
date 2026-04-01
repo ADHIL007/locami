@@ -1,18 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:locami/core/utils/performance_service.dart';
 import 'package:locami/db_manager/app_status_manager.dart';
 import 'package:locami/bindings/main_bindings.dart';
-import 'package:locami/navigation/main_nav.dart';
+import 'package:locami/modules/home/views/home_view.dart';
 import 'package:locami/theme/theme_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:locami/core/utils/background_service.dart';
+import 'package:locami/core/localization/app_translations.dart';
+import 'package:locami/core/utils/map_cache_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initializeService();
+
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.black,
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
+      systemNavigationBarColor: Colors.black,
+      systemNavigationBarIconBrightness: Brightness.light,
+    ),
+  );
+
+  try {
+    await MapCacheManager.instance.init();
+
+    MapCacheManager.instance.evictOldTiles();
+  } catch (e) {
+    debugPrint('MapCacheManager init failed: $e');
+  }
 
   final appStatus = await AppStatusManager.instance.status;
-
   ThemeProvider.instance.applyFromStatus(appStatus);
 
   runApp(
@@ -32,19 +51,43 @@ class MainApp extends StatefulWidget {
 
 class _MainAppState extends State<MainApp> {
   @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      PerformanceService.instance.startMonitoring();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    debugPrint('[MAIN] MainApp.build called');
+
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.black,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.black,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+    );
+
     final themeProvider = context.watch<ThemeProvider>();
 
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       initialBinding: MainBindings(),
+      translations: AppTranslations(),
+      locale: const Locale('en', 'US'),
+      fallbackLocale: const Locale('en', 'US'),
       theme: themeProvider.themeData,
       darkTheme: themeProvider.themeData,
-      themeMode: (themeProvider.theme == AppThemeMode.dark ? ThemeMode.dark : ThemeMode.light),
-      home: Scaffold(
-        backgroundColor: customColors().background,
-        body: SafeArea(child: Center(child: MainNav())),
-      ),
+      themeMode:
+          (themeProvider.theme == AppThemeMode.dark
+              ? ThemeMode.dark
+              : ThemeMode.light),
+      home: const HomeView(),
     );
   }
 }

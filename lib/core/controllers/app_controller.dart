@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:locami/modules/alarm/views/alarm_view.dart';
+import 'package:locami/modules/home/views/home_view.dart';
 import 'package:locami/db_manager/trip_details_manager.dart';
 import 'package:locami/db_manager/user_model_manager.dart';
 
@@ -20,7 +20,7 @@ class AppController extends GetxController {
     if (user.isAlarmActive) {
       const channel = MethodChannel('com.example.locami/alarm');
       channel.invokeMethod('toggleLockScreenFlags', {'show': true});
-      Get.offAll(() => const AlarmView());
+      Get.offAll(() => const HomeView());
     }
   }
 
@@ -30,7 +30,7 @@ class AppController extends GetxController {
       channel.invokeMethod('toggleLockScreenFlags', {'show': true});
       
       if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
-        Get.offAll(() => const AlarmView());
+        Get.offAll(() => const HomeView());
       }
     });
 
