@@ -6,8 +6,6 @@ It helps users get notified when they approach a chosen destination — even wit
 
 Designed especially for commuters and bus travelers, Locami ensures you never miss your stop while sleeping or distracted.
 
----
-
 ## Features
 
 - Fully offline location tracking (no internet required)
