@@ -1,4 +1,5 @@
 # Locami
+![Locami](https://github.com/user-attachments/assets/14bac2e3-d2fe-40d0-993d-a43a078041dd)
 
 **Locami** is an offline-first location alert app built with Flutter.  
 It helps users get notified when they approach a chosen destination — even without internet connectivity.
@@ -6,12 +7,6 @@ It helps users get notified when they approach a chosen destination — even wit
 Designed especially for commuters and bus travelers, Locami ensures you never miss your stop while sleeping or distracted.
 
 ---
-
-## screen shots
-
-<img width="4990" height="2436" alt="Untitled design (1)" src="https://github.com/user-attachments/assets/39883a84-405c-43b0-b577-74fd3bd46bc7" />
-
-<img width="4990" height="2436" alt="Untitled design (2)" src="https://github.com/user-attachments/assets/9000a786-32ee-4488-89fc-f987b27978fc" />
 
 ## Features
 
