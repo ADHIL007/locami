@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart' as fm;
-import 'package:latlong2/latlong.dart' hide Path;
+import 'package:latlong2/latlong.dart' as latlong hide Path;
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:solar_icons/solar_icons.dart';
@@ -155,7 +155,7 @@ class HomeView extends GetView<HomeController> {
                 mapController: controller.mapController,
                 options: fm.MapOptions(
                   backgroundColor: isDark ? const Color(0xFF1A1B1E) : const Color(0xFFF2EFE9),
-                  initialCenter: controller.initialPosition.value ?? const LatLng(20.5937, 78.9629),
+                  initialCenter: controller.initialPosition.value ?? const latlong.LatLng(20.5937, 78.9629),
                   initialZoom: controller.initialPosition.value != null ? 14.5 : 5.0,
                   maxZoom: 22.0,
                   interactionOptions: const fm.InteractionOptions(
@@ -318,7 +318,7 @@ class HomeView extends GetView<HomeController> {
                     return fm.CircleLayer(
                       circles: [
                         fm.CircleMarker(
-                          point: LatLng(
+                          point: latlong.LatLng(
                             controller.destinationLatitude.value!,
                             controller.destinationLongitude.value!,
                           ),
@@ -338,7 +338,7 @@ class HomeView extends GetView<HomeController> {
                     return fm.MarkerLayer(
                       markers: [
                         fm.Marker(
-                          point: LatLng(
+                          point: latlong.LatLng(
                             controller.destinationLatitude.value!,
                             controller.destinationLongitude.value!,
                           ),
@@ -389,7 +389,7 @@ class HomeView extends GetView<HomeController> {
                           locs.map((loc) {
                             final pinColor = _getColorForSeed(loc.label);
                             return fm.Marker(
-                              point: LatLng(loc.latitude, loc.longitude),
+                              point: latlong.LatLng(loc.latitude, loc.longitude),
                               width: 36,
                               height: 36,
                               child: GestureDetector(
@@ -437,7 +437,7 @@ class HomeView extends GetView<HomeController> {
                     return fm.MarkerLayer(
                       markers: [
                         fm.Marker(
-                          point: LatLng(pos.latitude, pos.longitude),
+                          point: latlong.LatLng(pos.latitude, pos.longitude),
                           width: 80,
                           height: 80,
                           child: Obx(
